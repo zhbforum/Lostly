@@ -5,12 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "db:studio": "bunx --bun drizzle-kit studio",
+    "db:generate": "bunx --bun drizzle-kit generate",
+    "db:migrate": "bunx --bun drizzle-kit migrate"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^1.0.0-rc.4",
     "elysia": "^1.4.30"
   },
   "devDependencies": {
-    "bun-types": "^1.4.0"
+    "@types/bun": "^1.4.0",
+    "drizzle-kit": "^1.0.0-rc.4",
+    "typescript": "^7.0.2"
   }
 }
