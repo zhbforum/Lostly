@@ -3,8 +3,10 @@ import { sql } from 'drizzle-orm';
 
 import { authRoutes } from '@/auth/routes';
 import { db } from '@/db';
+import { corsPlugin } from '@/http/cors';
 
 export const app = new Elysia()
+  .use(corsPlugin)
   .get('/', () => ({
     name: 'Lostly API',
     status: 'ok',
