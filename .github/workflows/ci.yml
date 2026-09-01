@@ -19,6 +19,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_DB: lostly_test
+          POSTGRES_USER: lostly
+          POSTGRES_PASSWORD: lostly_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lostly -d lostly_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,6 +59,18 @@ jobs:
       - name: Test API
         working-directory: apps/api
         run: bun run test
+
+      - name: Apply database migrations
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://lostly:lostly_test@localhost:5432/lostly_test
+        run: bun run db:migrate
+
+      - name: Test API integration
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://lostly:lostly_test@localhost:5432/lostly_test
+        run: bun run test:integration
 
       - name: Build web application
         working-directory: apps/web
