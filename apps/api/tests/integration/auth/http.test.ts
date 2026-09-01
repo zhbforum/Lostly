@@ -29,6 +29,22 @@ function postJson(path: string, body: unknown) {
   );
 }
 
+function getCookieHeader(response: Response): string {
+  const setCookie = response.headers.get('set-cookie');
+
+  if (!setCookie) {
+    throw new Error('Expected Set-Cookie header');
+  }
+
+  const [cookie] = setCookie.split(';');
+
+  if (!cookie) {
+    throw new Error('Expected session cookie');
+  }
+
+  return cookie;
+}
+
 describe('POST /auth/register', () => {
   test('registers a user and sets a session cookie', async () => {
     const response = await postJson('/auth/register', {
@@ -85,6 +101,7 @@ describe('POST /auth/register', () => {
     });
 
     expect(response.status).toBe(409);
+
     expect(await response.json()).toEqual({
       error: {
         code: 'EMAIL_TAKEN',
@@ -140,11 +157,137 @@ describe('POST /auth/login', () => {
     });
 
     expect(response.status).toBe(401);
+
     expect(await response.json()).toEqual({
       error: {
         code: 'INVALID_CREDENTIALS',
         message: 'Invalid email or password',
       },
     });
+  });
+});
+
+describe('GET /auth/me', () => {
+  test('returns the current authenticated user', async () => {
+    const registerResponse = await postJson('/auth/register', {
+      email: 'user@example.com',
+      password: PASSWORD,
+      displayName: 'Test User',
+    });
+
+    const cookie = getCookieHeader(registerResponse);
+
+    const response = await app.handle(
+      new Request('http://localhost/auth/me', {
+        headers: {
+          cookie,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+
+    expect(await response.json()).toMatchObject({
+      user: {
+        email: 'user@example.com',
+        displayName: 'Test User',
+        role: 'user',
+      },
+    });
+  });
+
+  test('rejects a request without a session', async () => {
+    const response = await app.handle(new Request('http://localhost/auth/me'));
+
+    expect(response.status).toBe(401);
+
+    expect(await response.json()).toEqual({
+      error: {
+        code: 'UNAUTHENTICATED',
+        message: 'Authentication required',
+      },
+    });
+  });
+
+  test('rejects an invalid session and clears its cookie', async () => {
+    const response = await app.handle(
+      new Request('http://localhost/auth/me', {
+        headers: {
+          cookie: 'lostly_session=invalid-token',
+        },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+
+    expect(await response.json()).toEqual({
+      error: {
+        code: 'UNAUTHENTICATED',
+        message: 'Authentication required',
+      },
+    });
+
+    const setCookie = response.headers.get('set-cookie');
+
+    expect(setCookie).not.toBeNull();
+    expect(setCookie).toContain('lostly_session=');
+    expect(setCookie).toContain('Path=/');
+  });
+});
+
+describe('POST /auth/logout', () => {
+  test('logs out the current session', async () => {
+    const registerResponse = await postJson('/auth/register', {
+      email: 'user@example.com',
+      password: PASSWORD,
+      displayName: 'Test User',
+    });
+
+    const cookie = getCookieHeader(registerResponse);
+
+    const logoutResponse = await app.handle(
+      new Request('http://localhost/auth/logout', {
+        method: 'POST',
+        headers: {
+          cookie,
+        },
+      }),
+    );
+
+    expect(logoutResponse.status).toBe(204);
+    expect(logoutResponse.headers.get('set-cookie')).not.toBeNull();
+
+    const meResponse = await app.handle(
+      new Request('http://localhost/auth/me', {
+        headers: {
+          cookie,
+        },
+      }),
+    );
+
+    expect(meResponse.status).toBe(401);
+  });
+
+  test('is idempotent without a session', async () => {
+    const response = await app.handle(
+      new Request('http://localhost/auth/logout', {
+        method: 'POST',
+      }),
+    );
+
+    expect(response.status).toBe(204);
+  });
+
+  test('is idempotent with an invalid session', async () => {
+    const response = await app.handle(
+      new Request('http://localhost/auth/logout', {
+        method: 'POST',
+        headers: {
+          cookie: 'lostly_session=invalid-token',
+        },
+      }),
+    );
+
+    expect(response.status).toBe(204);
   });
 });

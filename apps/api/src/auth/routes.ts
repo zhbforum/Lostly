@@ -1,6 +1,11 @@
 import { Elysia } from 'elysia';
 
-import { SESSION_COOKIE_NAME, sessionCookieSchema, setSessionCookie } from '@/auth/cookie';
+import {
+  removeSessionCookie,
+  SESSION_COOKIE_NAME,
+  sessionCookieSchema,
+  setSessionCookie,
+} from '@/auth/cookie';
 import { normalizeEmail } from '@/auth/email';
 import {
   authErrorSchema,
@@ -8,7 +13,7 @@ import {
   loginBodySchema,
   registerBodySchema,
 } from '@/auth/model';
-import { login, register } from '@/auth/service';
+import { getSession, login, logout as logoutSession, register } from '@/auth/service';
 
 export const authRoutes = new Elysia({
   prefix: '/auth',
@@ -84,5 +89,63 @@ export const authRoutes = new Elysia({
         200: authResponseSchema,
         401: authErrorSchema,
       },
+    },
+  )
+  .get(
+    '/me',
+    async ({ cookie, status }) => {
+      const sessionCookie = cookie[SESSION_COOKIE_NAME];
+      const token = sessionCookie.value;
+
+      if (!token) {
+        return status(401, {
+          error: {
+            code: 'UNAUTHENTICATED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      const auth = await getSession(token);
+
+      if (!auth) {
+        removeSessionCookie(sessionCookie);
+
+        return status(401, {
+          error: {
+            code: 'UNAUTHENTICATED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      return {
+        user: auth.user,
+      };
+    },
+    {
+      cookie: sessionCookieSchema,
+      response: {
+        200: authResponseSchema,
+        401: authErrorSchema,
+      },
+    },
+  )
+  .post(
+    '/logout',
+    async ({ cookie, status }) => {
+      const sessionCookie = cookie[SESSION_COOKIE_NAME];
+      const token = sessionCookie.value;
+
+      if (token) {
+        await logoutSession(token);
+      }
+
+      removeSessionCookie(sessionCookie);
+
+      return status(204);
+    },
+    {
+      cookie: sessionCookieSchema,
     },
   );
