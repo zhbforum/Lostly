@@ -2,8 +2,18 @@
   "name": "lostly",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "bun@1.3.14",
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "oxlint apps/web/src apps/admin/src apps/api/src apps/api/drizzle.config.ts"
+  },
+  "devDependencies": {
+    "oxlint": "1.80.0",
+    "prettier": "3.9.6"
+  }
 }

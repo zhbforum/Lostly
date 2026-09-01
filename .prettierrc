@@ -1,9 +1,11 @@
 {
-  "printWidth": 100,
   "singleQuote": true,
+  "semi": true,
+  "trailingComma": "all",
+  "printWidth": 100,
   "overrides": [
     {
-      "files": "*.html",
+      "files": "apps/admin/**/*.html",
       "options": {
         "parser": "angular"
       }

@@ -18,8 +18,5 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true
   },
-  "include": [
-    "src/**/*.ts",
-    "drizzle.config.ts"
-  ]
+  "include": ["src/**/*.ts", "drizzle.config.ts"]
 }
