@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia';
 import { sql } from 'drizzle-orm';
 
-import { db } from './db';
+import { db } from '@/db';
 
 const app = new Elysia()
   .get('/', () => ({
