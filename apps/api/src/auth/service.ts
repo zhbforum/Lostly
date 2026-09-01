@@ -1,10 +1,11 @@
 import { SQL } from 'bun';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { normalizeEmail } from '@/auth/email';
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from '@/auth/password';
 import { generateSessionToken, getSessionExpiresAt, hashSessionToken } from '@/auth/session';
 import type {
+  AuthContext,
   AuthCredentials,
   LoginInput,
   LoginResult,
@@ -121,6 +122,47 @@ export async function login(input: LoginInput): Promise<LoginResult> {
       sessionExpiresAt,
     },
   };
+}
+
+export async function getSession(token: string): Promise<AuthContext | null> {
+  const tokenHash = hashSessionToken(token);
+
+  const [result] = await db
+    .select({
+      session: {
+        id: sessions.id,
+        userId: sessions.userId,
+        expiresAt: sessions.expiresAt,
+      },
+      user: {
+        id: users.id,
+        email: users.email,
+        displayName: users.displayName,
+        role: users.role,
+      },
+    })
+    .from(sessions)
+    .innerJoin(users, eq(sessions.userId, users.id))
+    .where(eq(sessions.tokenHash, tokenHash))
+    .limit(1);
+
+  if (!result) {
+    return null;
+  }
+
+  if (result.session.expiresAt <= new Date()) {
+    await db.delete(sessions).where(eq(sessions.id, result.session.id));
+
+    return null;
+  }
+
+  return result;
+}
+
+export async function logout(token: string): Promise<void> {
+  const tokenHash = hashSessionToken(token);
+
+  await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
 }
 
 function isEmailTakenError(error: unknown): boolean {
