@@ -8,6 +8,7 @@
     "start": "bun run src/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "bun test",
+    "test:coverage": "bun test --coverage",
     "db:studio": "bunx --bun drizzle-kit studio",
     "db:generate": "bunx --bun drizzle-kit generate",
     "db:migrate": "bunx --bun drizzle-kit migrate"
