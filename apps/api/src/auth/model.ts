@@ -42,7 +42,7 @@ export const loginBodySchema = t.Object({
     maxLength: 254,
   }),
   password: t.String({
-    minLength: 15,
+    minLength: 1,
     maxLength: 128,
   }),
 });
