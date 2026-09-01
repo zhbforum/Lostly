@@ -4,6 +4,7 @@ import { app } from '@/app';
 import { hashPassword } from '@/auth/password';
 import { db } from '@/db';
 import { users } from '@/db/schema';
+import { CSRF_HEADER_NAME, CSRF_HEADER_VALUE } from '@/http/csrf';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -23,6 +24,7 @@ function postJson(path: string, body: unknown) {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
+        [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE,
       },
       body: JSON.stringify(body),
     }),
@@ -214,6 +216,7 @@ describe('GET /auth/me', () => {
       new Request('http://localhost/auth/me', {
         headers: {
           cookie: 'lostly_session=invalid-token',
+          [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE,
         },
       }),
     );
@@ -250,6 +253,7 @@ describe('POST /auth/logout', () => {
         method: 'POST',
         headers: {
           cookie,
+          [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE,
         },
       }),
     );
@@ -261,6 +265,7 @@ describe('POST /auth/logout', () => {
       new Request('http://localhost/auth/me', {
         headers: {
           cookie,
+          [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE,
         },
       }),
     );
@@ -272,6 +277,9 @@ describe('POST /auth/logout', () => {
     const response = await app.handle(
       new Request('http://localhost/auth/logout', {
         method: 'POST',
+        headers: {
+          [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE,
+        },
       }),
     );
 
@@ -284,6 +292,7 @@ describe('POST /auth/logout', () => {
         method: 'POST',
         headers: {
           cookie: 'lostly_session=invalid-token',
+          [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE,
         },
       }),
     );
