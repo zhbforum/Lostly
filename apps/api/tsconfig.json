@@ -8,6 +8,10 @@
     "lib": ["ESNext"],
     "types": ["bun"],
 
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+
     "strict": true,
     "noEmit": true,
     "verbatimModuleSyntax": true,
