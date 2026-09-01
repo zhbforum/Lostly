@@ -30,6 +30,11 @@ export interface RegisterInput {
   displayName: string;
 }
 
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
 export type RegisterResult =
   | {
       ok: true;

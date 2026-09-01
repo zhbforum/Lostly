@@ -1,12 +1,18 @@
 import { SQL } from 'bun';
-
-import { db } from '@/db';
-import { sessions, users } from '@/db/schema';
+import { sql } from 'drizzle-orm';
 
 import { normalizeEmail } from '@/auth/email';
-import { hashPassword } from '@/auth/password';
+import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from '@/auth/password';
 import { generateSessionToken, getSessionExpiresAt, hashSessionToken } from '@/auth/session';
-import type { AuthCredentials, RegisterInput, RegisterResult } from '@/auth/types';
+import type {
+  AuthCredentials,
+  LoginInput,
+  LoginResult,
+  RegisterInput,
+  RegisterResult,
+} from '@/auth/types';
+import { db } from '@/db';
+import { sessions, users } from '@/db/schema';
 
 const USERS_EMAIL_LOWER_UNIQUE = 'users_email_lower_unique';
 
@@ -65,6 +71,56 @@ export async function register(input: RegisterInput): Promise<RegisterResult> {
 
     throw error;
   }
+}
+
+export async function login(input: LoginInput): Promise<LoginResult> {
+  const email = normalizeEmail(input.email);
+
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      displayName: users.displayName,
+      role: users.role,
+      passwordHash: users.passwordHash,
+    })
+    .from(users)
+    .where(sql`lower(${users.email}) = ${email}`)
+    .limit(1);
+
+  const passwordHash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
+  const passwordValid = await verifyPassword(input.password, passwordHash);
+
+  if (!user || !passwordValid) {
+    return {
+      ok: false,
+      reason: 'invalid_credentials',
+    };
+  }
+
+  const sessionToken = generateSessionToken();
+  const tokenHash = hashSessionToken(sessionToken);
+  const sessionExpiresAt = getSessionExpiresAt();
+
+  await db.insert(sessions).values({
+    userId: user.id,
+    tokenHash,
+    expiresAt: sessionExpiresAt,
+  });
+
+  return {
+    ok: true,
+    value: {
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+      },
+      sessionToken,
+      sessionExpiresAt,
+    },
+  };
 }
 
 function isEmailTakenError(error: unknown): boolean {
