@@ -216,7 +216,6 @@ describe('GET /auth/me', () => {
       new Request('http://localhost/auth/me', {
         headers: {
           cookie: 'lostly_session=invalid-token',
-          [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE,
         },
       }),
     );
@@ -265,7 +264,6 @@ describe('POST /auth/logout', () => {
       new Request('http://localhost/auth/me', {
         headers: {
           cookie,
-          [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE,
         },
       }),
     );
