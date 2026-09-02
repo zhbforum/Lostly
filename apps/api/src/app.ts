@@ -1,10 +1,11 @@
-import { Elysia } from 'elysia';
 import { sql } from 'drizzle-orm';
+import { Elysia } from 'elysia';
 
 import { authRoutes } from '@/auth/routes';
 import { db } from '@/db';
 import { corsPlugin } from '@/http/cors';
 import { isCsrfProtectedRequest } from '@/http/csrf';
+import { listingRoutes } from '@/listings/routes';
 
 export const app = new Elysia()
   .use(corsPlugin)
@@ -37,4 +38,5 @@ export const app = new Elysia()
       });
     }
   })
-  .use(authRoutes);
+  .use(authRoutes)
+  .use(listingRoutes);
