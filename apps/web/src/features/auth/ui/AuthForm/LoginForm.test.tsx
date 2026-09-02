@@ -59,10 +59,7 @@ describe('LoginForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(document.activeElement).toHaveAttribute(
-      'aria-labelledby',
-      'form-error-summary-title',
-    );
+    expect(document.activeElement).toHaveAttribute('aria-labelledby', 'form-error-summary-title');
   });
 
   it('moves focus to an invalid field from the error summary', async () => {
@@ -72,9 +69,7 @@ describe('LoginForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    await user.click(
-      screen.getByRole('link', { name: 'Enter your email address.' }),
-    );
+    await user.click(screen.getByRole('link', { name: 'Enter your email address.' }));
 
     expect(screen.getByLabelText('Email')).toHaveFocus();
   });
@@ -127,9 +122,7 @@ describe('LoginForm', () => {
   it('shows a specific message when credentials are invalid', async () => {
     const user = userEvent.setup();
 
-    mocks.login.mockRejectedValue(
-      new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid credentials'),
-    );
+    mocks.login.mockRejectedValue(new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid credentials'));
 
     render(<LoginForm />);
 
@@ -137,9 +130,7 @@ describe('LoginForm', () => {
     await user.type(screen.getByLabelText('Password'), 'password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(
-      await screen.findByText('Incorrect email or password.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Incorrect email or password.')).toBeInTheDocument();
   });
 
   it('shows a fallback message when login fails unexpectedly', async () => {
@@ -153,8 +144,6 @@ describe('LoginForm', () => {
     await user.type(screen.getByLabelText('Password'), 'password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(
-      await screen.findByText('Unable to sign in. Try again.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Unable to sign in. Try again.')).toBeInTheDocument();
   });
 });
