@@ -13,11 +13,13 @@ import {
   loginBodySchema,
   registerBodySchema,
 } from '@/auth/model';
-import { getSession, login, logout as logoutSession, register } from '@/auth/service';
+import { authenticationPlugin } from '@/auth/plugin';
+import { login, logout as logoutSession, register } from '@/auth/service';
 
 export const authRoutes = new Elysia({
   prefix: '/auth',
 })
+  .use(authenticationPlugin)
   .post(
     '/register',
     async ({ body, cookie, status }) => {
@@ -93,41 +95,13 @@ export const authRoutes = new Elysia({
   )
   .get(
     '/me',
-    async ({ cookie, status }) => {
-      const sessionCookie = cookie[SESSION_COOKIE_NAME];
-      const token = sessionCookie.value;
-
-      if (!token) {
-        return status(401, {
-          error: {
-            code: 'UNAUTHENTICATED',
-            message: 'Authentication required',
-          },
-        });
-      }
-
-      const auth = await getSession(token);
-
-      if (!auth) {
-        removeSessionCookie(sessionCookie);
-
-        return status(401, {
-          error: {
-            code: 'UNAUTHENTICATED',
-            message: 'Authentication required',
-          },
-        });
-      }
-
-      return {
-        user: auth.user,
-      };
-    },
+    ({ auth }) => ({
+      user: auth.user,
+    }),
     {
-      cookie: sessionCookieSchema,
+      authenticated: true,
       response: {
         200: authResponseSchema,
-        401: authErrorSchema,
       },
     },
   )
