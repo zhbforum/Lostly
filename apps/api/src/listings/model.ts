@@ -6,9 +6,6 @@ export const listingSchema = t.Object({
   id: t.String({
     format: 'uuid',
   }),
-  createdByUserId: t.String({
-    format: 'uuid',
-  }),
   kind: t.UnionEnum(LISTING_KINDS),
   status: t.UnionEnum(LISTING_STATUSES),
   title: t.String(),
@@ -23,6 +20,19 @@ export const listingSchema = t.Object({
 
 export const listingResponseSchema = t.Object({
   listing: listingSchema,
+});
+
+export const listingIdParamsSchema = t.Object({
+  id: t.String({
+    format: 'uuid',
+  }),
+});
+
+export const listingNotFoundResponseSchema = t.Object({
+  error: t.Object({
+    code: t.Literal('LISTING_NOT_FOUND'),
+    message: t.Literal('Listing not found'),
+  }),
 });
 
 export const createListingBodySchema = t.Object({

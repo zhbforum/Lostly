@@ -1,9 +1,12 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
+import type { ListingResponse } from '@lostly/contracts/listings';
+import { eq } from 'drizzle-orm';
 
 import { app } from '@/app';
 import { db } from '@/db';
 import { listings, users } from '@/db/schema';
 import { CSRF_HEADER_NAME, CSRF_HEADER_VALUE } from '@/http/csrf';
+import { createListing } from '@/listings/service';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -43,6 +46,21 @@ function postJson(path: string, body: unknown, cookie?: string) {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
+    }),
+  );
+}
+
+function get(path: string, cookie?: string) {
+  const headers = new Headers();
+
+  if (cookie) {
+    headers.set('cookie', cookie);
+  }
+
+  return app.handle(
+    new Request(`http://localhost${path}`, {
+      method: 'GET',
+      headers,
     }),
   );
 }
@@ -105,9 +123,10 @@ describe('POST /listings', () => {
 
     expect(response.status).toBe(201);
 
-    expect(await response.json()).toMatchObject({
+    const body = (await response.json()) as ListingResponse;
+
+    expect(body).toMatchObject({
       listing: {
-        createdByUserId: user.id,
         kind: 'lost',
         status: 'active',
         title: 'Black backpack',
@@ -116,11 +135,14 @@ describe('POST /listings', () => {
         occurredOn: '2026-09-01',
       },
     });
+    expect(body.listing).not.toHaveProperty('createdByUserId');
 
-    const storedListings = await db.select().from(listings);
+    const [storedListing] = await db
+      .select()
+      .from(listings)
+      .where(eq(listings.id, body.listing.id));
 
-    expect(storedListings).toHaveLength(1);
-    expect(storedListings[0]).toMatchObject({
+    expect(storedListing).toMatchObject({
       createdByUserId: user.id,
       kind: 'lost',
       status: 'active',
@@ -191,7 +213,7 @@ describe('POST /listings', () => {
   });
 
   test('does not allow overriding server-controlled listing fields', async () => {
-    const { cookie } = await registerUser();
+    const { cookie, user } = await registerUser();
 
     const [otherUser] = await db
       .insert(users)
@@ -222,20 +244,103 @@ describe('POST /listings', () => {
 
     expect(response.status).toBe(201);
 
-    const body = (await response.json()) as {
-      listing: {
-        createdByUserId: string;
-        status: string;
-      };
-    };
+    const body = (await response.json()) as ListingResponse;
 
-    expect(body.listing.createdByUserId).not.toBe(otherUser.id);
     expect(body.listing.status).toBe('active');
+    expect(body.listing).not.toHaveProperty('createdByUserId');
 
-    const [storedListing] = await db.select().from(listings);
+    const [storedListing] = await db
+      .select()
+      .from(listings)
+      .where(eq(listings.id, body.listing.id));
 
-    expect(storedListing?.createdByUserId).toBe(body.listing.createdByUserId);
+    expect(storedListing?.createdByUserId).toBe(user.id);
     expect(storedListing?.createdByUserId).not.toBe(otherUser.id);
     expect(storedListing?.status).toBe('active');
+  });
+});
+
+describe('GET /listings/:id', () => {
+  test("allows an authenticated user to read another user's listing", async () => {
+    const { cookie, user } = await registerUser();
+
+    const [owner] = await db
+      .insert(users)
+      .values({
+        email: 'owner@example.com',
+        passwordHash: 'test-password-hash',
+        displayName: 'Listing Owner',
+      })
+      .returning();
+
+    if (!owner) {
+      throw new Error('Failed to create listing owner');
+    }
+
+    const listing = await createListing({
+      createdByUserId: owner.id,
+      kind: 'lost',
+      title: 'Black backpack',
+      description: 'Black backpack with a laptop sleeve.',
+      location: 'TU Berlin',
+      occurredOn: '2026-09-01',
+    });
+
+    const response = await get(`/listings/${listing.id}`, cookie);
+
+    expect(response.status).toBe(200);
+
+    const body = (await response.json()) as ListingResponse;
+
+    expect(body).toMatchObject({
+      listing: {
+        id: listing.id,
+        kind: 'lost',
+        status: 'active',
+        title: 'Black backpack',
+        description: 'Black backpack with a laptop sleeve.',
+        location: 'TU Berlin',
+        occurredOn: '2026-09-01',
+      },
+    });
+    expect(body.listing).not.toHaveProperty('createdByUserId');
+
+    expect(owner.id).not.toBe(user.id);
+  });
+
+  test('returns 404 when the listing does not exist', async () => {
+    const { cookie } = await registerUser();
+
+    const response = await get('/listings/00000000-0000-4000-8000-000000000000', cookie);
+
+    expect(response.status).toBe(404);
+
+    expect(await response.json()).toEqual({
+      error: {
+        code: 'LISTING_NOT_FOUND',
+        message: 'Listing not found',
+      },
+    });
+  });
+
+  test('rejects an invalid listing id', async () => {
+    const { cookie } = await registerUser();
+
+    const response = await get('/listings/not-a-uuid', cookie);
+
+    expect(response.status).toBe(422);
+  });
+
+  test('rejects a request without authentication', async () => {
+    const response = await get('/listings/00000000-0000-4000-8000-000000000000');
+
+    expect(response.status).toBe(401);
+
+    expect(await response.json()).toEqual({
+      error: {
+        code: 'UNAUTHENTICATED',
+        message: 'Authentication required',
+      },
+    });
   });
 });

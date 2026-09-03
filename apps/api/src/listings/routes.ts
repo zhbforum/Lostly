@@ -1,13 +1,45 @@
 import { Elysia } from 'elysia';
 
 import { authenticationPlugin } from '@/auth/plugin';
-import { createListingBodySchema, listingResponseSchema } from '@/listings/model';
-import { createListing } from '@/listings/service';
+import {
+  createListingBodySchema,
+  listingIdParamsSchema,
+  listingNotFoundResponseSchema,
+  listingResponseSchema,
+} from '@/listings/model';
+import { createListing, findListingById } from '@/listings/service';
 
 export const listingRoutes = new Elysia({
   prefix: '/listings',
 })
   .use(authenticationPlugin)
+  .get(
+    '/:id',
+    async ({ params, status }) => {
+      const listing = await findListingById(params.id);
+
+      if (!listing) {
+        return status(404, {
+          error: {
+            code: 'LISTING_NOT_FOUND',
+            message: 'Listing not found',
+          },
+        });
+      }
+
+      return {
+        listing,
+      };
+    },
+    {
+      authenticated: true,
+      params: listingIdParamsSchema,
+      response: {
+        200: listingResponseSchema,
+        404: listingNotFoundResponseSchema,
+      },
+    },
+  )
   .post(
     '/',
     async ({ auth, body, status }) => {
