@@ -7,3 +7,9 @@ export function createListing(input: CreateListingInput): Promise<ListingRespons
     body: input,
   });
 }
+
+export function getListing(id: string, signal?: AbortSignal): Promise<ListingResponse> {
+  return apiRequest<ListingResponse>(`/listings/${encodeURIComponent(id)}`, {
+    signal,
+  });
+}

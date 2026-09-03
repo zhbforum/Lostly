@@ -1,0 +1,179 @@
+.details {
+  overflow: hidden;
+
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 24px;
+  box-shadow: var(--shadow-card);
+}
+
+.header {
+  display: grid;
+  gap: 14px;
+
+  padding: 32px 32px 28px;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kindBadge,
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+
+  min-height: 28px;
+  padding: 4px 10px;
+
+  border-radius: 999px;
+
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.kindBadge {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.statusBadge {
+  color: #475467;
+  background: #f2f4f7;
+  border: 1px solid var(--color-border-subtle);
+}
+
+.title {
+  max-width: 680px;
+  margin: 0;
+
+  overflow-wrap: anywhere;
+  outline: none;
+
+  color: var(--color-text);
+
+  font-size: clamp(2rem, 7vw, 3rem);
+  font-weight: 780;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+
+.title:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.reportedAt {
+  margin: -2px 0 0;
+
+  color: var(--color-text-muted);
+
+  font-size: 0.82rem;
+  font-weight: 550;
+  line-height: 1.5;
+}
+
+.descriptionSection {
+  display: grid;
+  gap: 10px;
+
+  padding: 28px 32px;
+
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.sectionTitle {
+  margin: 0;
+
+  color: var(--color-text);
+
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.description {
+  max-width: 680px;
+  margin: 0;
+
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+
+  color: #344054;
+
+  font-size: 0.98rem;
+  line-height: 1.75;
+}
+
+.metadata {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  margin: 0;
+
+  background: var(--color-surface-soft);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.metadataItem {
+  display: grid;
+  gap: 5px;
+
+  min-width: 0;
+  padding: 20px 32px;
+}
+
+.metadataItem + .metadataItem {
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.metadataItem dt {
+  color: var(--color-text-muted);
+
+  font-size: 0.8rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.metadataItem dd {
+  min-width: 0;
+  margin: 0;
+
+  overflow-wrap: anywhere;
+
+  color: var(--color-text);
+
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+@media (max-width: 620px) {
+  .details {
+    border-radius: 20px;
+  }
+
+  .header {
+    padding: 26px 20px 24px;
+  }
+
+  .descriptionSection {
+    padding: 24px 20px;
+  }
+
+  .metadata {
+    grid-template-columns: 1fr;
+  }
+
+  .metadataItem {
+    padding: 16px 20px;
+  }
+
+  .metadataItem + .metadataItem {
+    border-top: 1px solid var(--color-border-subtle);
+    border-left: 0;
+  }
+}
