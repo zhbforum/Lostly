@@ -1,0 +1,130 @@
+.page {
+  min-height: 100dvh;
+
+  background:
+    radial-gradient(circle at 90% 8%, rgb(49 85 217 / 8%), transparent 32rem),
+    radial-gradient(circle at 8% 85%, rgb(246 180 75 / 7%), transparent 28rem),
+    var(--color-background);
+}
+
+.siteHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  min-height: 72px;
+  padding: 0 24px;
+
+  background: rgb(255 255 255 / 92%);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 7px 4px;
+
+  color: var(--color-text-muted);
+  border-radius: 6px;
+
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--color-primary);
+}
+
+.backLink:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.content {
+  display: grid;
+  width: min(100% - 32px, 780px);
+  gap: 30px;
+
+  margin: 0 auto;
+  padding: 56px 0 72px;
+}
+
+.pageHeader {
+  display: grid;
+  gap: 10px;
+
+  max-width: 680px;
+}
+
+.eyebrow {
+  margin: 0;
+
+  color: var(--color-primary);
+
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+
+  color: var(--color-text);
+
+  font-size: clamp(2rem, 7vw, 3rem);
+  font-weight: 780;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+
+.description {
+  max-width: 640px;
+  margin: 4px 0 0;
+
+  color: var(--color-text-muted);
+
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.card {
+  padding: 32px;
+
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 24px;
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 620px) {
+  .siteHeader {
+    min-height: 64px;
+    padding: 0 16px;
+  }
+
+  .backLink {
+    font-size: 0.82rem;
+  }
+
+  .content {
+    gap: 24px;
+
+    padding: 36px 0 48px;
+  }
+
+  .card {
+    padding: 24px 20px;
+    border-radius: 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  .backLink span {
+    display: none;
+  }
+}

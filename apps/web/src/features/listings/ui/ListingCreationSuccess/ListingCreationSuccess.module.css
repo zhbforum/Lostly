@@ -1,0 +1,177 @@
+.success {
+  display: grid;
+  gap: 24px;
+}
+
+.icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+
+  color: #ffffff;
+  background: #32835a;
+  border-radius: 50%;
+
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.header {
+  display: grid;
+  gap: 7px;
+}
+
+.eyebrow {
+  margin: 0;
+
+  color: #2f7652;
+
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  width: fit-content;
+  margin: 0;
+
+  color: var(--color-text);
+  outline: none;
+
+  font-size: clamp(1.55rem, 5vw, 1.9rem);
+  font-weight: 760;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.title:focus-visible {
+  border-radius: 4px;
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.description {
+  margin: 0;
+
+  color: var(--color-text-muted);
+
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.summary {
+  overflow: hidden;
+
+  margin: 0;
+
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 14px;
+}
+
+.summaryRow {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 16px;
+
+  padding: 14px 16px;
+}
+
+.summaryRow + .summaryRow {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.summaryRow dt {
+  color: var(--color-text-muted);
+
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.summaryRow dd {
+  min-width: 0;
+  margin: 0;
+
+  overflow-wrap: anywhere;
+
+  color: var(--color-text);
+
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.primaryAction,
+.secondaryAction {
+  min-height: 48px;
+  padding: 0 18px;
+
+  border-radius: 11px;
+
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+
+  color: #ffffff;
+  background: var(--color-primary);
+  box-shadow: var(--shadow-button);
+
+  text-decoration: none;
+}
+
+.primaryAction:hover {
+  background: var(--color-primary-hover);
+}
+
+.primaryAction:active {
+  background: var(--color-primary-active);
+}
+
+.secondaryAction {
+  cursor: pointer;
+
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.secondaryAction:hover {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+
+.primaryAction:focus-visible,
+.secondaryAction:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+@media (max-width: 520px) {
+  .summaryRow {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .actions {
+    display: grid;
+  }
+
+  .primaryAction,
+  .secondaryAction {
+    justify-content: center;
+    width: 100%;
+  }
+}
