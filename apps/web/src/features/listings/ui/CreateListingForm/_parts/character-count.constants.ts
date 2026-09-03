@@ -1,0 +1,1 @@
+export const CHARACTER_COUNT_THRESHOLD = 0.75;
