@@ -1,20 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router';
 
+import { formatListingDate } from '@/features/listings/model/formatters';
 import type { Listing } from '@/features/listings/model/types';
 import styles from '@/features/listings/ui/ListingCreationSuccess/ListingCreationSuccess.module.css';
-
-function formatOccurredOn(value: string): string {
-  const [year, month, day] = value.split('-').map(Number);
-
-  const date = new Date(year, month - 1, day);
-
-  return new Intl.DateTimeFormat('en', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(date);
-}
 
 interface ListingCreationSuccessProps {
   listing: Listing;
@@ -61,18 +50,22 @@ export function ListingCreationSuccess({ listing, onCreateAnother }: ListingCrea
 
         <div className={styles.summaryRow}>
           <dt>Date</dt>
-          <dd>{formatOccurredOn(listing.occurredOn)}</dd>
+          <dd>{formatListingDate(listing.occurredOn)}</dd>
         </div>
       </dl>
 
       <div className={styles.actions}>
-        <Link className={styles.primaryAction} to="/">
-          Back to home
+        <Link className={styles.primaryAction} to={`/listings/${listing.id}`}>
+          View report
         </Link>
 
         <button className={styles.secondaryAction} type="button" onClick={onCreateAnother}>
           Create another report
         </button>
+
+        <Link className={styles.textAction} to="/">
+          Back to home
+        </Link>
       </div>
     </section>
   );

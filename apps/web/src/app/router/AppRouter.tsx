@@ -15,14 +15,27 @@ const CreateListingPage = lazy(async () => {
   };
 });
 
-function ListingPageFallback() {
+const ListingDetailsPage = lazy(async () => {
+  const module = await import('@/pages/listings/ListingDetailsPage');
+
+  return {
+    default: module.ListingDetailsPage,
+  };
+});
+
+interface ListingPageFallbackProps {
+  title: string;
+  description: string;
+}
+
+function ListingPageFallback({ title, description }: ListingPageFallbackProps) {
   return (
     <main className={styles.statusPage} aria-busy="true">
       <div className={styles.statusCard} role="status">
         <div className={styles.loader} aria-hidden="true" />
         <p className={styles.eyebrow}>Lostly</p>
-        <h1 className={styles.title}>Opening your report</h1>
-        <p className={styles.description}>Getting the form ready…</p>
+        <h1 className={styles.title}>{title}</h1>
+        <p className={styles.description}>{description}</p>
       </div>
     </main>
   );
@@ -72,8 +85,31 @@ export function AppRouter() {
         <Route
           path="/listings/new"
           element={
-            <Suspense fallback={<ListingPageFallback />}>
+            <Suspense
+              fallback={
+                <ListingPageFallback
+                  title="Opening your report"
+                  description="Getting the form ready…"
+                />
+              }
+            >
               <CreateListingPage />
+            </Suspense>
+          }
+        />
+
+        <Route
+          path="/listings/:id"
+          element={
+            <Suspense
+              fallback={
+                <ListingPageFallback
+                  title="Opening this report"
+                  description="Loading the report page…"
+                />
+              }
+            >
+              <ListingDetailsPage />
             </Suspense>
           }
         />

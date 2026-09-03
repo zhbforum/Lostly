@@ -107,6 +107,7 @@
 .actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
 }
 
@@ -153,8 +154,28 @@
   border-color: var(--color-primary);
 }
 
+.textAction {
+  display: inline-flex;
+  align-items: center;
+
+  min-height: 44px;
+  padding: 0 8px;
+
+  color: var(--color-text-muted);
+  border-radius: 7px;
+
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.textAction:hover {
+  color: var(--color-primary);
+}
+
 .primaryAction:focus-visible,
-.secondaryAction:focus-visible {
+.secondaryAction:focus-visible,
+.textAction:focus-visible {
   outline: 3px solid var(--color-primary);
   outline-offset: 3px;
 }
@@ -173,5 +194,9 @@
   .secondaryAction {
     justify-content: center;
     width: 100%;
+  }
+
+  .textAction {
+    justify-content: center;
   }
 }

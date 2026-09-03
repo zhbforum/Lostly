@@ -17,7 +17,6 @@ export const LISTING_CONSTRAINTS = {
 
 export interface Listing {
   id: string;
-  createdByUserId: string;
   kind: ListingKind;
   status: ListingStatus;
   title: string;

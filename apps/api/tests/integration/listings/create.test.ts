@@ -50,6 +50,22 @@ describe('createListing', () => {
     });
 
     expect(listing).toMatchObject({
+      kind: 'lost',
+      status: 'active',
+      title: 'Black backpack',
+      description: 'Black backpack with a laptop sleeve.',
+      location: 'TU Berlin',
+      occurredOn: '2026-09-01',
+    });
+    expect(listing).not.toHaveProperty('createdByUserId');
+
+    expect(listing.id).toBeDefined();
+    expect(listing.createdAt).toBeInstanceOf(Date);
+    expect(listing.updatedAt).toBeInstanceOf(Date);
+
+    const [storedListing] = await db.select().from(listings).where(eq(listings.id, listing.id));
+
+    expect(storedListing).toMatchObject({
       createdByUserId: user.id,
       kind: 'lost',
       status: 'active',
@@ -58,13 +74,5 @@ describe('createListing', () => {
       location: 'TU Berlin',
       occurredOn: '2026-09-01',
     });
-
-    expect(listing.id).toBeDefined();
-    expect(listing.createdAt).toBeInstanceOf(Date);
-    expect(listing.updatedAt).toBeInstanceOf(Date);
-
-    const [storedListing] = await db.select().from(listings).where(eq(listings.id, listing.id));
-
-    expect(storedListing).toEqual(listing);
   });
 });

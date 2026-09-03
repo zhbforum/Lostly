@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CreateListingForm } from '@/features/listings/ui/CreateListingForm/CreateListingForm';
+import type { Listing } from '@/features/listings/model/types';
 
 const { createListingMock } = vi.hoisted(() => ({
   createListingMock: vi.fn(),
@@ -50,7 +51,6 @@ vi.mock('./_parts/ListingDateField/ListingDateField', () => ({
 
 const createdListing = {
   id: '550e8400-e29b-41d4-a716-446655440000',
-  createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
   kind: 'lost' as const,
   status: 'active' as const,
   title: 'Black backpack',
@@ -59,7 +59,7 @@ const createdListing = {
   occurredOn: '2026-09-01',
   createdAt: '2026-09-02T10:00:00.000Z',
   updatedAt: '2026-09-02T10:00:00.000Z',
-};
+} satisfies Listing;
 
 async function fillValidForm() {
   const user = userEvent.setup();
