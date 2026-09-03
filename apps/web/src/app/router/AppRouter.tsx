@@ -1,10 +1,32 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 
+import styles from '@/app/router/AppRouter.module.css';
 import { useAuth } from '@/features/auth/model/auth-context';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { HomePage } from '@/pages/home/HomePage';
-import styles from '@/app/router/AppRouter.module.css';
+
+const CreateListingPage = lazy(async () => {
+  const module = await import('@/pages/listings/CreateListingPage');
+
+  return {
+    default: module.CreateListingPage,
+  };
+});
+
+function ListingPageFallback() {
+  return (
+    <main className={styles.statusPage} aria-busy="true">
+      <div className={styles.statusCard} role="status">
+        <div className={styles.loader} aria-hidden="true" />
+        <p className={styles.eyebrow}>Lostly</p>
+        <h1 className={styles.title}>Opening your report</h1>
+        <p className={styles.description}>Getting the form ready…</p>
+      </div>
+    </main>
+  );
+}
 
 export function AppRouter() {
   const { status } = useAuth();
@@ -46,6 +68,16 @@ export function AppRouter() {
     return (
       <Routes>
         <Route path="/" element={<HomePage />} />
+
+        <Route
+          path="/listings/new"
+          element={
+            <Suspense fallback={<ListingPageFallback />}>
+              <CreateListingPage />
+            </Suspense>
+          }
+        />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );

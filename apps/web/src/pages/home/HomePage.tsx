@@ -1,4 +1,5 @@
 import { SessionPanel } from '@/features/auth/ui/SessionPanel/SessionPanel';
+import { ListingIntentActions } from '@/features/listings/ui/ListingIntentActions/ListingIntentActions';
 import styles from '@/pages/home/HomePage.module.css';
 import { Brand } from '@/shared/ui/Brand/Brand';
 
@@ -18,6 +19,8 @@ export function HomePage() {
             sensitive details publicly.
           </p>
         </section>
+
+        <ListingIntentActions />
 
         <SessionPanel />
       </div>

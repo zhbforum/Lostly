@@ -1,0 +1,9 @@
+{
+  "name": "@lostly/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./listings": "./src/listings.ts"
+  }
+}
