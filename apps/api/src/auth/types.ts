@@ -1,11 +1,5 @@
-import type { userRole } from '@/domain/user';
-
-export interface AuthUser {
-  id: string;
-  email: string;
-  displayName: string;
-  role: userRole;
-}
+import type { AuthUser } from '@lostly/contracts/auth';
+export type { AuthUser, LoginInput, RegisterInput } from '@lostly/contracts/auth';
 
 export interface AuthSession {
   id: string;
@@ -22,17 +16,6 @@ export interface AuthCredentials {
   user: AuthUser;
   sessionToken: string;
   sessionExpiresAt: Date;
-}
-
-export interface RegisterInput {
-  email: string;
-  password: string;
-  displayName: string;
-}
-
-export interface LoginInput {
-  email: string;
-  password: string;
 }
 
 export type RegisterResult =

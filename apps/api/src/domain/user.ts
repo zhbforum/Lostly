@@ -1,3 +1,2 @@
-export const USER_ROLES = ['user', 'admin'] as const;
-
-export type userRole = (typeof USER_ROLES)[number];
+export { USER_ROLES } from '@lostly/contracts/auth';
+export type { UserRole as userRole } from '@lostly/contracts/auth';
