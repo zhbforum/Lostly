@@ -1,0 +1,217 @@
+.panel {
+  padding: 28px 32px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+.confirmation {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+.confirmation label {
+  font-weight: 750;
+}
+.confirmation p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.confirmation textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.confirmation textarea:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.header h2,
+.header p {
+  margin: 0;
+}
+
+.header h2 {
+  margin-top: 5px;
+  font-size: 1.25rem;
+  letter-spacing: -0.025em;
+}
+
+.header > p:last-child {
+  margin-top: 8px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.eyebrow {
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status {
+  margin: 22px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 22px;
+  padding: 14px;
+  color: var(--color-error);
+  background: var(--color-error-background);
+  border: 1px solid var(--color-error-border);
+  border-radius: 10px;
+  font-size: 0.86rem;
+}
+
+.error p {
+  margin: 0;
+}
+
+.error button,
+.actions button {
+  min-height: 38px;
+  padding: 0 12px;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.error button {
+  color: var(--color-error);
+  background: #fff;
+  border: 1px solid var(--color-error-border);
+}
+
+.claims {
+  display: grid;
+  gap: 14px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.claim {
+  padding: 18px;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 13px;
+}
+
+.claimHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.claimHeader h3,
+.claimHeader p {
+  margin: 0;
+}
+
+.claimHeader h3 {
+  font-size: 0.94rem;
+}
+
+.claimHeader p {
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.claimStatus {
+  min-height: 25px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: capitalize;
+}
+
+.pending {
+  color: #6941c6;
+  background: #f4f3ff;
+}
+
+.approved {
+  color: #067647;
+  background: #ecfdf3;
+}
+
+.rejected {
+  color: #9a3412;
+  background: #fff1e8;
+}
+
+.proof {
+  margin-top: 15px;
+}
+
+.proof p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.proof blockquote {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  color: var(--color-text);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 17px;
+}
+
+.approve {
+  color: #fff;
+  background: #067647;
+  border: 1px solid #067647;
+}
+
+.reject {
+  color: #9a3412;
+  background: #fff;
+  border: 1px solid #fdba74;
+}
+
+.actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.error button:focus-visible,
+.actions button:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 620px) {
+  .panel {
+    padding: 24px 20px;
+  }
+}

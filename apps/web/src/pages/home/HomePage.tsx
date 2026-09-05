@@ -2,6 +2,7 @@ import { SessionPanel } from '@/features/auth/ui/SessionPanel/SessionPanel';
 import { ListingIntentActions } from '@/features/listings/ui/ListingIntentActions/ListingIntentActions';
 import styles from '@/pages/home/HomePage.module.css';
 import { Brand } from '@/shared/ui/Brand/Brand';
+import { Link } from 'react-router';
 
 export function HomePage() {
   return (
@@ -20,7 +21,14 @@ export function HomePage() {
           </p>
         </section>
 
+        <Link className={styles.browseAction} to="/listings">
+          Browse active reports <span aria-hidden="true">→</span>
+        </Link>
+
         <ListingIntentActions />
+        <Link className={styles.browseAction} to="/activity">
+          My reports and claims
+        </Link>
 
         <SessionPanel />
       </div>

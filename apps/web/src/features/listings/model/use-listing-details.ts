@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { getListing } from '@/features/listings/api/listings-api';
-import type { Listing } from '@/features/listings/model/types';
+import type { ListingDetailResponse } from '@/features/listings/model/types';
 import { ApiError } from '@/shared/api/client';
 
 export type ListingDetailsState =
@@ -10,7 +10,7 @@ export type ListingDetailsState =
     }
   | {
       status: 'success';
-      listing: Listing;
+      listing: ListingDetailResponse;
     }
   | {
       status: 'not-found';
@@ -58,7 +58,7 @@ export function useListingDetails(id: string | undefined): {
     const controller = new AbortController();
 
     void getListing(id, controller.signal)
-      .then(({ listing }) => {
+      .then((listing) => {
         if (controller.signal.aborted) {
           return;
         }

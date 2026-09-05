@@ -1,0 +1,78 @@
+.panel {
+  padding: 24px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 18px;
+}
+
+.handover {
+  margin-top: 18px;
+}
+.handover h3 {
+  font-size: 0.9rem;
+}
+.handover p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.panel button {
+  margin-top: 16px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+.panel button:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.panel h2,
+.panel p {
+  margin: 0;
+}
+
+.panel h2 {
+  margin-top: 5px;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.panel > p:last-child {
+  margin-top: 8px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.eyebrow {
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pending {
+  background: #f8faff;
+}
+
+.approved {
+  background: #f0fdf4;
+  border-color: #abefc6;
+}
+
+.approved .eyebrow {
+  color: #067647;
+}
+
+.rejected {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.rejected .eyebrow {
+  color: #9a3412;
+}
