@@ -1,22 +1,52 @@
 import { Elysia } from 'elysia';
 
 import { authenticationPlugin } from '@/auth/plugin';
+import { trimFields } from '@/http/normalize';
 import {
   createListingBodySchema,
+  invalidListingCursorResponseSchema,
+  listingDetailResponseSchema,
   listingIdParamsSchema,
+  listingListResponseSchema,
   listingNotFoundResponseSchema,
   listingResponseSchema,
+  listListingsQuerySchema,
 } from '@/listings/model';
-import { createListing, findListingById } from '@/listings/service';
+import { createListing, findListingForViewer, listActiveListings } from '@/listings/service';
 
 export const listingRoutes = new Elysia({
   prefix: '/listings',
 })
   .use(authenticationPlugin)
   .get(
+    '/',
+    async ({ query, status }) => {
+      const result = await listActiveListings(query);
+
+      if (!result.ok) {
+        return status(400, {
+          error: {
+            code: 'INVALID_CURSOR',
+            message: 'Invalid listing cursor',
+          },
+        });
+      }
+
+      return result.value;
+    },
+    {
+      authenticated: true,
+      query: listListingsQuerySchema,
+      response: {
+        200: listingListResponseSchema,
+        400: invalidListingCursorResponseSchema,
+      },
+    },
+  )
+  .get(
     '/:id',
-    async ({ params, status }) => {
-      const listing = await findListingById(params.id);
+    async ({ auth, params, status }) => {
+      const listing = await findListingForViewer(params.id, auth.user.id);
 
       if (!listing) {
         return status(404, {
@@ -27,15 +57,13 @@ export const listingRoutes = new Elysia({
         });
       }
 
-      return {
-        listing,
-      };
+      return listing;
     },
     {
       authenticated: true,
       params: listingIdParamsSchema,
       response: {
-        200: listingResponseSchema,
+        200: listingDetailResponseSchema,
         404: listingNotFoundResponseSchema,
       },
     },
@@ -59,9 +87,7 @@ export const listingRoutes = new Elysia({
     {
       authenticated: true,
       transform({ body }) {
-        body.title = body.title.trim();
-        body.description = body.description.trim();
-        body.location = body.location.trim();
+        trimFields(body, ['title', 'description', 'location']);
       },
       body: createListingBodySchema,
       response: {

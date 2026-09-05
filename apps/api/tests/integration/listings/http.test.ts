@@ -260,6 +260,85 @@ describe('POST /listings', () => {
   });
 });
 
+describe('GET /listings', () => {
+  test('returns only active listings with filters and cursor pagination', async () => {
+    const { cookie, user } = await registerUser();
+
+    const firstFoundListing = await createListing({
+      createdByUserId: user.id,
+      kind: 'found',
+      title: 'Blue backpack',
+      description: 'Found near the library.',
+      location: 'TU Berlin',
+      occurredOn: '2026-09-01',
+    });
+    const secondFoundListing = await createListing({
+      createdByUserId: user.id,
+      kind: 'found',
+      title: 'Silver water bottle',
+      description: 'Found in the cafeteria.',
+      location: 'TU Berlin',
+      occurredOn: '2026-09-02',
+    });
+    const lostListing = await createListing({
+      createdByUserId: user.id,
+      kind: 'lost',
+      title: 'Black headphones',
+      description: 'Lost by the library.',
+      location: 'TU Berlin',
+      occurredOn: '2026-09-03',
+    });
+
+    await db.update(listings).set({ status: 'resolved' }).where(eq(listings.id, lostListing.id));
+
+    const firstResponse = await get('/listings?kind=found&sort=newest&limit=1', cookie);
+    expect(firstResponse.status).toBe(200);
+
+    const firstPage = (await firstResponse.json()) as {
+      listings: Array<{ id: string; kind: string; status: string }>;
+      pageInfo: { endCursor: string | null; hasNextPage: boolean };
+    };
+
+    expect(firstPage.listings).toHaveLength(1);
+    expect(firstPage.listings[0]?.kind).toBe('found');
+    expect(firstPage.listings[0]?.status).toBe('active');
+    expect(firstPage.pageInfo.hasNextPage).toBe(true);
+    expect(firstPage.pageInfo.endCursor).toBeTruthy();
+
+    const secondResponse = await get(
+      `/listings?kind=found&sort=newest&limit=1&cursor=${encodeURIComponent(firstPage.pageInfo.endCursor!)}`,
+      cookie,
+    );
+    expect(secondResponse.status).toBe(200);
+
+    const secondPage = (await secondResponse.json()) as {
+      listings: Array<{ id: string; kind: string; status: string }>;
+      pageInfo: { hasNextPage: boolean };
+    };
+
+    expect(secondPage.listings).toHaveLength(1);
+    expect(secondPage.listings[0]?.id).not.toBe(firstPage.listings[0]?.id);
+    expect(firstPage.listings[0]?.id).toBe(secondFoundListing.id);
+    expect(secondPage.listings.map((listing) => listing.id)).toContain(firstFoundListing.id);
+    expect(secondPage.pageInfo.hasNextPage).toBe(false);
+    expect(firstFoundListing.id).not.toBe(lostListing.id);
+  });
+
+  test('rejects an invalid pagination cursor', async () => {
+    const { cookie } = await registerUser();
+
+    const response = await get('/listings?cursor=not-a-valid-cursor', cookie);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: {
+        code: 'INVALID_CURSOR',
+        message: 'Invalid listing cursor',
+      },
+    });
+  });
+});
+
 describe('GET /listings/:id', () => {
   test("allows an authenticated user to read another user's listing", async () => {
     const { cookie, user } = await registerUser();
