@@ -1,3 +1,6 @@
+import type { ApiErrorResponse } from '@lostly/contracts/errors';
+import { getSessionGeneration, notifySessionExpiry } from './session-events';
+
 const apiUrl = import.meta.env.VITE_API_URL;
 
 if (!apiUrl) {
@@ -10,13 +13,6 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 const CSRF_HEADER_NAME = 'X-CSRF-Protection';
 const CSRF_HEADER_VALUE = '1';
-
-interface ApiErrorResponse {
-  error?: {
-    code?: string;
-    message?: string;
-  };
-}
 
 interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
@@ -36,6 +32,7 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const sessionGeneration = getSessionGeneration();
   const method = (options.method ?? 'GET').toUpperCase();
   const headers = new Headers(options.headers);
 
@@ -59,7 +56,11 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   });
 
   if (!response.ok) {
-    throw await createApiError(response);
+    const error = await createApiError(response);
+    if (!options.signal?.aborted && error.status === 401 && error.code === 'UNAUTHENTICATED') {
+      notifySessionExpiry(sessionGeneration);
+    }
+    throw error;
   }
 
   if (response.status === 204) {
@@ -77,7 +78,20 @@ async function createApiError(response: Response): Promise<ApiError> {
   let errorResponse: ApiErrorResponse | undefined;
 
   try {
-    errorResponse = (await response.json()) as ApiErrorResponse;
+    const body: unknown = await response.json();
+    if (
+      body &&
+      typeof body === 'object' &&
+      'error' in body &&
+      body.error &&
+      typeof body.error === 'object' &&
+      'code' in body.error &&
+      'message' in body.error &&
+      typeof body.error.code === 'string' &&
+      typeof body.error.message === 'string'
+    ) {
+      errorResponse = body as ApiErrorResponse;
+    }
   } catch {
     // The response may not contain a JSON error body.
   }

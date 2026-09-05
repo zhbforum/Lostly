@@ -99,7 +99,9 @@ export function LoginForm() {
       setErrorMessage(
         error instanceof ApiError && error.code === 'INVALID_CREDENTIALS'
           ? 'Incorrect email or password.'
-          : 'Unable to sign in. Try again.',
+          : error instanceof ApiError && error.code === 'RATE_LIMITED'
+            ? 'Too many sign-in attempts. Please wait a minute and try again.'
+            : 'Unable to sign in. Try again.',
       );
     } finally {
       setIsSubmitting(false);

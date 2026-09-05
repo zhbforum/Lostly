@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { createListing } from '@/features/listings/api/listings-api';
+import { useFormDraft } from '@/shared/model/use-form-draft';
 import {
   createInitialListingFormValues,
   toCreateListingInput,
@@ -100,8 +101,9 @@ function getDateHint(kind: ListingKind | null): string {
 }
 
 export function CreateListingForm({ initialKind = null, onCreated }: CreateListingFormProps) {
-  const [values, setValues] = useState<CreateListingFormValues>(() =>
-    createInitialListingFormValues(initialKind),
+  const [values, setValues, discardDraft] = useFormDraft<CreateListingFormValues>(
+    'listing:new:' + initialKind,
+    () => createInitialListingFormValues(initialKind),
   );
   const [errors, setErrors] = useState<CreateListingFormErrors>({});
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -175,6 +177,7 @@ export function CreateListingForm({ initialKind = null, onCreated }: CreateListi
     try {
       const response = await createListing(input);
 
+      discardDraft();
       setIsSubmitting(false);
       onCreated(response.listing);
     } catch {

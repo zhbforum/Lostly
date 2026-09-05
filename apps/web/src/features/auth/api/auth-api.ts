@@ -15,8 +15,8 @@ export function login(input: LoginInput): Promise<AuthResponse> {
   });
 }
 
-export function getCurrentUser(): Promise<AuthResponse> {
-  return apiRequest<AuthResponse>('/auth/me');
+export function getCurrentUser(signal?: AbortSignal): Promise<AuthResponse> {
+  return apiRequest<AuthResponse>('/auth/me', { signal });
 }
 
 export function logout(): Promise<void> {
