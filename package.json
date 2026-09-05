@@ -14,12 +14,6 @@
   },
   "devDependencies": {
     "oxlint": "1.80.0",
-    "prettier": "3.9.6",
-    "@types/bun": "latest"
-  },
-  "module": "index.ts",
-  "type": "module",
-  "peerDependencies": {
-    "typescript": "^7"
+    "prettier": "3.9.6"
   }
 }
