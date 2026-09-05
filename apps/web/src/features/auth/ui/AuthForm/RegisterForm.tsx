@@ -120,6 +120,10 @@ export function RegisterForm() {
         password,
       });
     } catch (error) {
+      if (error instanceof ApiError && error.code === 'RATE_LIMITED') {
+        setErrorMessage('Too many registration attempts. Please wait a minute and try again.');
+        return;
+      }
       if (error instanceof ApiError && error.code === 'EMAIL_TAKEN') {
         setErrors((current) => ({
           ...current,

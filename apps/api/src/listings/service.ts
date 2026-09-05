@@ -1,20 +1,11 @@
 import { eq } from 'drizzle-orm';
-
 import { db } from '@/db';
 import { listings } from '@/db/schema';
+import { findClaimForClaimant } from '@/claims/queries';
 import type { ListingKind } from '@/domain/listing';
+import { publicListingSelection } from '@/listings/selection';
 
-const publicListingSelection = {
-  id: listings.id,
-  kind: listings.kind,
-  status: listings.status,
-  title: listings.title,
-  description: listings.description,
-  location: listings.location,
-  occurredOn: listings.occurredOn,
-  createdAt: listings.createdAt,
-  updatedAt: listings.updatedAt,
-};
+export { listActiveListings } from '@/listings/feed';
 
 export interface CreateListingInput {
   createdByUserId: string;
@@ -37,11 +28,7 @@ export async function createListing(input: CreateListingInput) {
       occurredOn: input.occurredOn,
     })
     .returning(publicListingSelection);
-
-  if (!listing) {
-    throw new Error('Failed to create listing');
-  }
-
+  if (!listing) throw new Error('Failed to create listing');
   return listing;
 }
 
@@ -51,6 +38,30 @@ export async function findListingById(id: string) {
     .from(listings)
     .where(eq(listings.id, id))
     .limit(1);
-
   return listing ?? null;
+}
+
+export async function findListingForViewer(id: string, viewerUserId: string) {
+  const [row] = await db
+    .select({
+      ...publicListingSelection,
+      createdByUserId: listings.createdByUserId,
+    })
+    .from(listings)
+    .where(eq(listings.id, id))
+    .limit(1);
+  if (!row) return null;
+
+  const { createdByUserId, ...listing } = row;
+  const isOwner = createdByUserId === viewerUserId;
+  const isFound = listing.kind === 'found';
+  const claim = !isOwner && isFound ? await findClaimForClaimant(id, viewerUserId) : null;
+  return {
+    listing,
+    capabilities: {
+      canClaim: !isOwner && isFound && listing.status === 'active' && !claim,
+      canReviewClaims: isOwner && isFound,
+    },
+    claim,
+  };
 }

@@ -12,11 +12,13 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { LISTING_CONSTRAINTS, LISTING_KINDS, LISTING_STATUSES } from '@/domain/listing';
+import { CLAIM_STATUSES } from '@/domain/claim';
 import { USER_ROLES } from '@/domain/user';
 
 export const userRoleEnum = pgEnum('user_role', USER_ROLES);
 export const listingKindEnum = pgEnum('listing_kind', LISTING_KINDS);
 export const listingStatusEnum = pgEnum('listing_status', LISTING_STATUSES);
+export const claimStatusEnum = pgEnum('claim_status', CLAIM_STATUSES);
 
 export const users = pgTable(
   'users',
@@ -56,6 +58,7 @@ export const sessions = pgTable(
   (table) => [
     uniqueIndex('sessions_token_hash_unique').on(table.tokenHash),
     index('sessions_user_id_idx').on(table.userId),
+    index('sessions_expiration_idx').on(table.expiresAt, table.id),
   ],
 );
 
@@ -88,5 +91,56 @@ export const listings = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('listings_created_by_user_id_idx').on(table.createdByUserId)],
+  (table) => [
+    index('listings_active_feed_idx').on(table.status, table.createdAt, table.id),
+    index('listings_active_kind_feed_idx').on(table.status, table.kind, table.createdAt, table.id),
+    index('listings_active_occurrence_idx').on(table.status, table.occurredOn, table.id),
+    index('listings_active_kind_occurrence_idx').on(
+      table.status,
+      table.kind,
+      table.occurredOn,
+      table.id,
+    ),
+    index('listings_created_by_user_id_idx').on(table.createdByUserId, table.createdAt, table.id),
+  ],
+);
+
+export const claims = pgTable(
+  'claims',
+  {
+    id: uuid('id')
+      .default(sql`uuidv7()`)
+      .primaryKey(),
+
+    listingId: uuid('listing_id')
+      .notNull()
+      .references(() => listings.id, { onDelete: 'cascade' }),
+
+    claimantUserId: uuid('claimant_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    status: claimStatusEnum('status').notNull().default('pending'),
+    verificationDetails: text('verification_details').notNull(),
+    handoverDetails: text('handover_details'),
+
+    reviewedByUserId: uuid('reviewed_by_user_id').references(() => users.id),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('claims_listing_claimant_unique').on(table.listingId, table.claimantUserId),
+    uniqueIndex('claims_one_approved_per_listing')
+      .on(table.listingId)
+      .where(sql`${table.status} = 'approved'`),
+    index('claims_listing_status_created_at_idx').on(
+      table.listingId,
+      table.status,
+      table.createdAt,
+    ),
+    index('claims_listing_feed_idx').on(table.listingId, table.createdAt, table.id),
+    index('claims_claimant_created_at_idx').on(table.claimantUserId, table.createdAt, table.id),
+  ],
 );

@@ -15,6 +15,7 @@ import {
 } from '@/auth/model';
 import { authenticationPlugin } from '@/auth/plugin';
 import { login, logout as logoutSession, register } from '@/auth/service';
+import { normalizeFields, trimFields } from '@/http/normalize';
 
 export const authRoutes = new Elysia({
   prefix: '/auth',
@@ -46,8 +47,8 @@ export const authRoutes = new Elysia({
     },
     {
       transform({ body }) {
-        body.email = normalizeEmail(body.email);
-        body.displayName = body.displayName.trim();
+        normalizeFields(body, { email: normalizeEmail });
+        trimFields(body, ['displayName']);
       },
       body: registerBodySchema,
       cookie: sessionCookieSchema,
@@ -83,7 +84,7 @@ export const authRoutes = new Elysia({
     },
     {
       transform({ body }) {
-        body.email = normalizeEmail(body.email);
+        normalizeFields(body, { email: normalizeEmail });
       },
       body: loginBodySchema,
       cookie: sessionCookieSchema,

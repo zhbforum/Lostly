@@ -1,0 +1,59 @@
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+}
+.tabs a {
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  text-decoration: none;
+  background: var(--color-surface);
+}
+.tabs a[aria-current='page'] {
+  color: white;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 0;
+  list-style: none;
+}
+.claim {
+  padding: 22px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 18px;
+  overflow-wrap: anywhere;
+}
+.claim h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+.claim p {
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+.refresh {
+  min-height: 40px;
+  padding: 0 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.tabs a:focus-visible,
+.claim a:focus-visible,
+.refresh:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+@media (max-width: 620px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}

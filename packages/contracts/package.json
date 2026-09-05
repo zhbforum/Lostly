@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./listings": "./src/listings.ts"
+    "./auth": "./src/auth.ts",
+    "./errors": "./src/errors.ts",
+    "./listings": "./src/listings.ts",
+    "./claims": "./src/claims.ts",
+    "./pagination": "./src/pagination.ts"
   }
 }

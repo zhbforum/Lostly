@@ -1,11 +1,12 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
 
 import styles from '@/app/router/AppRouter.module.css';
 import { useAuth } from '@/features/auth/model/auth-context';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { HomePage } from '@/pages/home/HomePage';
+import { safeReturnTo } from '@/shared/navigation/return-to';
 
 const CreateListingPage = lazy(async () => {
   const module = await import('@/pages/listings/CreateListingPage');
@@ -22,6 +23,18 @@ const ListingDetailsPage = lazy(async () => {
     default: module.ListingDetailsPage,
   };
 });
+
+const ListingsPage = lazy(async () => {
+  const module = await import('@/pages/listings/ListingsPage');
+
+  return {
+    default: module.ListingsPage,
+  };
+});
+
+const ActivityPage = lazy(async () => ({
+  default: (await import('@/pages/activity/ActivityPage')).ActivityPage,
+}));
 
 interface ListingPageFallbackProps {
   title: string;
@@ -43,6 +56,7 @@ function ListingPageFallback({ title, description }: ListingPageFallbackProps) {
 
 export function AppRouter() {
   const { status } = useAuth();
+  const location = useLocation();
 
   if (status === 'loading') {
     return (
@@ -80,7 +94,58 @@ export function AppRouter() {
   if (status === 'authenticated') {
     return (
       <Routes>
+        <Route
+          path="/login"
+          element={
+            <Navigate
+              to={safeReturnTo(location.state?.returnTo)}
+              state={location.state?.returnState}
+              replace
+            />
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <Navigate
+              to={safeReturnTo(location.state?.returnTo)}
+              state={location.state?.returnState}
+              replace
+            />
+          }
+        />
         <Route path="/" element={<HomePage />} />
+        <Route
+          path="/activity"
+          element={
+            <Suspense
+              fallback={
+                <ListingPageFallback
+                  title="Your activity"
+                  description="Loading reports and claims…"
+                />
+              }
+            >
+              <ActivityPage />
+            </Suspense>
+          }
+        />
+
+        <Route
+          path="/listings"
+          element={
+            <Suspense
+              fallback={
+                <ListingPageFallback
+                  title="Opening active reports"
+                  description="Loading the latest listings…"
+                />
+              }
+            >
+              <ListingsPage />
+            </Suspense>
+          }
+        />
 
         <Route
           path="/listings/new"
@@ -123,7 +188,19 @@ export function AppRouter() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route
+        path="*"
+        element={
+          <Navigate
+            to="/login"
+            replace
+            state={{
+              returnTo: location.pathname + location.search + location.hash,
+              returnState: location.state,
+            }}
+          />
+        }
+      />
     </Routes>
   );
 }

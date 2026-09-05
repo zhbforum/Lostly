@@ -7,6 +7,7 @@ export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'erro
 export interface AuthContextValue {
   user: AuthUser | null;
   status: AuthStatus;
+  sessionExpired?: boolean;
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;

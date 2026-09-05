@@ -1,12 +1,19 @@
 import { useEffect, useRef } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 
 import { useListingDetails } from '@/features/listings/model/use-listing-details';
 import { ListingDetails } from '@/features/listings/ui/ListingDetails/ListingDetails';
+import { ClaimPanel } from '@/features/claims/ui/ClaimPanel/ClaimPanel';
 import styles from '@/pages/listings/ListingDetailsPage.module.css';
 import { Brand } from '@/shared/ui/Brand/Brand';
 
 export function ListingDetailsPage() {
+  const location = useLocation();
+  const candidate: unknown = location.state?.returnTo;
+  const returnTo =
+    typeof candidate === 'string' && /^\/(listings|activity)(\?|$)/.test(candidate)
+      ? candidate
+      : '/listings';
   const { id } = useParams<{ id: string }>();
   const { state, retry } = useListingDetails(id);
   const listingTitleRef = useRef<HTMLHeadingElement>(null);
@@ -34,9 +41,13 @@ export function ListingDetailsPage() {
       <header className={styles.siteHeader}>
         <Brand variant="header" />
 
-        <Link className={styles.backLink} to="/">
+        <Link
+          className={styles.backLink}
+          to={returnTo}
+          state={{ pagination: location.state?.returnPagination }}
+        >
           <span aria-hidden="true">←</span>
-          Back to home
+          Back to results
         </Link>
       </header>
 
@@ -104,7 +115,15 @@ export function ListingDetailsPage() {
         )}
 
         {state.status === 'success' && (
-          <ListingDetails listing={state.listing} titleRef={listingTitleRef} />
+          <>
+            <ListingDetails listing={state.listing.listing} titleRef={listingTitleRef} />
+            <ClaimPanel
+              listingId={state.listing.listing.id}
+              capabilities={state.listing.capabilities}
+              initialClaim={state.listing.claim}
+              onChanged={retry}
+            />
+          </>
         )}
       </div>
     </main>

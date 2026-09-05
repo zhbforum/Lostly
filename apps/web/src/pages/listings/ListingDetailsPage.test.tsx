@@ -4,7 +4,7 @@ import { Link, MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getListing } from '@/features/listings/api/listings-api';
-import type { Listing } from '@/features/listings/model/types';
+import type { Listing, ListingDetailResponse } from '@/features/listings/model/types';
 import { ListingDetailsPage } from '@/pages/listings/ListingDetailsPage';
 import { ApiError } from '@/shared/api/client';
 
@@ -38,6 +38,18 @@ const secondListing = {
   description: 'Blue umbrella with a wooden handle.',
 } satisfies Listing;
 
+const listingDetails = {
+  listing,
+  capabilities: { canClaim: false, canReviewClaims: false },
+  claim: null,
+} satisfies ListingDetailResponse;
+
+const secondListingDetails = {
+  listing: secondListing,
+  capabilities: { canClaim: false, canReviewClaims: false },
+  claim: null,
+} satisfies ListingDetailResponse;
+
 function renderPage(path = `/listings/${LISTING_ID}`, navigationTarget?: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -62,9 +74,7 @@ describe('ListingDetailsPage', () => {
   });
 
   it('loads and displays the requested listing', async () => {
-    getListingMock.mockResolvedValue({
-      listing,
-    });
+    getListingMock.mockResolvedValue(listingDetails);
 
     renderPage();
 
@@ -122,9 +132,9 @@ describe('ListingDetailsPage', () => {
   it('shows a retryable error when loading fails', async () => {
     const user = userEvent.setup();
 
-    getListingMock.mockRejectedValueOnce(new Error('request failed')).mockResolvedValueOnce({
-      listing,
-    });
+    getListingMock
+      .mockRejectedValueOnce(new Error('request failed'))
+      .mockResolvedValueOnce(listingDetails);
 
     renderPage();
 
@@ -151,13 +161,11 @@ describe('ListingDetailsPage', () => {
 
   it('starts a new lifecycle when the listing id changes without remounting', async () => {
     const user = userEvent.setup();
-    let resolveSecondRequest: ((value: { listing: typeof secondListing }) => void) | undefined;
+    let resolveSecondRequest: ((value: ListingDetailResponse) => void) | undefined;
 
     getListingMock.mockImplementation((id) => {
       if (id === LISTING_ID) {
-        return Promise.resolve({
-          listing,
-        });
+        return Promise.resolve(listingDetails);
       }
 
       return new Promise((resolve) => {
@@ -194,9 +202,7 @@ describe('ListingDetailsPage', () => {
       }),
     ).toBeInTheDocument();
 
-    resolveSecondRequest?.({
-      listing: secondListing,
-    });
+    resolveSecondRequest?.(secondListingDetails);
 
     const secondHeading = await screen.findByRole('heading', {
       name: 'Blue umbrella',
@@ -207,8 +213,8 @@ describe('ListingDetailsPage', () => {
 
   it('aborts the previous request when the listing id changes', async () => {
     const user = userEvent.setup();
-    let resolveFirstRequest: ((value: { listing: typeof listing }) => void) | undefined;
-    let resolveSecondRequest: ((value: { listing: typeof secondListing }) => void) | undefined;
+    let resolveFirstRequest: ((value: ListingDetailResponse) => void) | undefined;
+    let resolveSecondRequest: ((value: ListingDetailResponse) => void) | undefined;
 
     getListingMock.mockImplementation(
       (id) =>
@@ -244,12 +250,8 @@ describe('ListingDetailsPage', () => {
 
     expect(firstSignal.aborted).toBe(true);
 
-    resolveFirstRequest?.({
-      listing,
-    });
-    resolveSecondRequest?.({
-      listing: secondListing,
-    });
+    resolveFirstRequest?.(listingDetails);
+    resolveSecondRequest?.(secondListingDetails);
 
     const secondHeading = await screen.findByRole('heading', {
       name: 'Blue umbrella',
@@ -259,7 +261,7 @@ describe('ListingDetailsPage', () => {
   });
 
   it('aborts the request when the page unmounts', async () => {
-    let resolveRequest: ((value: { listing: typeof listing }) => void) | undefined;
+    let resolveRequest: ((value: ListingDetailResponse) => void) | undefined;
 
     getListingMock.mockImplementation(
       () =>
@@ -282,8 +284,6 @@ describe('ListingDetailsPage', () => {
 
     expect(signal.aborted).toBe(true);
 
-    resolveRequest?.({
-      listing,
-    });
+    resolveRequest?.(listingDetails);
   });
 });
