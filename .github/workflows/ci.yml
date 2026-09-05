@@ -17,7 +17,9 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      VITE_API_URL: http://localhost:3000
 
     services:
       postgres:
@@ -42,6 +44,8 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.0'
 
       - name: Install dependencies
         run: bun ci
@@ -76,6 +80,24 @@ jobs:
         working-directory: apps/web
         run: bun run build
 
+      - name: Test web application
+        working-directory: apps/web
+        run: bun run test
+
       - name: Build admin application
         working-directory: apps/admin
-        run: bun run build
+        run: bun --bun run build
+
+      - name: Test admin application
+        working-directory: apps/admin
+        run: bun --bun run test --watch=false
+
+      - name: Install browser for E2E
+        working-directory: apps/web
+        run: bunx playwright install --with-deps chromium
+
+      - name: Test browser flow
+        working-directory: apps/web
+        env:
+          DATABASE_URL: postgresql://lostly:lostly_test@localhost:5432/lostly_test
+        run: bun run test:e2e
