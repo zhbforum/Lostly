@@ -1,5 +1,5 @@
 import type { ListingKind } from '@/features/listings/model/types';
-import fieldStyles from './ListingField.module.css';
+import fieldStyles from '../../ListingFormFields/ListingField.module.css';
 import styles from './ListingKindField.module.css';
 
 interface ListingKindFieldProps {

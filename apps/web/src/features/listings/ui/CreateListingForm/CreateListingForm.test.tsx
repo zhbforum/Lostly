@@ -14,7 +14,7 @@ vi.mock('@/features/listings/api/listings-api', () => ({
   createListing: createListingMock,
 }));
 
-vi.mock('./_parts/ListingDateField/ListingDateField', () => ({
+vi.mock('../ListingFormFields/ListingDateField/ListingDateField', () => ({
   ListingDateField: ({
     id,
     name,

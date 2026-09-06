@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 import type { Listing, ListingKind } from '@/features/listings/model/types';
 import { CreateListingForm } from '@/features/listings/ui/CreateListingForm';
 import { ListingCreationSuccess } from '@/features/listings/ui/ListingCreationSuccess/ListingCreationSuccess';
-import styles from '@/pages/listings/CreateListingPage.module.css';
+import styles from '@/pages/listings/ListingFormPage.module.css';
 import { Brand } from '@/shared/ui/Brand/Brand';
 
 function getInitialKind(searchParams: URLSearchParams): ListingKind | null {
