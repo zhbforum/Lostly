@@ -117,4 +117,28 @@ describe('getListingOccurredOnError', () => {
   it('accepts a provided occurrence date', () => {
     expect(getListingOccurredOnError('2026-09-01')).toBeNull();
   });
+
+  it.each(['2024-02-29', '2000-02-29', '0001-01-01', '9999-12-31'])(
+    'accepts the real calendar date %s',
+    (value) => expect(getListingOccurredOnError(value)).toBeNull(),
+  );
+
+  it.each([
+    ' ',
+    '2026-9-01',
+    '2026-09-1',
+    '09/01/2026',
+    '2026-09-01T00:00:00Z',
+    '2026-02-29',
+    '1900-02-29',
+    '2026-02-30',
+    '2026-04-31',
+    '2026-00-01',
+    '2026-13-01',
+    '2026-01-00',
+    '2026-01-32',
+    '0000-01-01',
+  ])('rejects the invalid calendar date %s', (value) => {
+    expect(getListingOccurredOnError(value)).toBe('Enter a valid date.');
+  });
 });

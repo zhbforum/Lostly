@@ -63,5 +63,14 @@ export function getListingOccurredOnError(value: string): string | null {
     return 'Enter the date the item was lost or found.';
   }
 
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000-')) {
+    return 'Enter a valid date.';
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    return 'Enter a valid date.';
+  }
+
   return null;
 }

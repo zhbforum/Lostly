@@ -6,6 +6,7 @@ export {
 } from '@lostly/contracts/listings';
 export type {
   CreateListingInput,
+  UpdateListingInput,
   Listing,
   ListingCapabilities,
   ListingDetailResponse,

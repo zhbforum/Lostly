@@ -1,11 +1,9 @@
 import type { CreateListingInput, ListingKind } from '@/features/listings/model/types';
 import {
-  getListingDescriptionError,
-  getListingKindError,
-  getListingLocationError,
-  getListingOccurredOnError,
-  getListingTitleError,
-} from '@/features/listings/model/validation';
+  toUpdateListingInput,
+  validateEditableListingFields,
+} from '@/features/listings/model/editable-listing-form';
+import { getListingKindError } from '@/features/listings/model/validation';
 
 export type CreateListingFormValues = Omit<CreateListingInput, 'kind'> & {
   kind: ListingKind | null;
@@ -30,32 +28,12 @@ export function createInitialListingFormValues(
 export function validateCreateListingForm(
   values: CreateListingFormValues,
 ): CreateListingFormErrors {
-  const errors: CreateListingFormErrors = {};
+  const errors: CreateListingFormErrors = validateEditableListingFields(values);
 
   const kindError = getListingKindError(values.kind);
-  const titleError = getListingTitleError(values.title);
-  const descriptionError = getListingDescriptionError(values.description);
-  const locationError = getListingLocationError(values.location);
-  const occurredOnError = getListingOccurredOnError(values.occurredOn);
 
   if (kindError) {
     errors.kind = kindError;
-  }
-
-  if (titleError) {
-    errors.title = titleError;
-  }
-
-  if (descriptionError) {
-    errors.description = descriptionError;
-  }
-
-  if (locationError) {
-    errors.location = locationError;
-  }
-
-  if (occurredOnError) {
-    errors.occurredOn = occurredOnError;
   }
 
   return errors;
@@ -68,9 +46,6 @@ export function toCreateListingInput(values: CreateListingFormValues): CreateLis
 
   return {
     kind: values.kind,
-    title: values.title.trim(),
-    description: values.description.trim(),
-    location: values.location.trim(),
-    occurredOn: values.occurredOn,
+    ...toUpdateListingInput(values),
   };
 }
