@@ -46,9 +46,19 @@ export interface ListingResponse {
   listing: Listing;
 }
 
+export interface UpdateListingInput {
+  title: string;
+  description: string;
+  location: string;
+  occurredOn: string;
+}
+
 export interface ListingCapabilities {
   canClaim: boolean;
   canReviewClaims: boolean;
+  canEdit: boolean;
+  canResolve: boolean;
+  canArchive: boolean;
 }
 
 export interface ListingDetailResponse extends ListingResponse {

@@ -46,7 +46,13 @@ describe('ListingFeed navigation', () => {
     }));
     detailsMock.mockResolvedValue({
       listing: item,
-      capabilities: { canClaim: false, canReviewClaims: false },
+      capabilities: {
+        canClaim: false,
+        canReviewClaims: false,
+        canEdit: false,
+        canResolve: false,
+        canArchive: false,
+      },
       claim: null,
     });
     const user = userEvent.setup();

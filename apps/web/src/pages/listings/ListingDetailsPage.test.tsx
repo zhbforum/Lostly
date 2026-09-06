@@ -40,13 +40,25 @@ const secondListing = {
 
 const listingDetails = {
   listing,
-  capabilities: { canClaim: false, canReviewClaims: false },
+  capabilities: {
+    canClaim: false,
+    canReviewClaims: false,
+    canEdit: false,
+    canResolve: false,
+    canArchive: false,
+  },
   claim: null,
 } satisfies ListingDetailResponse;
 
 const secondListingDetails = {
   listing: secondListing,
-  capabilities: { canClaim: false, canReviewClaims: false },
+  capabilities: {
+    canClaim: false,
+    canReviewClaims: false,
+    canEdit: false,
+    canResolve: false,
+    canArchive: false,
+  },
   claim: null,
 } satisfies ListingDetailResponse;
 

@@ -2,7 +2,12 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { listings } from '@/db/schema';
 import { findClaimForClaimant } from '@/claims/queries';
-import type { ListingKind } from '@/domain/listing';
+import {
+  canArchiveListing,
+  canEditListing,
+  canResolveListing,
+  type ListingKind,
+} from '@/domain/listing';
 import { publicListingSelection } from '@/listings/selection';
 
 export { listActiveListings } from '@/listings/feed';
@@ -61,6 +66,9 @@ export async function findListingForViewer(id: string, viewerUserId: string) {
     capabilities: {
       canClaim: !isOwner && isFound && listing.status === 'active' && !claim,
       canReviewClaims: isOwner && isFound,
+      canEdit: isOwner && canEditListing(listing.status),
+      canResolve: isOwner && canResolveListing(listing.status),
+      canArchive: isOwner && canArchiveListing(listing.status),
     },
     claim,
   };

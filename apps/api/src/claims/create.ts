@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { claims } from '@/db/schema';
 import { isClaimableListingKind } from '@/domain/claim';
-import { lockListing } from '@/claims/locking';
+import { lockListing } from '@/listings/locking';
 import { claimSelection, type ClaimRecord, type ClaimResult } from '@/claims/selection';
 
 export async function createClaim(input: {

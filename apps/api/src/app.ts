@@ -9,6 +9,7 @@ import { corsPlugin } from '@/http/cors';
 import { errorHandler } from '@/http/errors';
 import { isCsrfProtectedRequest } from '@/http/csrf';
 import { listingRoutes } from '@/listings/routes';
+import { listingManagementRoutes } from '@/listings/management-routes';
 
 export const app = new Elysia()
   .use(corsPlugin)
@@ -47,5 +48,6 @@ export const app = new Elysia()
   })
   .use(authRoutes)
   .use(listingRoutes)
+  .use(listingManagementRoutes)
   .use(claimRoutes)
   .use(activityRoutes);

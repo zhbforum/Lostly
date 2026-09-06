@@ -26,7 +26,13 @@ const ownerDetails: ListingDetailResponse = {
     createdAt: '2026-09-01T10:00:00.000Z',
     updatedAt: '2026-09-01T10:00:00.000Z',
   },
-  capabilities: { canReviewClaims: true, canClaim: false },
+  capabilities: {
+    canReviewClaims: true,
+    canClaim: false,
+    canEdit: true,
+    canResolve: true,
+    canArchive: true,
+  },
   claim: null,
 };
 const claim: IncomingClaim = {
@@ -75,6 +81,7 @@ describe('listing claims flow', () => {
     details.mockResolvedValueOnce(ownerDetails).mockResolvedValue({
       ...ownerDetails,
       listing: { ...ownerDetails.listing, status: 'resolved' },
+      capabilities: { ...ownerDetails.capabilities, canEdit: false, canResolve: false },
     });
     incoming
       .mockResolvedValueOnce({ claims: [claim], pageInfo: end })
@@ -106,7 +113,13 @@ describe('listing claims flow', () => {
       status: 'approved' as const,
       handoverDetails: 'Collect from library reception.',
     };
-    const viewer = { canReviewClaims: false, canClaim: true };
+    const viewer = {
+      canReviewClaims: false,
+      canClaim: true,
+      canEdit: false,
+      canResolve: false,
+      canArchive: false,
+    };
     details
       .mockResolvedValueOnce({ ...ownerDetails, capabilities: viewer })
       .mockResolvedValueOnce({
@@ -135,7 +148,13 @@ describe('listing claims flow', () => {
   it('does not show claim controls or private proof to an unrelated viewer', async () => {
     details.mockResolvedValue({
       ...ownerDetails,
-      capabilities: { canClaim: false, canReviewClaims: false },
+      capabilities: {
+        canClaim: false,
+        canReviewClaims: false,
+        canEdit: false,
+        canResolve: false,
+        canArchive: false,
+      },
       claim: null,
     });
     renderPage();
