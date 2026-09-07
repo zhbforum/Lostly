@@ -19,7 +19,7 @@ stay only in memory in the current tab during reauthentication. They are restore
 cleared on explicit logout/account switch, and discarded after successful submission. Passwords are never
 stored as drafts. Reloading or closing the tab loses these drafts. Mutations are never automatically replayed.
 
-Edit-report drafts are keyed by listing ID and server `updatedAt`. Reauthentication restores unsaved
+Edit-report drafts are keyed by listing ID and server `version`. Reauthentication restores unsaved
 fields only for the same report version; a refreshed server version starts a new form instance.
 Successful saves discard that version's draft before navigation. The update confirmation is consumed
 once from navigation state without dropping the URL query, fragment, or other state; it does not repeat
@@ -58,12 +58,15 @@ bun run test:e2e
 
 Ports 3000 and 4173 must be free. The test covers login, return to the intended form, creation, editing,
 resolution, disappearance from discovery, My reports, archiving, and reopening/reloading the archived
-report with the session cookie. Reopening its page does not reactivate it. CI runs API integration tests, both UI test suites and this
-browser test. Failure traces contain synthetic test data; avoid publishing traces from real user sessions.
+report with the session cookie. Reopening its page does not reactivate it. CI runs API integration tests,
+both UI test suites and this browser test. Failure traces contain synthetic test data; avoid publishing
+traces from real user sessions.
 
-Owner controls require no new database migration. Deploy API and web together so the client receives
-the new edit/resolve/archive capabilities. All listing/claim mutations use the same parent row lock;
-integration concurrency tests verify actual PostgreSQL lock waiting in both orders. See
+Owner controls require the listing-version migration. Apply pending API migrations before starting
+the updated API so existing listings receive `version = 1`. Deploy API and web together so the client
+receives the new edit/resolve/archive capabilities and sends `expectedVersion` for edits. All
+listing/claim mutations use the same parent row lock; integration concurrency tests verify actual
+PostgreSQL lock waiting in both orders. See
 [owner controls and lifecycle rules](discovery-claims.md#listing-owner-controls-7).
 
 ## Runtime protection

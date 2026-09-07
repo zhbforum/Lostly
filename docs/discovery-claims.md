@@ -41,9 +41,10 @@ manual owner resolution. It does not independently confirm physical delivery.
 A future two-party delivery confirmation should be a separate lifecycle transition.
 
 Claim creation, decisions, and all owner mutations (including edit) always lock the parent listing
-**before** checking its state or locking/updating claims. Any future operations must preserve this ordering and the same state
-invariants. Database unique indexes enforce one claim per claimant/report and at most one approved
-claim per report. Existing approved claims may have null instructions; the UI supports those legacy rows.
+**before** checking its state or locking/updating claims. Any future operations must preserve this ordering
+and the same state invariants. Database unique indexes enforce one claim per claimant/report and at most
+one approved claim per report. Existing approved claims may have null instructions; the UI supports those
+legacy rows.
 
 ## Listing owner controls (#7)
 
@@ -51,26 +52,32 @@ The owner can edit or manually resolve only an `active` report. Archiving permit
 and `resolved → archived`. There is no reactivation or reopen transition. Repeating resolve or archive
 returns a state conflict rather than a successful no-op.
 
-PATCH requires the complete payload `{ title, description, location, occurredOn }`. Text fields are
-trimmed and use the same length limits as creation; `occurredOn` is a real calendar date in `YYYY-MM-DD`
-form. Unknown fields, including `kind`, `status`, `createdByUserId`, `id`, `createdAt`, and `updatedAt`,
-return `422 VALIDATION_ERROR` without changing any part of the record. A route-local transform checks
-keys before Elysia normalization. Global normalization and `POST /listings` behavior are unchanged.
-The service also explicitly selects the four writable fields. Actor IDs always come from the session.
+PATCH requires the complete payload `{ expectedVersion, title, description, location, occurredOn }`.
+Text fields are trimmed and use the same length limits as creation; `occurredOn` is a real calendar date
+in `YYYY-MM-DD` form. Unknown fields, including `kind`, `status`, `createdByUserId`, `id`, `version`,
+`createdAt`, and `updatedAt`, return `422 VALIDATION_ERROR` without changing any part of the record.
+A route-local transform checks keys before Elysia normalization. Global normalization and
+`POST /listings` behavior are unchanged. The service also explicitly selects the four writable fields.
+Actor IDs always come from the session.
 
 Each mutation runs in a transaction, acquires the shared `listings/locking.ts` `FOR UPDATE` lock,
 checks ownership and the domain transition, and then writes. Its timestamp is created after the lock.
+For edits, the server compares `expectedVersion` with the current listing `version` after acquiring
+the row lock. A mismatch returns `409 LISTING_VERSION_CONFLICT` without changing the record.
+Every successful mutation that changes the listing increments `version`.
+
 Closing an active report atomically rejects every pending claim with `reviewedByUserId` set to the
 owner and `reviewedAt` / `updatedAt` equal to the listing's new `updatedAt`. Already approved/rejected
 claims are untouched, including private handover instructions and previous audit fields. Archiving
 a resolved report does not change claim history at all. Edit also uses the shared lock so it cannot
-save changes after a competing operation closes the report.
+save changes after a competing operation closes or otherwise changes the report.
 
 Missing reports return `404 LISTING_NOT_FOUND`. Another user receives `403 LISTING_UPDATE_FORBIDDEN`,
 `LISTING_RESOLVE_FORBIDDEN`, or `LISTING_ARCHIVE_FORBIDDEN`. State conflicts return `409` with
-`LISTING_NOT_EDITABLE`, `LISTING_NOT_RESOLVABLE`, or `LISTING_ALREADY_ARCHIVED`. Valid unauthenticated
-requests return `401 UNAUTHENTICATED`; malformed bodies/UUIDs can return `422` before authentication,
-and missing CSRF protection returns `403 CSRF_VALIDATION_FAILED`, consistent with existing routes.
+`LISTING_NOT_EDITABLE`, `LISTING_NOT_RESOLVABLE`, or `LISTING_ALREADY_ARCHIVED`. A stale edit returns
+`409 LISTING_VERSION_CONFLICT`. Valid unauthenticated requests return `401 UNAUTHENTICATED`;
+malformed bodies/UUIDs can return `422` before authentication, and missing CSRF protection returns
+`403 CSRF_VALIDATION_FAILED`, consistent with existing routes.
 
 `canEdit`, `canResolve`, and `canArchive` combine ownership with the same domain policy functions used
 by mutations. The web client uses these capabilities to display controls. `canReviewClaims` remains
@@ -84,9 +91,11 @@ archived reports remain in `GET /me/listings` and are still accessible to authen
 Owner controls live on `/listings/:id`; `/listings/:id/edit` loads the report and requires `canEdit`.
 Resolve/archive use accessible confirmation dialogs that warn about closing pending claims and
 the absence of reactivation. Successful edits return to refreshed details. Closing a report refreshes
-details and incoming claims together. A conflicting edit explains that the report's status changed,
-preserves the entered text, disables saving, and offers navigation back to current details. A closing
-action conflict refreshes the current status and capabilities. Network errors permit retry/refresh.
+details and incoming claims together. A stale edit explains that the report changed since the editor
+was opened, preserves the entered fields and draft, disables resubmission from that stale editor, and
+directs the owner back to the current report before editing again. A status conflict uses the separate
+`LISTING_NOT_EDITABLE` flow. A closing action conflict refreshes the current status and capabilities.
+Network errors permit retry/refresh.
 
 ## Pagination and UI
 
@@ -113,11 +122,14 @@ bun run lint
 ```
 
 Apply all pending migrations with `bun run --cwd apps/api db:migrate` using the intended database
-configuration before deploying the API. Deploy the updated web client and API together: approval
-now requires `handoverDetails`, and incoming claims are paginated. Review existing data before
-production rollout: the approved-claim unique index intentionally fails if multiple approved claims
-already exist for one report; do not silently discard such records. Index creation may require a
-maintenance window on a large database.
+configuration before deploying the API. The listing-version migration initializes existing reports
+with `version = 1`; the web client and API must be deployed compatibly because edits now send
+`expectedVersion`.
+
+Deploy the updated web client and API together: approval now requires `handoverDetails`, and incoming
+claims are paginated. Review existing data before production rollout: the approved-claim unique index
+intentionally fails if multiple approved claims already exist for one report; do not silently discard
+such records. Index creation may require a maintenance window on a large database.
 
 For integration tests, point `DATABASE_URL` at a **dedicated disposable** PostgreSQL 18 database
 named `lostly_test`, apply migrations there, then run `bun run --cwd apps/api test:integration`.
@@ -130,7 +142,9 @@ Owner management concurrency tests pause the real lock helper after the first tr
 its row lock, then start the second mutation. They query PostgreSQL `pg_stat_activity` and
 `pg_blocking_pids` to prove that the second connection is blocked on the listing's `FOR UPDATE`,
 then release the first operation. Both acquisition orders are covered for edit, claim creation, and
-claim approval against resolve and archive. Assertions include final listing/claims state, shared
+claim approval against resolve and archive. A dedicated stale-editor test starts two edits from the
+same listing version and verifies that the second save receives `LISTING_VERSION_CONFLICT` without
+overwriting the first. Assertions include final listing/claims state, version increments, shared
 audit timestamps and actor IDs, and preservation of completed claim data. These tests require real
 PostgreSQL and must not be replaced with mocked database calls or simultaneous-request-only tests.
 
