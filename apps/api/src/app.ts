@@ -1,18 +1,20 @@
 import { sql } from 'drizzle-orm';
 import { Elysia } from 'elysia';
 
-import { authRoutes } from '@/auth/routes';
 import { activityRoutes } from '@/activity/routes';
+import { authRoutes } from '@/auth/routes';
 import { claimRoutes } from '@/claims/routes';
 import { db } from '@/db';
 import { corsPlugin } from '@/http/cors';
-import { errorHandler } from '@/http/errors';
 import { isCsrfProtectedRequest } from '@/http/csrf';
+import { errorHandler } from '@/http/errors';
 import { listingRoutes } from '@/listings/routes';
+import { openApiPlugin } from '@/openapi';
 
 export const app = new Elysia()
   .use(corsPlugin)
   .use(errorHandler)
+  .use(openApiPlugin)
   .onBeforeHandle(({ set }) => {
     set.headers['Cache-Control'] = 'private, no-store';
   })
@@ -26,25 +28,44 @@ export const app = new Elysia()
       });
     }
   })
-  .get('/', () => ({
-    name: 'Lostly API',
-    status: 'ok',
-  }))
-  .get('/health', async ({ status }) => {
-    try {
-      await db.execute(sql`select 1`);
+  .get(
+    '/',
+    () => ({
+      name: 'Lostly API',
+      status: 'ok',
+    }),
+    {
+      detail: {
+        tags: ['System'],
+        summary: 'Get API status',
+      },
+    },
+  )
+  .get(
+    '/health',
+    async ({ status }) => {
+      try {
+        await db.execute(sql`select 1`);
 
-      return {
-        status: 'ok',
-        database: 'connected',
-      };
-    } catch {
-      return status(503, {
-        status: 'error',
-        database: 'unavailable',
-      });
-    }
-  })
+        return {
+          status: 'ok',
+          database: 'connected',
+        };
+      } catch {
+        return status(503, {
+          status: 'error',
+          database: 'unavailable',
+        });
+      }
+    },
+    {
+      detail: {
+        tags: ['System'],
+        summary: 'Check service health',
+        description: 'Checks API availability and PostgreSQL connectivity.',
+      },
+    },
+  )
   .use(authRoutes)
   .use(listingRoutes)
   .use(claimRoutes)

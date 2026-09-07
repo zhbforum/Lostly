@@ -13,9 +13,13 @@ import {
   listListingsQuerySchema,
 } from '@/listings/model';
 import { createListing, findListingForViewer, listActiveListings } from '@/listings/service';
+import { openApiMutationSecurity, openApiSessionSecurity } from '@/openapi';
 
 export const listingRoutes = new Elysia({
   prefix: '/listings',
+  detail: {
+    tags: ['Listings'],
+  },
 })
   .use(authenticationPlugin)
   .get(
@@ -41,6 +45,12 @@ export const listingRoutes = new Elysia({
         200: listingListResponseSchema,
         400: invalidListingCursorResponseSchema,
       },
+      detail: {
+        summary: 'List active reports',
+        description:
+          'Returns active lost and found reports using filters, sorting, and cursor pagination.',
+        security: openApiSessionSecurity,
+      },
     },
   )
   .get(
@@ -65,6 +75,12 @@ export const listingRoutes = new Elysia({
       response: {
         200: listingDetailResponseSchema,
         404: listingNotFoundResponseSchema,
+      },
+      detail: {
+        summary: 'Get report details',
+        description:
+          'Returns a report together with viewer-specific claim state and available capabilities.',
+        security: openApiSessionSecurity,
       },
     },
   )
@@ -92,6 +108,11 @@ export const listingRoutes = new Elysia({
       body: createListingBodySchema,
       response: {
         201: listingResponseSchema,
+      },
+      detail: {
+        summary: 'Create a report',
+        description: 'Creates a new lost or found report for the authenticated user.',
+        security: openApiMutationSecurity,
       },
     },
   );

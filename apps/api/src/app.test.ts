@@ -6,6 +6,45 @@ const { app } = await import('@/app');
 
 const id = '550e8400-e29b-41d4-a716-446655440001';
 
+type OpenApiOperation = Record<string, unknown>;
+
+type OpenApiDocument = {
+  info: Record<string, unknown>;
+  components: {
+    securitySchemes: Record<string, unknown>;
+  };
+  paths: {
+    '/auth/register': {
+      post: OpenApiOperation;
+    };
+    '/auth/login': {
+      post: OpenApiOperation;
+    };
+    '/auth/me': {
+      get: OpenApiOperation;
+    };
+    '/auth/logout': {
+      post: OpenApiOperation;
+    };
+    '/listings/': {
+      get: OpenApiOperation;
+      post: OpenApiOperation;
+    };
+    '/listings/{id}/claims': {
+      post: OpenApiOperation;
+    };
+    '/claims/{claimId}': {
+      patch: OpenApiOperation;
+    };
+    '/me/listings': {
+      get: OpenApiOperation;
+    };
+    '/me/claims': {
+      get: OpenApiOperation;
+    };
+  };
+};
+
 describe('API route compilation and validation', () => {
   test('requires an explicit listing kind instead of silently defaulting to lost', async () => {
     const response = await app.handle(
@@ -48,6 +87,112 @@ describe('API route compilation and validation', () => {
     });
   }
 
+  test('documents OpenAPI metadata and request security requirements', async () => {
+    const response = await app.handle(new Request('http://localhost/openapi/json'));
+
+    expect(response.status).toBe(200);
+
+    const document = (await response.json()) as OpenApiDocument;
+
+    expect(document.info).toMatchObject({
+      title: 'Lostly API',
+      version: '0.1.0',
+    });
+
+    expect(document.components.securitySchemes).toMatchObject({
+      sessionCookie: {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'lostly_session',
+      },
+      csrfProtection: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-CSRF-Protection',
+      },
+    });
+
+    expect(document.paths['/auth/register'].post).toMatchObject({
+      tags: ['Authentication'],
+      summary: 'Register an account',
+      security: [{ csrfProtection: [] }],
+    });
+
+    expect(document.paths['/auth/login'].post).toMatchObject({
+      tags: ['Authentication'],
+      summary: 'Sign in',
+      security: [{ csrfProtection: [] }],
+    });
+
+    expect(document.paths['/auth/me'].get).toMatchObject({
+      tags: ['Authentication'],
+      summary: 'Get current user',
+      security: [{ sessionCookie: [] }],
+    });
+
+    expect(document.paths['/auth/logout'].post).toMatchObject({
+      tags: ['Authentication'],
+      summary: 'Sign out',
+      security: [{ csrfProtection: [] }],
+      responses: {
+        204: {
+          description: 'Session cleared successfully.',
+        },
+      },
+    });
+
+    expect(document.paths['/listings/'].get).toMatchObject({
+      tags: ['Listings'],
+      summary: 'List active reports',
+      security: [{ sessionCookie: [] }],
+    });
+
+    expect(document.paths['/listings/'].post).toMatchObject({
+      tags: ['Listings'],
+      summary: 'Create a report',
+      security: [
+        {
+          sessionCookie: [],
+          csrfProtection: [],
+        },
+      ],
+    });
+
+    expect(document.paths['/listings/{id}/claims'].post).toMatchObject({
+      tags: ['Claims'],
+      summary: 'Submit a claim',
+      security: [
+        {
+          sessionCookie: [],
+          csrfProtection: [],
+        },
+      ],
+    });
+
+    expect(document.paths['/claims/{claimId}'].patch).toMatchObject({
+      tags: ['Claims'],
+      summary: 'Review a claim',
+      security: [
+        {
+          sessionCookie: [],
+          csrfProtection: [],
+        },
+      ],
+    });
+
+    expect(document.paths['/me/listings'].get).toMatchObject({
+      tags: ['Activity'],
+      summary: 'List my reports',
+      security: [{ sessionCookie: [] }],
+    });
+
+    expect(document.paths['/me/claims'].get).toMatchObject({
+      tags: ['Activity'],
+      summary: 'List my claim activity',
+      security: [{ sessionCookie: [] }],
+    });
+  });
+
   test('does not echo malformed JSON or private field values', async () => {
     const response = await app.handle(
       new Request('http://localhost/auth/login', {
@@ -59,6 +204,7 @@ describe('API route compilation and validation', () => {
     expect(response.status).toBe(400);
     expect(await response.text()).not.toContain('private-secret');
   });
+
   test('compiles all feature routes and serves the root without a database', async () => {
     const response = await app.handle(new Request('http://localhost/'));
     expect(response.status).toBe(200);
