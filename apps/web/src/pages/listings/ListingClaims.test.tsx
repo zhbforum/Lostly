@@ -19,6 +19,7 @@ const ownerDetails: ListingDetailResponse = {
     id,
     kind: 'found',
     status: 'active',
+    version: 1,
     title: 'Blue backpack',
     description: 'Found backpack',
     location: 'Berlin',

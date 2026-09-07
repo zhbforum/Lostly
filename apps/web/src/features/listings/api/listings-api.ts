@@ -22,10 +22,15 @@ export function getListing(id: string, signal?: AbortSignal): Promise<ListingDet
   });
 }
 
-export function updateListing(id: string, input: UpdateListingInput): Promise<ListingResponse> {
+export function updateListing(
+  id: string,
+  input: UpdateListingInput,
+  signal?: AbortSignal,
+): Promise<ListingResponse> {
   return apiRequest<ListingResponse>(`/listings/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: input,
+    signal,
   });
 }
 

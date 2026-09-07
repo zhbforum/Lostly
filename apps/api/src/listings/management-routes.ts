@@ -35,6 +35,11 @@ const MANAGEMENT_ERRORS = {
     code: 'LISTING_NOT_EDITABLE',
     message: 'This report can no longer be edited because its status has changed.',
   },
+  'version-conflict': {
+    status: 409,
+    code: 'LISTING_VERSION_CONFLICT',
+    message: 'This report has been updated since you started editing it.',
+  },
   'not-resolvable': {
     status: 409,
     code: 'LISTING_NOT_RESOLVABLE',
@@ -62,6 +67,7 @@ export const listingManagementRoutes = new Elysia({ prefix: '/listings' })
       const result = await updateOwnedListing({
         listingId: params.id,
         ownerUserId: auth.user.id,
+        expectedVersion: body.expectedVersion,
         title: body.title,
         description: body.description,
         location: body.location,
@@ -86,6 +92,10 @@ export const listingManagementRoutes = new Elysia({ prefix: '/listings' })
           !Array.isArray(body) &&
           Object.keys(body).some((key) => !Object.hasOwn(updateListingBodySchema.properties, key))
         ) {
+          throw new ValidationError('body', updateListingBodySchema, body);
+        }
+        // Keep the version a JSON number; Elysia otherwise coerces numeric strings.
+        if (body && typeof body.expectedVersion !== 'number') {
           throw new ValidationError('body', updateListingBodySchema, body);
         }
         trimFields(body, ['title', 'description', 'location']);

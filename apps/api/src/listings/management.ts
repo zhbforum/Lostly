@@ -13,6 +13,7 @@ type ManagementFailure =
   | 'resolve-forbidden'
   | 'archive-forbidden'
   | 'not-editable'
+  | 'version-conflict'
   | 'not-resolvable'
   | 'already-archived';
 type ManagementResult =
@@ -31,6 +32,7 @@ export async function updateOwnedListing(
     if (listing.createdByUserId !== input.ownerUserId)
       return { ok: false, reason: 'update-forbidden' };
     if (!canEditListing(listing.status)) return { ok: false, reason: 'not-editable' };
+    if (listing.version !== input.expectedVersion) return { ok: false, reason: 'version-conflict' };
 
     const [updated] = await tx
       .update(listings)
@@ -39,6 +41,7 @@ export async function updateOwnedListing(
         description: input.description,
         location: input.location,
         occurredOn: input.occurredOn,
+        version: listing.version + 1,
         updatedAt: new Date(),
       })
       .where(eq(listings.id, listing.id))
@@ -76,7 +79,7 @@ async function closeOwnedListing(
     const now = new Date();
     const [updated] = await tx
       .update(listings)
-      .set({ status: target, updatedAt: now })
+      .set({ status: target, version: listing.version + 1, updatedAt: now })
       .where(eq(listings.id, listing.id))
       .returning(publicListingSelection);
     if (!updated) throw new Error('Failed to close locked listing');

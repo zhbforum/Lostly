@@ -1,10 +1,19 @@
 import { afterAll, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { eq, sql } from 'drizzle-orm';
 import type { ClaimResponse } from '@lostly/contracts/claims';
+import type { ListingResponse } from '@lostly/contracts/listings';
 import { db } from '@/db';
 import { claims, listings } from '@/db/schema';
 import * as locking from '@/listings/locking';
-import { claim, clearDatabase, editableInput, report, request, user } from './management-fixtures';
+import {
+  claim,
+  clearDatabase,
+  editableInput,
+  report,
+  request,
+  updateInput,
+  user,
+} from './management-fixtures';
 
 beforeEach(clearDatabase);
 afterAll(clearDatabase);
@@ -99,6 +108,53 @@ async function runInLockOrder(first: () => Promise<Response>, second: () => Prom
 }
 
 describe('deterministic listing/claim concurrency', () => {
+  test('checks the editor version after waiting for a competing edit to commit', async () => {
+    const owner = await user('owner');
+    const listing = await report(owner.id);
+    const input = {
+      title: listing.title,
+      description: listing.description,
+      location: listing.location,
+      occurredOn: listing.occurredOn,
+      expectedVersion: listing.version,
+    };
+    const {
+      responses: [first, second],
+    } = await runInLockOrder(
+      () =>
+        request(
+          '/listings/' + listing.id,
+          owner.cookie,
+          { ...input, title: 'First tab title' },
+          'PATCH',
+        ),
+      () =>
+        request(
+          '/listings/' + listing.id,
+          owner.cookie,
+          { ...input, description: 'Second tab description' },
+          'PATCH',
+        ),
+    );
+    expect(first!.status).toBe(200);
+    expect(second!.status).toBe(409);
+    expect(await second!.json()).toMatchObject({ error: { code: 'LISTING_VERSION_CONFLICT' } });
+    const saved = (await first!.json()) as ListingResponse;
+    const [stored] = await db.select().from(listings).where(eq(listings.id, listing.id));
+    expect(stored).toEqual({
+      ...listing,
+      title: 'First tab title',
+      version: listing.version + 1,
+      updatedAt: new Date(saved.listing.updatedAt),
+    });
+    expect(saved).toMatchObject({
+      listing: {
+        title: stored!.title,
+        version: stored!.version,
+      },
+    });
+  }, 15000);
+
   for (const close of ['resolve', 'archive'] as const) {
     for (const other of ['edit', 'create', 'approve'] as const) {
       test.each([
@@ -122,7 +178,7 @@ describe('deterministic listing/claim concurrency', () => {
             request(`/listings/${listing.id}/${close}`, owner.cookie, undefined, 'POST');
           const competing = () =>
             other === 'edit'
-              ? request('/listings/' + listing.id, owner.cookie, editableInput, 'PATCH')
+              ? request('/listings/' + listing.id, owner.cookie, updateInput, 'PATCH')
               : other === 'create'
                 ? request(`/listings/${listing.id}/claims`, newcomer.cookie, {
                     verificationDetails: 'Private proof from new claimant.',
@@ -146,6 +202,11 @@ describe('deterministic listing/claim concurrency', () => {
           expect(competingResponse.status).toBe(closeFirst ? 409 : other === 'create' ? 201 : 200);
           const [stored] = await db.select().from(listings).where(eq(listings.id, listing.id));
           expect(stored!.status).toBe(close === 'archive' ? 'archived' : 'resolved');
+          expect(stored!.version).toBe(
+            listing.version +
+              Number(closingResponse.status === 200) +
+              Number(!closeFirst && other !== 'create'),
+          );
           expect(stored!.updatedAt.getTime()).toBeGreaterThanOrEqual(releasedAt.getTime());
           expect(stored!.title).toBe(
             !closeFirst && other === 'edit' ? editableInput.title : listing.title,

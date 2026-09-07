@@ -7,6 +7,7 @@ export function ownerReport(status: ListingStatus = 'active'): ListingDetailResp
       id: reportId,
       kind: 'lost',
       status,
+      version: 1,
       title: 'Blue backpack',
       description: 'A blue backpack with a red zip.',
       location: 'Berlin library',

@@ -7,7 +7,7 @@ import { EditListingPage } from './EditListingPage';
 
 vi.mock('@/features/listings/model/use-listing-details');
 
-it('keeps a draft for the same version but remounts the editor when server updatedAt changes', () => {
+it('keeps a draft for the same version but remounts the editor when server version changes', () => {
   const report = ownerReport();
   const retry = vi.fn();
   vi.mocked(useListingDetails).mockReturnValue({
@@ -35,7 +35,7 @@ it('keeps a draft for the same version but remounts the editor when server updat
     listing: {
       ...report.listing,
       title: 'New server title',
-      updatedAt: '2026-09-02T10:00:00.000Z',
+      version: report.listing.version + 1,
     },
   };
   vi.mocked(useListingDetails).mockReturnValue({

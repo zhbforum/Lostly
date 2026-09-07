@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { Link, MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   archiveListing,
@@ -214,6 +214,37 @@ describe('listing owner management', () => {
     await screen.findByRole('heading', { name: 'Edited backpack' });
     expect(screen.getByRole('status')).toHaveTextContent('Your report was updated.');
     expect(details).toHaveBeenCalledTimes(3);
+  });
+
+  it('stays on the new page when a PATCH finishes after leaving the editor', async () => {
+    const report = ownerReport();
+    details.mockResolvedValue(report);
+    let finish!: (value: { listing: typeof report.listing }) => void;
+    vi.mocked(updateListing).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={[`/listings/${reportId}/edit`]}>
+        <Link to="/elsewhere">Leave editor</Link>
+        <Routes>
+          <Route path="/listings/:id/edit" element={<EditListingPage />} />
+          <Route path="/listings/:id" element={<ListingDetailsPage />} />
+          <Route path="/elsewhere" element={<h1>Another page</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('link', { name: 'Leave editor' }));
+    expect(screen.getByRole('heading', { name: 'Another page' })).toBeVisible();
+    await act(async () =>
+      finish({ listing: { ...report.listing, version: report.listing.version + 1 } }),
+    );
+    expect(screen.getByRole('heading', { name: 'Another page' })).toBeVisible();
+    expect(screen.queryByText('Your report was updated.')).not.toBeInTheDocument();
+    expect(details).toHaveBeenCalledTimes(1);
   });
 
   it.each(['resolved', 'archived'] as const)(

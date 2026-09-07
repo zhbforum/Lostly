@@ -50,6 +50,7 @@ describe('createListing', () => {
     });
 
     expect(listing).toMatchObject({
+      version: 1,
       kind: 'lost',
       status: 'active',
       title: 'Black backpack',

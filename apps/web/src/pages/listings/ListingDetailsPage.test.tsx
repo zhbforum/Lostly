@@ -23,6 +23,7 @@ const listing = {
   id: LISTING_ID,
   kind: 'lost' as const,
   status: 'active' as const,
+  version: 1,
   title: 'Black backpack',
   description: 'Black backpack with a small front pocket.',
   location: 'TU Berlin',

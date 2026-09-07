@@ -52,7 +52,6 @@ export function EditListingPage() {
           {state.status === 'success' &&
             (state.listing.capabilities.canEdit ? (
               <EditListingForm
-                key={`${state.listing.listing.id}:${state.listing.listing.updatedAt}`}
                 listing={state.listing.listing}
                 onSaved={() => {
                   navigate(detailPath, {

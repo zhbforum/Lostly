@@ -20,6 +20,7 @@ const listing = {
   id: '550e8400-e29b-41d4-a716-446655440001',
   kind: 'found',
   status: 'active',
+  version: 1,
   title: 'Blue backpack',
   description: 'A blue backpack with a front pocket.',
   location: 'Berlin library',
@@ -68,6 +69,7 @@ describe('authentication and report flow', () => {
       const fresh = {
         ...report.listing,
         title: 'Updated in another tab',
+        version: report.listing.version + 1,
         description: 'A newer server description.',
         location: 'New server location',
         occurredOn: '2026-09-03',
@@ -86,7 +88,10 @@ describe('authentication and report flow', () => {
           if (url.endsWith('/listings/' + report.listing.id)) {
             if (options.method === 'PATCH') {
               updates += 1;
-              expect(JSON.parse(options.body as string)).toEqual(edited);
+              expect(JSON.parse(options.body as string)).toEqual({
+                ...edited,
+                expectedVersion: report.listing.version,
+              });
               return unauthorized();
             }
             return Response.json({

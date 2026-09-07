@@ -26,6 +26,7 @@ export interface Listing {
   id: string;
   kind: ListingKind;
   status: ListingStatus;
+  version: number;
   title: string;
   description: string;
   location: string;
@@ -47,6 +48,7 @@ export interface ListingResponse {
 }
 
 export interface UpdateListingInput {
+  expectedVersion: number;
   title: string;
   description: string;
   location: string;

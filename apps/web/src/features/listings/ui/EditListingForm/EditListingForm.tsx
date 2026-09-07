@@ -3,7 +3,7 @@ import { updateListing } from '@/features/listings/api/listings-api';
 import { LISTING_CONSTRAINTS, type Listing } from '@/features/listings/model/types';
 import {
   toEditableValues,
-  toUpdateListingInput,
+  toEditableListingInput,
   validateEditableListingFields,
   type EditableListingFormField,
   type EditableListingFormErrors,
@@ -28,9 +28,13 @@ interface EditListingFormProps {
   onSaved: (listing: Listing) => void;
 }
 
-export function EditListingForm({ listing, onSaved }: EditListingFormProps) {
+export function EditListingForm(props: EditListingFormProps) {
+  return <ListingEditor key={`${props.listing.id}:${props.listing.version}`} {...props} />;
+}
+
+function ListingEditor({ listing, onSaved }: EditListingFormProps) {
   const [values, setValues, discardDraft] = useFormDraft(
-    `listing:edit:${listing.id}:${listing.updatedAt}`,
+    `listing:edit:${listing.id}:${listing.version}`,
     () => toEditableValues(listing),
   );
   const [errors, setErrors] = useState<EditableListingFormErrors>({});
@@ -38,10 +42,12 @@ export function EditListingForm({ listing, onSaved }: EditListingFormProps) {
   const [pending, setPending] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  const [versionConflict, setVersionConflict] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
-  const busy = useRef(false);
+  const request = useRef<AbortController | null>(null);
   const summary = useRef<HTMLDivElement>(null);
   const dateField = useRef<HTMLSpanElement>(null);
+  useEffect(() => () => request.current?.abort(), []);
   useEffect(() => {
     if (focusRequest) summary.current?.focus();
   }, [focusRequest]);
@@ -49,13 +55,13 @@ export function EditListingForm({ listing, onSaved }: EditListingFormProps) {
   function update(field: EditableListingFormField, value: string) {
     const next = { ...values, [field]: value };
     setValues(next);
-    setSubmitError(null);
+    if (!versionConflict) setSubmitError(null);
     if (submitted) setErrors(validateEditableListingFields(next));
   }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy.current || unavailable) return;
+    if (request.current || unavailable || versionConflict) return;
     const nextErrors = validateEditableListingFields(values);
     setSubmitted(true);
     setErrors(nextErrors);
@@ -64,14 +70,34 @@ export function EditListingForm({ listing, onSaved }: EditListingFormProps) {
       setFocusRequest((value) => value + 1);
       return;
     }
-    busy.current = true;
+    const controller = new AbortController();
+    request.current = controller;
     setPending(true);
     try {
-      const result = await updateListing(listing.id, toUpdateListingInput(values));
+      const result = await updateListing(
+        listing.id,
+        { ...toEditableListingInput(values), expectedVersion: listing.version },
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
       discardDraft();
       onSaved(result.listing);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
+      if (controller.signal.aborted) return;
+      if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.code === 'LISTING_VERSION_CONFLICT'
+      ) {
+        setVersionConflict(true);
+        setSubmitError(
+          'This report was updated elsewhere. Your input is still here. Copy your changes, then return to the report to review the latest version before editing again.',
+        );
+      } else if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.code === 'LISTING_NOT_EDITABLE'
+      ) {
         setUnavailable(true);
         setSubmitError(
           'This report can no longer be edited because its status has changed. Return to the report to see its current status.',
@@ -85,8 +111,10 @@ export function EditListingForm({ listing, onSaved }: EditListingFormProps) {
         setSubmitError('We could not save your changes. Your input is still here. Try again.');
       }
     } finally {
-      busy.current = false;
-      setPending(false);
+      if (!controller.signal.aborted) {
+        request.current = null;
+        setPending(false);
+      }
     }
   }
 
@@ -156,7 +184,7 @@ export function EditListingForm({ listing, onSaved }: EditListingFormProps) {
         </div>
       )}
       <div className={styles.formActions}>
-        <button className={styles.submit} type="submit" disabled={disabled}>
+        <button className={styles.submit} type="submit" disabled={disabled || versionConflict}>
           {pending ? 'Saving changes…' : 'Save changes'}
         </button>
       </div>

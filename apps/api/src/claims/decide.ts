@@ -49,7 +49,7 @@ export async function decideClaim(
     if (input.decision === 'approved') {
       await tx
         .update(listings)
-        .set({ status: 'resolved', updatedAt: now })
+        .set({ status: 'resolved', version: listing.version + 1, updatedAt: now })
         .where(eq(listings.id, listing.id));
       await tx
         .update(claims)

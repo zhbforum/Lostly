@@ -6,7 +6,8 @@ import {
   getListingTitleError,
 } from '@/features/listings/model/validation';
 
-export type EditableListingFormField = keyof UpdateListingInput;
+export type EditableListingFormValues = Omit<UpdateListingInput, 'expectedVersion'>;
+export type EditableListingFormField = keyof EditableListingFormValues;
 export type EditableListingFormErrors = Partial<Record<EditableListingFormField, string>>;
 
 const validators = {
@@ -17,7 +18,7 @@ const validators = {
 } satisfies Record<EditableListingFormField, (value: string) => string | null>;
 
 export function validateEditableListingFields(
-  values: UpdateListingInput,
+  values: EditableListingFormValues,
 ): EditableListingFormErrors {
   const errors: EditableListingFormErrors = {};
   for (const field of Object.keys(validators) as EditableListingFormField[]) {
@@ -27,7 +28,7 @@ export function validateEditableListingFields(
   return errors;
 }
 
-export function toEditableValues(listing: UpdateListingInput): UpdateListingInput {
+export function toEditableValues(listing: EditableListingFormValues): EditableListingFormValues {
   return {
     title: listing.title,
     description: listing.description,
@@ -36,7 +37,9 @@ export function toEditableValues(listing: UpdateListingInput): UpdateListingInpu
   };
 }
 
-export function toUpdateListingInput(values: UpdateListingInput): UpdateListingInput {
+export function toEditableListingInput(
+  values: EditableListingFormValues,
+): EditableListingFormValues {
   return {
     title: values.title.trim(),
     description: values.description.trim(),

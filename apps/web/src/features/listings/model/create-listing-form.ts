@@ -1,6 +1,6 @@
 import type { CreateListingInput, ListingKind } from '@/features/listings/model/types';
 import {
-  toUpdateListingInput,
+  toEditableListingInput,
   validateEditableListingFields,
 } from '@/features/listings/model/editable-listing-form';
 import { getListingKindError } from '@/features/listings/model/validation';
@@ -46,6 +46,6 @@ export function toCreateListingInput(values: CreateListingFormValues): CreateLis
 
   return {
     kind: values.kind,
-    ...toUpdateListingInput(values),
+    ...toEditableListingInput(values),
   };
 }

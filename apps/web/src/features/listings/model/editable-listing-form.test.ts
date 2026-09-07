@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateCreateListingForm } from './create-listing-form';
 import {
   toEditableValues,
-  toUpdateListingInput,
+  toEditableListingInput,
   validateEditableListingFields,
 } from './editable-listing-form';
 import { ownerReport } from '@/test/fixtures/listing-management';
@@ -39,7 +39,7 @@ describe('editable listing fields', () => {
       location: listing.location,
       occurredOn: listing.occurredOn,
     });
-    expect(toUpdateListingInput(values)).toEqual({
+    expect(toEditableListingInput(values)).toEqual({
       title: 'Blue backpack',
       description: 'Red zip',
       location: 'Library',

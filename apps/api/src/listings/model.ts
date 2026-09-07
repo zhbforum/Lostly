@@ -15,6 +15,7 @@ export const listingSchema = t.Object({
   }),
   kind: t.UnionEnum(LISTING_KINDS),
   status: t.UnionEnum(LISTING_STATUSES),
+  version: t.Integer({ minimum: 1 }),
   title: t.String(),
   description: t.String(),
   location: t.String(),
@@ -97,9 +98,13 @@ export const createListingBodySchema = t.Object({
   ...editableListingProperties,
 });
 
-export const updateListingBodySchema = t.Object(editableListingProperties, {
-  additionalProperties: false,
-});
+export const updateListingBodySchema = t.Object(
+  {
+    ...editableListingProperties,
+    expectedVersion: t.Integer({ minimum: 1, maximum: 2147483647 }),
+  },
+  { additionalProperties: false },
+);
 
 export const listingManagementErrorResponseSchema = t.Object({
   error: t.Object({
@@ -109,6 +114,7 @@ export const listingManagementErrorResponseSchema = t.Object({
       'LISTING_RESOLVE_FORBIDDEN',
       'LISTING_ARCHIVE_FORBIDDEN',
       'LISTING_NOT_EDITABLE',
+      'LISTING_VERSION_CONFLICT',
       'LISTING_NOT_RESOLVABLE',
       'LISTING_ALREADY_ARCHIVED',
     ]),

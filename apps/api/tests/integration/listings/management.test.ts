@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
-import type { ListingDetailResponse } from '@lostly/contracts/listings';
+import type { ListingDetailResponse, ListingResponse } from '@lostly/contracts/listings';
 import { db } from '@/db';
 import { claims, listings } from '@/db/schema';
 import {
@@ -10,6 +10,7 @@ import {
   fixtureTime,
   report,
   request,
+  updateInput,
   user,
 } from './management-fixtures';
 
@@ -30,7 +31,7 @@ describe('owner edit', () => {
         '/listings/' + original.id,
         owner.cookie,
         {
-          ...editableInput,
+          ...updateInput,
           title: '  Updated backpack  ',
           description: '  Updated description  ',
           location: ' Updated location ',
@@ -48,27 +49,34 @@ describe('owner edit', () => {
         createdAt: original.createdAt,
       });
       expect(stored.updatedAt.getTime()).toBeGreaterThan(original.updatedAt.getTime());
+      expect(stored.version).toBe(original.version + 1);
     },
   );
 
-  test.each(['kind', 'status', 'createdByUserId', 'id', 'createdAt', 'updatedAt', 'unknown'])(
-    'rejects extra %s with 422 and leaves the entire record unchanged',
-    async (field) => {
-      const owner = await user('owner');
-      const original = await report(owner.id);
-      const response = await request(
-        '/listings/' + original.id,
-        owner.cookie,
-        { ...editableInput, [field]: field === 'status' ? 'archived' : 'unexpected' },
-        'PATCH',
-      );
-      expect(response.status).toBe(422);
-      expect(await response.json()).toEqual({
-        error: { code: 'VALIDATION_ERROR', message: 'Request fields are invalid' },
-      });
-      expect(await storedListing(original.id)).toEqual(original);
-    },
-  );
+  test.each([
+    'kind',
+    'status',
+    'createdByUserId',
+    'id',
+    'version',
+    'createdAt',
+    'updatedAt',
+    'unknown',
+  ])('rejects extra %s with 422 and leaves the entire record unchanged', async (field) => {
+    const owner = await user('owner');
+    const original = await report(owner.id);
+    const response = await request(
+      '/listings/' + original.id,
+      owner.cookie,
+      { ...updateInput, [field]: field === 'status' ? 'archived' : 'unexpected' },
+      'PATCH',
+    );
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      error: { code: 'VALIDATION_ERROR', message: 'Request fields are invalid' },
+    });
+    expect(await storedListing(original.id)).toEqual(original);
+  });
 
   test.each([
     { title: '' },
@@ -87,7 +95,7 @@ describe('owner edit', () => {
         await request(
           '/listings/' + original.id,
           owner.cookie,
-          { ...editableInput, ...invalid },
+          { ...updateInput, ...invalid },
           'PATCH',
         )
       ).status,
@@ -98,14 +106,71 @@ describe('owner edit', () => {
   test('requires the complete editable payload', async () => {
     const owner = await user('owner');
     const original = await report(owner.id);
-    for (const key of Object.keys(editableInput)) {
-      const body = { ...editableInput } as Record<string, string>;
+    for (const key of Object.keys(updateInput)) {
+      const body = { ...updateInput } as Record<string, string | number>;
       delete body[key];
       expect((await request('/listings/' + original.id, owner.cookie, body, 'PATCH')).status).toBe(
         422,
       );
       expect(await storedListing(original.id)).toEqual(original);
     }
+  });
+
+  test('rejects a stale editor without overwriting the first save and accepts the current version', async () => {
+    const owner = await user('owner');
+    const original = await report(owner.id);
+    const path = '/listings/' + original.id;
+    const { listing } = (await (await request(path, owner.cookie)).json()) as ListingDetailResponse;
+    expect(listing.version).toBe(1);
+    const input = {
+      title: listing.title,
+      description: listing.description,
+      location: listing.location,
+      occurredOn: listing.occurredOn,
+      expectedVersion: listing.version,
+    };
+    const first = await request(
+      path,
+      owner.cookie,
+      { ...input, title: 'First tab title' },
+      'PATCH',
+    );
+    expect(first.status).toBe(200);
+    const saved = (await first.json()) as ListingResponse;
+    expect(saved.listing.version).toBe(listing.version + 1);
+    const stored = await storedListing(listing.id);
+
+    const second = await request(
+      path,
+      owner.cookie,
+      { ...input, description: 'Second tab description' },
+      'PATCH',
+    );
+    expect(second.status).toBe(409);
+    expect(await second.json()).toMatchObject({ error: { code: 'LISTING_VERSION_CONFLICT' } });
+    expect(await storedListing(listing.id)).toEqual(stored);
+    expect(stored.title).toBe('First tab title');
+    expect(stored.description).toBe(listing.description);
+
+    const retry = await request(
+      path,
+      owner.cookie,
+      {
+        ...input,
+        title: saved.listing.title,
+        description: 'Second tab description',
+        expectedVersion: saved.listing.version,
+      },
+      'PATCH',
+    );
+    expect(retry.status).toBe(200);
+    expect(await retry.json()).toMatchObject({
+      listing: {
+        title: 'First tab title',
+        description: 'Second tab description',
+        version: saved.listing.version + 1,
+      },
+    });
   });
 });
 
@@ -115,7 +180,7 @@ describe('owner authorization and transitions', () => {
       request(
         '/listings/' + id + (action === 'edit' ? '' : '/' + action),
         cookie,
-        action === 'edit' ? editableInput : undefined,
+        action === 'edit' ? updateInput : undefined,
         action === 'edit' ? 'PATCH' : 'POST',
       );
     test(`${action}: authenticates and authorizes the owner without changes`, async () => {
@@ -169,6 +234,7 @@ describe('owner authorization and transitions', () => {
         ).toBe(200);
         const stored = await storedListing(original.id);
         expect(stored.status).toBe(action === 'resolve' ? 'resolved' : 'archived');
+        expect(stored.version).toBe(original.version + 1);
         expect(stored.updatedAt.getTime()).toBeGreaterThan(fixtureTime.getTime());
         expect(await (await request('/listings', viewer.cookie)).json()).toMatchObject({
           listings: [],

@@ -1,4 +1,5 @@
 import { db } from '@/db';
+import type { UpdateListingInput } from '@lostly/contracts/listings';
 import { claims, listings, sessions, users } from '@/db/schema';
 import { app } from '@/app';
 import { generateSessionToken, getSessionExpiresAt, hashSessionToken } from '@/auth/session';
@@ -37,6 +38,7 @@ export const editableInput = {
   location: 'Updated location',
   occurredOn: '2026-09-02',
 };
+export const updateInput = { ...editableInput, expectedVersion: 1 } satisfies UpdateListingInput;
 export const fixtureTime = new Date('2026-01-01T00:00:00.000Z');
 
 export async function report(
