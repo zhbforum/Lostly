@@ -14,6 +14,12 @@ type OpenApiDocument = {
     securitySchemes: Record<string, unknown>;
   };
   paths: {
+    '/': {
+      get: OpenApiOperation;
+    };
+    '/health': {
+      get: OpenApiOperation;
+    };
     '/auth/register': {
       post: OpenApiOperation;
     };
@@ -59,6 +65,7 @@ describe('API route compilation and validation', () => {
         }),
       }),
     );
+
     expect(response.status).toBe(422);
   });
 
@@ -80,9 +87,13 @@ describe('API route compilation and validation', () => {
           body: JSON.stringify(body),
         }),
       );
+
       expect(response.status).toBe(422);
       expect(await response.json()).toEqual({
-        error: { code: 'VALIDATION_ERROR', message: 'Request fields are invalid' },
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Request fields are invalid',
+        },
       });
     });
   }
@@ -109,6 +120,23 @@ describe('API route compilation and validation', () => {
         type: 'apiKey',
         in: 'header',
         name: 'X-CSRF-Protection',
+      },
+    });
+
+    expect(document.paths['/'].get).toMatchObject({
+      tags: ['System'],
+      summary: 'Get API status',
+      responses: {
+        200: {},
+      },
+    });
+
+    expect(document.paths['/health'].get).toMatchObject({
+      tags: ['System'],
+      summary: 'Check service health',
+      responses: {
+        200: {},
+        503: {},
       },
     });
 
@@ -201,14 +229,18 @@ describe('API route compilation and validation', () => {
         body: '{"password":"private-secret"',
       }),
     );
+
     expect(response.status).toBe(400);
     expect(await response.text()).not.toContain('private-secret');
   });
 
   test('compiles all feature routes and serves the root without a database', async () => {
     const response = await app.handle(new Request('http://localhost/'));
+
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ name: 'Lostly API' });
+    expect(await response.json()).toMatchObject({
+      name: 'Lostly API',
+    });
   });
 
   test.each([
@@ -219,6 +251,7 @@ describe('API route compilation and validation', () => {
     '/me/claims',
   ])('protects GET %s', async (path) => {
     const response = await app.handle(new Request('http://localhost' + path));
+
     expect(response.status).toBe(401);
   });
 
@@ -236,11 +269,13 @@ describe('API route compilation and validation', () => {
         body: JSON.stringify(body),
       }),
     );
+
     expect(response.status).toBe(422);
   });
 
   test.each(['1.5', '0', '51', 'NaN'])('rejects invalid page size %s', async (limit) => {
     const response = await app.handle(new Request('http://localhost/listings?limit=' + limit));
+
     expect(response.status).toBe(422);
   });
 
@@ -249,9 +284,12 @@ describe('API route compilation and validation', () => {
       new Request('http://localhost/claims/' + id, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
-        body: JSON.stringify({ decision: 'approved' }),
+        body: JSON.stringify({
+          decision: 'approved',
+        }),
       }),
     );
+
     expect(response.status).toBe(422);
   });
 
@@ -259,10 +297,15 @@ describe('API route compilation and validation', () => {
     const response = await app.handle(
       new Request('http://localhost/claims/' + id, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision: 'rejected' }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          decision: 'rejected',
+        }),
       }),
     );
+
     expect(response.status).toBe(403);
   });
 });

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 
 import { activityRoutes } from '@/activity/routes';
 import { authRoutes } from '@/auth/routes';
@@ -10,6 +10,21 @@ import { isCsrfProtectedRequest } from '@/http/csrf';
 import { errorHandler } from '@/http/errors';
 import { listingRoutes } from '@/listings/routes';
 import { openApiPlugin } from '@/openapi';
+
+const apiStatusResponseSchema = t.Object({
+  name: t.Literal('Lostly API'),
+  status: t.Literal('ok'),
+});
+
+const healthOkResponseSchema = t.Object({
+  status: t.Literal('ok'),
+  database: t.Literal('connected'),
+});
+
+const healthUnavailableResponseSchema = t.Object({
+  status: t.Literal('error'),
+  database: t.Literal('unavailable'),
+});
 
 export const app = new Elysia()
   .use(corsPlugin)
@@ -30,11 +45,15 @@ export const app = new Elysia()
   })
   .get(
     '/',
-    () => ({
-      name: 'Lostly API',
-      status: 'ok',
-    }),
+    () =>
+      ({
+        name: 'Lostly API',
+        status: 'ok',
+      }) as const,
     {
+      response: {
+        200: apiStatusResponseSchema,
+      },
       detail: {
         tags: ['System'],
         summary: 'Get API status',
@@ -50,15 +69,19 @@ export const app = new Elysia()
         return {
           status: 'ok',
           database: 'connected',
-        };
+        } as const;
       } catch {
         return status(503, {
           status: 'error',
           database: 'unavailable',
-        });
+        } as const);
       }
     },
     {
+      response: {
+        200: healthOkResponseSchema,
+        503: healthUnavailableResponseSchema,
+      },
       detail: {
         tags: ['System'],
         summary: 'Check service health',
