@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   date,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -75,6 +76,7 @@ export const listings = pgTable(
 
     kind: listingKindEnum('kind').notNull(),
     status: listingStatusEnum('status').notNull().default('active'),
+    version: integer('version').notNull().default(1),
 
     title: varchar('title', {
       length: LISTING_CONSTRAINTS.titleMaxLength,
