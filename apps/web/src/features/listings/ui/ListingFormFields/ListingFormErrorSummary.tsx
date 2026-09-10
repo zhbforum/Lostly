@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import { useId, type Ref } from 'react';
 
 import styles from './ListingFormErrorSummary.module.css';
 
@@ -18,24 +18,18 @@ export function ListingFormErrorSummary({
   ref,
   onFocusField,
 }: ListingFormErrorSummaryProps) {
+  const titleId = useId();
   if (errors.length === 0) {
     return null;
   }
 
   return (
-    <div
-      className={styles.errorSummary}
-      ref={ref}
-      tabIndex={-1}
-      aria-labelledby="listing-form-error-summary-title"
-    >
-      <h2 className={styles.errorSummaryTitle} id="listing-form-error-summary-title">
+    <div className={styles.errorSummary} ref={ref} tabIndex={-1} aria-labelledby={titleId}>
+      <h2 className={styles.errorSummaryTitle} id={titleId}>
         Check your report
       </h2>
 
-      <p className={styles.errorSummaryDescription}>
-        Fix the following before creating your report.
-      </p>
+      <p className={styles.errorSummaryDescription}>Fix the following fields to continue.</p>
 
       <ul className={styles.errorSummaryList}>
         {errors.map((error) => (

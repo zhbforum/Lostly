@@ -26,6 +26,7 @@ export interface Listing {
   id: string;
   kind: ListingKind;
   status: ListingStatus;
+  version: number;
   title: string;
   description: string;
   location: string;
@@ -46,9 +47,20 @@ export interface ListingResponse {
   listing: Listing;
 }
 
+export interface UpdateListingInput {
+  expectedVersion: number;
+  title: string;
+  description: string;
+  location: string;
+  occurredOn: string;
+}
+
 export interface ListingCapabilities {
   canClaim: boolean;
   canReviewClaims: boolean;
+  canEdit: boolean;
+  canResolve: boolean;
+  canArchive: boolean;
 }
 
 export interface ListingDetailResponse extends ListingResponse {

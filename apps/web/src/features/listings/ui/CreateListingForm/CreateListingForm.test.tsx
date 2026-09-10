@@ -14,7 +14,7 @@ vi.mock('@/features/listings/api/listings-api', () => ({
   createListing: createListingMock,
 }));
 
-vi.mock('./_parts/ListingDateField/ListingDateField', () => ({
+vi.mock('../ListingFormFields/ListingDateField/ListingDateField', () => ({
   ListingDateField: ({
     id,
     name,
@@ -53,6 +53,7 @@ const createdListing = {
   id: '550e8400-e29b-41d4-a716-446655440000',
   kind: 'lost' as const,
   status: 'active' as const,
+  version: 1,
   title: 'Black backpack',
   description: 'Black backpack with a small front pocket.',
   location: 'TU Berlin',

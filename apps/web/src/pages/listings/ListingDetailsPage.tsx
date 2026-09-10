@@ -1,14 +1,28 @@
-import { useEffect, useRef } from 'react';
-import { Link, useLocation, useParams } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 
 import { useListingDetails } from '@/features/listings/model/use-listing-details';
 import { ListingDetails } from '@/features/listings/ui/ListingDetails/ListingDetails';
 import { ClaimPanel } from '@/features/claims/ui/ClaimPanel/ClaimPanel';
+import { ListingOwnerControls } from '@/features/listings/ui/ListingOwnerControls';
 import styles from '@/pages/listings/ListingDetailsPage.module.css';
 import { Brand } from '@/shared/ui/Brand/Brand';
 
 export function ListingDetailsPage() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const navigationState: unknown = location.state;
+  const stateWithNotice =
+    typeof navigationState === 'object' &&
+    navigationState !== null &&
+    !Array.isArray(navigationState) &&
+    'reportNotice' in navigationState
+      ? navigationState
+      : null;
+  const navigationNotice =
+    stateWithNotice?.reportNotice === 'Your report was updated.'
+      ? stateWithNotice.reportNotice
+      : null;
   const candidate: unknown = location.state?.returnTo;
   const returnTo =
     typeof candidate === 'string' && /^\/(listings|activity)(\?|$)/.test(candidate)
@@ -16,9 +30,27 @@ export function ListingDetailsPage() {
       : '/listings';
   const { id } = useParams<{ id: string }>();
   const { state, retry } = useListingDetails(id);
+  const [notice, setNotice] = useState<{ id: string | undefined; message: string | null }>({
+    id,
+    message: navigationNotice,
+  });
+  // Capture a new notice before consuming its history state, and clear it on a different report.
+  if (notice.id !== id || (navigationNotice !== null && notice.message !== navigationNotice)) {
+    setNotice({ id, message: navigationNotice });
+  }
+  const message = notice.id === id ? notice.message : null;
   const listingTitleRef = useRef<HTMLHeadingElement>(null);
   const notFoundTitleRef = useRef<HTMLHeadingElement>(null);
   const errorTitleRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (!stateWithNotice) return;
+    const { reportNotice: _reportNotice, ...restState } = stateWithNotice;
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: restState },
+    );
+  }, [stateWithNotice, navigate, location.pathname, location.search, location.hash]);
 
   useEffect(() => {
     switch (state.status) {
@@ -117,6 +149,15 @@ export function ListingDetailsPage() {
         {state.status === 'success' && (
           <>
             <ListingDetails listing={state.listing.listing} titleRef={listingTitleRef} />
+            {message && <p role="status">{message}</p>}
+            <ListingOwnerControls
+              listingId={state.listing.listing.id}
+              capabilities={state.listing.capabilities}
+              onChanged={(message) => {
+                setNotice({ id, message });
+                retry();
+              }}
+            />
             <ClaimPanel
               listingId={state.listing.listing.id}
               capabilities={state.listing.capabilities}

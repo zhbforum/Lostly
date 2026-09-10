@@ -23,6 +23,7 @@ const listing = {
   id: LISTING_ID,
   kind: 'lost' as const,
   status: 'active' as const,
+  version: 1,
   title: 'Black backpack',
   description: 'Black backpack with a small front pocket.',
   location: 'TU Berlin',
@@ -40,13 +41,25 @@ const secondListing = {
 
 const listingDetails = {
   listing,
-  capabilities: { canClaim: false, canReviewClaims: false },
+  capabilities: {
+    canClaim: false,
+    canReviewClaims: false,
+    canEdit: false,
+    canResolve: false,
+    canArchive: false,
+  },
   claim: null,
 } satisfies ListingDetailResponse;
 
 const secondListingDetails = {
   listing: secondListing,
-  capabilities: { canClaim: false, canReviewClaims: false },
+  capabilities: {
+    canClaim: false,
+    canReviewClaims: false,
+    canEdit: false,
+    canResolve: false,
+    canArchive: false,
+  },
   claim: null,
 } satisfies ListingDetailResponse;
 

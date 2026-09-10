@@ -1,5 +1,6 @@
 import type {
   CreateListingInput,
+  UpdateListingInput,
   ListingDetailResponse,
   ListingFeedSort,
   ListingKind,
@@ -18,6 +19,30 @@ export function createListing(input: CreateListingInput): Promise<ListingRespons
 export function getListing(id: string, signal?: AbortSignal): Promise<ListingDetailResponse> {
   return apiRequest<ListingDetailResponse>(`/listings/${encodeURIComponent(id)}`, {
     signal,
+  });
+}
+
+export function updateListing(
+  id: string,
+  input: UpdateListingInput,
+  signal?: AbortSignal,
+): Promise<ListingResponse> {
+  return apiRequest<ListingResponse>(`/listings/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: input,
+    signal,
+  });
+}
+
+export function resolveListing(id: string): Promise<ListingResponse> {
+  return apiRequest<ListingResponse>(`/listings/${encodeURIComponent(id)}/resolve`, {
+    method: 'POST',
+  });
+}
+
+export function archiveListing(id: string): Promise<ListingResponse> {
+  return apiRequest<ListingResponse>(`/listings/${encodeURIComponent(id)}/archive`, {
+    method: 'POST',
   });
 }
 

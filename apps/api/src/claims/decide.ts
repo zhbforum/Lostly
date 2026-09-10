@@ -3,7 +3,7 @@ import type { DecideClaimInput } from '@lostly/contracts/claims';
 import { db } from '@/db';
 import { claims, listings } from '@/db/schema';
 import { canTransitionClaimStatus } from '@/domain/claim';
-import { lockListing } from '@/claims/locking';
+import { lockListing } from '@/listings/locking';
 import { claimSelection, type ClaimRecord, type ClaimResult } from '@/claims/selection';
 
 export async function decideClaim(
@@ -49,7 +49,7 @@ export async function decideClaim(
     if (input.decision === 'approved') {
       await tx
         .update(listings)
-        .set({ status: 'resolved', updatedAt: now })
+        .set({ status: 'resolved', version: listing.version + 1, updatedAt: now })
         .where(eq(listings.id, listing.id));
       await tx
         .update(claims)

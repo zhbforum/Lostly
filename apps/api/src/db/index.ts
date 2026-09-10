@@ -8,3 +8,5 @@ if (!databaseUrl) {
 }
 
 export const db = drizzle(databaseUrl);
+
+export type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];

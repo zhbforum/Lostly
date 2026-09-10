@@ -17,8 +17,9 @@ const STATUS_CONTENT: Record<Claim['status'], { title: string; description: stri
       'The report owner has confirmed your claim. Follow their private collection instructions below.',
   },
   rejected: {
-    title: 'Your claim was not approved',
-    description: 'The report owner declined your claim or approved another claim for this item.',
+    title: 'Your claim is no longer active',
+    description:
+      'This claim was closed because the report owner completed or closed the report, declined the claim, or proceeded with another claim.',
   },
 };
 

@@ -15,12 +15,15 @@ import {
   type Listing,
   type ListingKind,
 } from '@/features/listings/model/types';
-import styles from './CreateListingForm.module.css';
-import { ListingDateField } from './_parts/ListingDateField/ListingDateField';
-import { type ListingFormError, ListingFormErrorSummary } from './_parts/ListingFormErrorSummary';
+import styles from '../ListingFormFields/ListingForm.module.css';
+import { ListingDateField } from '../ListingFormFields/ListingDateField/ListingDateField';
+import {
+  type ListingFormError,
+  ListingFormErrorSummary,
+} from '../ListingFormFields/ListingFormErrorSummary';
 import { ListingKindField } from './_parts/ListingKindField';
-import { ListingTextareaField } from './_parts/ListingTextareaField';
-import { ListingTextField } from './_parts/ListingTextField';
+import { ListingTextareaField } from '../ListingFormFields/ListingTextareaField';
+import { ListingTextField } from '../ListingFormFields/ListingTextField';
 
 interface CreateListingFormProps {
   initialKind?: ListingKind | null;

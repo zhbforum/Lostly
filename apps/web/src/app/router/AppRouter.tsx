@@ -24,6 +24,10 @@ const ListingDetailsPage = lazy(async () => {
   };
 });
 
+const EditListingPage = lazy(async () => ({
+  default: (await import('@/pages/listings/EditListingPage')).EditListingPage,
+}));
+
 const ListingsPage = lazy(async () => {
   const module = await import('@/pages/listings/ListingsPage');
 
@@ -94,6 +98,21 @@ export function AppRouter() {
   if (status === 'authenticated') {
     return (
       <Routes>
+        <Route
+          path="/listings/:id/edit"
+          element={
+            <Suspense
+              fallback={
+                <ListingPageFallback
+                  title="Opening the editor"
+                  description="Loading your report…"
+                />
+              }
+            >
+              <EditListingPage />
+            </Suspense>
+          }
+        />
         <Route
           path="/login"
           element={

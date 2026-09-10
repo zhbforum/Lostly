@@ -8,6 +8,7 @@ import { db } from '@/db';
 import { corsPlugin } from '@/http/cors';
 import { isCsrfProtectedRequest } from '@/http/csrf';
 import { errorHandler } from '@/http/errors';
+import { listingManagementRoutes } from '@/listings/management-routes';
 import { listingRoutes } from '@/listings/routes';
 import { openApiPlugin } from '@/openapi';
 
@@ -91,5 +92,6 @@ export const app = new Elysia()
   )
   .use(authRoutes)
   .use(listingRoutes)
+  .use(listingManagementRoutes)
   .use(claimRoutes)
   .use(activityRoutes);

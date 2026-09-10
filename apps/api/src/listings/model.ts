@@ -15,6 +15,7 @@ export const listingSchema = t.Object({
   }),
   kind: t.UnionEnum(LISTING_KINDS),
   status: t.UnionEnum(LISTING_STATUSES),
+  version: t.Integer({ minimum: 1 }),
   title: t.String(),
   description: t.String(),
   location: t.String(),
@@ -34,6 +35,9 @@ export const listingDetailResponseSchema = t.Object({
   capabilities: t.Object({
     canClaim: t.Boolean(),
     canReviewClaims: t.Boolean(),
+    canEdit: t.Boolean(),
+    canResolve: t.Boolean(),
+    canArchive: t.Boolean(),
   }),
   claim: t.Nullable(claimSchema),
 });
@@ -71,8 +75,7 @@ export const invalidListingCursorResponseSchema = t.Object({
   }),
 });
 
-export const createListingBodySchema = t.Object({
-  kind: t.Union(LISTING_KINDS.map((kind) => t.Literal(kind))),
+const editableListingProperties = {
   title: t.String({
     minLength: LISTING_CONSTRAINTS.titleMinLength,
     maxLength: LISTING_CONSTRAINTS.titleMaxLength,
@@ -87,5 +90,34 @@ export const createListingBodySchema = t.Object({
   }),
   occurredOn: t.String({
     format: 'date',
+  }),
+};
+
+export const createListingBodySchema = t.Object({
+  kind: t.Union(LISTING_KINDS.map((kind) => t.Literal(kind))),
+  ...editableListingProperties,
+});
+
+export const updateListingBodySchema = t.Object(
+  {
+    ...editableListingProperties,
+    expectedVersion: t.Integer({ minimum: 1, maximum: 2147483647 }),
+  },
+  { additionalProperties: false },
+);
+
+export const listingManagementErrorResponseSchema = t.Object({
+  error: t.Object({
+    code: t.UnionEnum([
+      'LISTING_NOT_FOUND',
+      'LISTING_UPDATE_FORBIDDEN',
+      'LISTING_RESOLVE_FORBIDDEN',
+      'LISTING_ARCHIVE_FORBIDDEN',
+      'LISTING_NOT_EDITABLE',
+      'LISTING_VERSION_CONFLICT',
+      'LISTING_NOT_RESOLVABLE',
+      'LISTING_ALREADY_ARCHIVED',
+    ]),
+    message: t.String(),
   }),
 });

@@ -36,6 +36,15 @@ type OpenApiDocument = {
       get: OpenApiOperation;
       post: OpenApiOperation;
     };
+    '/listings/{id}': {
+      patch: OpenApiOperation;
+    };
+    '/listings/{id}/resolve': {
+      post: OpenApiOperation;
+    };
+    '/listings/{id}/archive': {
+      post: OpenApiOperation;
+    };
     '/listings/{id}/claims': {
       post: OpenApiOperation;
     };
@@ -210,6 +219,57 @@ describe('API route compilation and validation', () => {
           csrfProtection: [],
         },
       ],
+    });
+
+    expect(document.paths['/listings/{id}'].patch).toMatchObject({
+      tags: ['Listings'],
+      summary: 'Edit a report',
+      security: [
+        {
+          sessionCookie: [],
+          csrfProtection: [],
+        },
+      ],
+      responses: {
+        200: {},
+        403: {},
+        404: {},
+        409: {},
+      },
+    });
+
+    expect(document.paths['/listings/{id}/resolve'].post).toMatchObject({
+      tags: ['Listings'],
+      summary: 'Resolve a report',
+      security: [
+        {
+          sessionCookie: [],
+          csrfProtection: [],
+        },
+      ],
+      responses: {
+        200: {},
+        403: {},
+        404: {},
+        409: {},
+      },
+    });
+
+    expect(document.paths['/listings/{id}/archive'].post).toMatchObject({
+      tags: ['Listings'],
+      summary: 'Archive a report',
+      security: [
+        {
+          sessionCookie: [],
+          csrfProtection: [],
+        },
+      ],
+      responses: {
+        200: {},
+        403: {},
+        404: {},
+        409: {},
+      },
     });
 
     expect(document.paths['/listings/{id}/claims'].post).toMatchObject({
