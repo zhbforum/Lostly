@@ -6,6 +6,51 @@ const { app } = await import('@/app');
 
 const id = '550e8400-e29b-41d4-a716-446655440001';
 
+type OpenApiOperation = Record<string, unknown>;
+
+type OpenApiDocument = {
+  info: Record<string, unknown>;
+  components: {
+    securitySchemes: Record<string, unknown>;
+  };
+  paths: {
+    '/': {
+      get: OpenApiOperation;
+    };
+    '/health': {
+      get: OpenApiOperation;
+    };
+    '/auth/register': {
+      post: OpenApiOperation;
+    };
+    '/auth/login': {
+      post: OpenApiOperation;
+    };
+    '/auth/me': {
+      get: OpenApiOperation;
+    };
+    '/auth/logout': {
+      post: OpenApiOperation;
+    };
+    '/listings/': {
+      get: OpenApiOperation;
+      post: OpenApiOperation;
+    };
+    '/listings/{id}/claims': {
+      post: OpenApiOperation;
+    };
+    '/claims/{claimId}': {
+      patch: OpenApiOperation;
+    };
+    '/me/listings': {
+      get: OpenApiOperation;
+    };
+    '/me/claims': {
+      get: OpenApiOperation;
+    };
+  };
+};
+
 describe('API route compilation and validation', () => {
   test('requires an explicit listing kind instead of silently defaulting to lost', async () => {
     const response = await app.handle(
@@ -20,6 +65,7 @@ describe('API route compilation and validation', () => {
         }),
       }),
     );
+
     expect(response.status).toBe(422);
   });
 
@@ -41,12 +87,165 @@ describe('API route compilation and validation', () => {
           body: JSON.stringify(body),
         }),
       );
+
       expect(response.status).toBe(422);
       expect(await response.json()).toEqual({
-        error: { code: 'VALIDATION_ERROR', message: 'Request fields are invalid' },
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Request fields are invalid',
+        },
       });
     });
   }
+
+  test.each(['/openapi', '/openapi/'])('loads the specification linked from %s', async (path) => {
+    const pageUrl = new URL(path, 'http://localhost');
+    const response = await app.handle(new Request(pageUrl.href));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+
+    const html = await response.text();
+    const configurationJson = html.match(/data-configuration='([^']+)'/)?.[1];
+
+    if (!configurationJson)
+      throw new Error('Scalar configuration is missing from the documentation');
+
+    const configuration = JSON.parse(configurationJson) as { url: string };
+    const specUrl = new URL(configuration.url, pageUrl);
+    const specResponse = await app.handle(new Request(specUrl.href));
+
+    expect(specResponse.status).toBe(200);
+    expect(specResponse.headers.get('content-type')).toContain('application/json');
+    expect(await specResponse.json()).toMatchObject({
+      openapi: expect.any(String),
+      info: { title: 'Lostly API', version: '0.1.0' },
+      paths: { '/health': { get: {} } },
+    });
+  });
+
+  test('documents OpenAPI metadata and request security requirements', async () => {
+    const response = await app.handle(new Request('http://localhost/openapi/json'));
+
+    expect(response.status).toBe(200);
+
+    const document = (await response.json()) as OpenApiDocument;
+
+    expect(document.info).toMatchObject({
+      title: 'Lostly API',
+      version: '0.1.0',
+    });
+
+    expect(document.components.securitySchemes).toMatchObject({
+      sessionCookie: {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'lostly_session',
+      },
+      csrfProtection: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-CSRF-Protection',
+      },
+    });
+
+    expect(document.paths['/'].get).toMatchObject({
+      tags: ['System'],
+      summary: 'Get API status',
+      responses: {
+        200: {},
+      },
+    });
+
+    expect(document.paths['/health'].get).toMatchObject({
+      tags: ['System'],
+      summary: 'Check service health',
+      responses: {
+        200: {},
+        503: {},
+      },
+    });
+
+    expect(document.paths['/auth/register'].post).toMatchObject({
+      tags: ['Authentication'],
+      summary: 'Register an account',
+      security: [{ csrfProtection: [] }],
+    });
+
+    expect(document.paths['/auth/login'].post).toMatchObject({
+      tags: ['Authentication'],
+      summary: 'Sign in',
+      security: [{ csrfProtection: [] }],
+    });
+
+    expect(document.paths['/auth/me'].get).toMatchObject({
+      tags: ['Authentication'],
+      summary: 'Get current user',
+      security: [{ sessionCookie: [] }],
+    });
+
+    expect(document.paths['/auth/logout'].post).toMatchObject({
+      tags: ['Authentication'],
+      summary: 'Sign out',
+      security: [{ csrfProtection: [] }],
+      responses: {
+        204: {
+          description: 'Session cleared successfully.',
+        },
+      },
+    });
+
+    expect(document.paths['/listings/'].get).toMatchObject({
+      tags: ['Listings'],
+      summary: 'List active reports',
+      security: [{ sessionCookie: [] }],
+    });
+
+    expect(document.paths['/listings/'].post).toMatchObject({
+      tags: ['Listings'],
+      summary: 'Create a report',
+      security: [
+        {
+          sessionCookie: [],
+          csrfProtection: [],
+        },
+      ],
+    });
+
+    expect(document.paths['/listings/{id}/claims'].post).toMatchObject({
+      tags: ['Claims'],
+      summary: 'Submit a claim',
+      security: [
+        {
+          sessionCookie: [],
+          csrfProtection: [],
+        },
+      ],
+    });
+
+    expect(document.paths['/claims/{claimId}'].patch).toMatchObject({
+      tags: ['Claims'],
+      summary: 'Review a claim',
+      security: [
+        {
+          sessionCookie: [],
+          csrfProtection: [],
+        },
+      ],
+    });
+
+    expect(document.paths['/me/listings'].get).toMatchObject({
+      tags: ['Activity'],
+      summary: 'List my reports',
+      security: [{ sessionCookie: [] }],
+    });
+
+    expect(document.paths['/me/claims'].get).toMatchObject({
+      tags: ['Activity'],
+      summary: 'List my claim activity',
+      security: [{ sessionCookie: [] }],
+    });
+  });
 
   test('does not echo malformed JSON or private field values', async () => {
     const response = await app.handle(
@@ -56,13 +255,18 @@ describe('API route compilation and validation', () => {
         body: '{"password":"private-secret"',
       }),
     );
+
     expect(response.status).toBe(400);
     expect(await response.text()).not.toContain('private-secret');
   });
+
   test('compiles all feature routes and serves the root without a database', async () => {
     const response = await app.handle(new Request('http://localhost/'));
+
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ name: 'Lostly API' });
+    expect(await response.json()).toMatchObject({
+      name: 'Lostly API',
+    });
   });
 
   test.each([
@@ -73,6 +277,7 @@ describe('API route compilation and validation', () => {
     '/me/claims',
   ])('protects GET %s', async (path) => {
     const response = await app.handle(new Request('http://localhost' + path));
+
     expect(response.status).toBe(401);
   });
 
@@ -90,11 +295,13 @@ describe('API route compilation and validation', () => {
         body: JSON.stringify(body),
       }),
     );
+
     expect(response.status).toBe(422);
   });
 
   test.each(['1.5', '0', '51', 'NaN'])('rejects invalid page size %s', async (limit) => {
     const response = await app.handle(new Request('http://localhost/listings?limit=' + limit));
+
     expect(response.status).toBe(422);
   });
 
@@ -103,9 +310,12 @@ describe('API route compilation and validation', () => {
       new Request('http://localhost/claims/' + id, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
-        body: JSON.stringify({ decision: 'approved' }),
+        body: JSON.stringify({
+          decision: 'approved',
+        }),
       }),
     );
+
     expect(response.status).toBe(422);
   });
 
@@ -113,10 +323,15 @@ describe('API route compilation and validation', () => {
     const response = await app.handle(
       new Request('http://localhost/claims/' + id, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision: 'rejected' }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          decision: 'rejected',
+        }),
       }),
     );
+
     expect(response.status).toBe(403);
   });
 });
