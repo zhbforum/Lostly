@@ -98,6 +98,32 @@ describe('API route compilation and validation', () => {
     });
   }
 
+  test.each(['/openapi', '/openapi/'])('loads the specification linked from %s', async (path) => {
+    const pageUrl = new URL(path, 'http://localhost');
+    const response = await app.handle(new Request(pageUrl.href));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+
+    const html = await response.text();
+    const configurationJson = html.match(/data-configuration='([^']+)'/)?.[1];
+
+    if (!configurationJson)
+      throw new Error('Scalar configuration is missing from the documentation');
+
+    const configuration = JSON.parse(configurationJson) as { url: string };
+    const specUrl = new URL(configuration.url, pageUrl);
+    const specResponse = await app.handle(new Request(specUrl.href));
+
+    expect(specResponse.status).toBe(200);
+    expect(specResponse.headers.get('content-type')).toContain('application/json');
+    expect(await specResponse.json()).toMatchObject({
+      openapi: expect.any(String),
+      info: { title: 'Lostly API', version: '0.1.0' },
+      paths: { '/health': { get: {} } },
+    });
+  });
+
   test('documents OpenAPI metadata and request security requirements', async () => {
     const response = await app.handle(new Request('http://localhost/openapi/json'));
 

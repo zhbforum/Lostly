@@ -17,6 +17,7 @@ export const openApiMutationSecurity = [
 export const openApiPlugin = openapi({
   enabled: process.env.NODE_ENV !== 'production',
   path: '/openapi',
+  scalar: { url: '/openapi/json' },
   documentation: {
     info: {
       title: 'Lostly API',
