@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
 import type { ListingCapabilities } from '@/features/listings/model/types';
@@ -12,7 +12,12 @@ interface ListingOwnerControlsProps {
   onChanged: (message: string) => void;
 }
 
-export function ListingOwnerControls({
+export function ListingOwnerControls(props: ListingOwnerControlsProps) {
+  // Keep dialog and request state scoped to one listing, even when props change in place.
+  return <ListingOwnerControlsContent key={props.listingId} {...props} />;
+}
+
+function ListingOwnerControlsContent({
   listingId,
   capabilities,
   onChanged,
@@ -21,23 +26,32 @@ export function ListingOwnerControls({
   const [action, setAction] = useState<'resolve' | 'archive' | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const busy = useRef(false);
+  const activeRequest = useRef<symbol | null>(null);
+  useLayoutEffect(() => {
+    return () => {
+      // Invalidate on unmount before a delayed response can notify another report's page.
+      activeRequest.current = null;
+    };
+  }, []);
   if (!capabilities.canEdit && !capabilities.canResolve && !capabilities.canArchive) return null;
   const label = action === 'resolve' ? 'Mark as resolved' : 'Archive report';
 
   function open(next: 'resolve' | 'archive') {
-    if (busy.current) return;
+    if (activeRequest.current) return;
     setError(null);
     setAction(next);
   }
 
   async function confirm() {
-    if (!action || busy.current) return;
-    busy.current = true;
+    if (!action || activeRequest.current) return;
+    const requestToken = Symbol();
+    activeRequest.current = requestToken;
+    const isCurrentRequest = () => activeRequest.current === requestToken;
     setPending(true);
     setError(null);
     try {
       await (action === 'resolve' ? resolveListing(listingId) : archiveListing(listingId));
+      if (!isCurrentRequest()) return;
       setAction(null);
       onChanged(
         action === 'resolve'
@@ -45,6 +59,7 @@ export function ListingOwnerControls({
           : 'Your report was archived. It remains available in My reports.',
       );
     } catch (failure) {
+      if (!isCurrentRequest()) return;
       if (failure instanceof ApiError && [403, 404, 409].includes(failure.status)) {
         setAction(null);
         onChanged(
@@ -56,8 +71,10 @@ export function ListingOwnerControls({
         );
       }
     } finally {
-      busy.current = false;
-      setPending(false);
+      if (isCurrentRequest()) {
+        activeRequest.current = null;
+        setPending(false);
+      }
     }
   }
 
@@ -98,7 +115,7 @@ export function ListingOwnerControls({
         className={styles.overlay}
         isOpen={action !== null}
         onOpenChange={(isOpen) => {
-          if (!isOpen && !busy.current) setAction(null);
+          if (!isOpen && !activeRequest.current) setAction(null);
         }}
         isKeyboardDismissDisabled={pending}
       >
