@@ -16,9 +16,13 @@ import {
 import { authenticationPlugin } from '@/auth/plugin';
 import { login, logout as logoutSession, register } from '@/auth/service';
 import { normalizeFields, trimFields } from '@/http/normalize';
+import { openApiCsrfSecurity, openApiSessionSecurity } from '@/openapi';
 
 export const authRoutes = new Elysia({
   prefix: '/auth',
+  detail: {
+    tags: ['Authentication'],
+  },
 })
   .use(authenticationPlugin)
   .post(
@@ -56,6 +60,12 @@ export const authRoutes = new Elysia({
         201: authResponseSchema,
         409: authErrorSchema,
       },
+      detail: {
+        summary: 'Register an account',
+        description:
+          'Creates a user account and starts a new authenticated session using an HttpOnly cookie.',
+        security: openApiCsrfSecurity,
+      },
     },
   )
   .post(
@@ -92,6 +102,12 @@ export const authRoutes = new Elysia({
         200: authResponseSchema,
         401: authErrorSchema,
       },
+      detail: {
+        summary: 'Sign in',
+        description:
+          'Authenticates existing credentials and starts a new session using an HttpOnly cookie.',
+        security: openApiCsrfSecurity,
+      },
     },
   )
   .get(
@@ -103,6 +119,11 @@ export const authRoutes = new Elysia({
       authenticated: true,
       response: {
         200: authResponseSchema,
+      },
+      detail: {
+        summary: 'Get current user',
+        description: 'Returns the user associated with the current authenticated session.',
+        security: openApiSessionSecurity,
       },
     },
   )
@@ -122,5 +143,16 @@ export const authRoutes = new Elysia({
     },
     {
       cookie: sessionCookieSchema,
+      detail: {
+        summary: 'Sign out',
+        description:
+          'Revokes the current session when present and clears the session cookie. The operation is idempotent.',
+        security: openApiCsrfSecurity,
+        responses: {
+          204: {
+            description: 'Session cleared successfully.',
+          },
+        },
+      },
     },
   );

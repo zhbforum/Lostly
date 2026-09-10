@@ -1,4 +1,5 @@
 import { Elysia, ValidationError } from 'elysia';
+
 import { authenticationPlugin } from '@/auth/plugin';
 import { trimFields } from '@/http/normalize';
 import {
@@ -12,9 +13,14 @@ import {
   listingResponseSchema,
   updateListingBodySchema,
 } from '@/listings/model';
+import { openApiMutationSecurity } from '@/openapi';
 
 const MANAGEMENT_ERRORS = {
-  'listing-not-found': { status: 404, code: 'LISTING_NOT_FOUND', message: 'Listing not found' },
+  'listing-not-found': {
+    status: 404,
+    code: 'LISTING_NOT_FOUND',
+    message: 'Listing not found',
+  },
   'update-forbidden': {
     status: 403,
     code: 'LISTING_UPDATE_FORBIDDEN',
@@ -59,7 +65,12 @@ const managementResponse = {
   409: listingManagementErrorResponseSchema,
 };
 
-export const listingManagementRoutes = new Elysia({ prefix: '/listings' })
+export const listingManagementRoutes = new Elysia({
+  prefix: '/listings',
+  detail: {
+    tags: ['Listings'],
+  },
+})
   .use(authenticationPlugin)
   .patch(
     '/:id',
@@ -73,11 +84,21 @@ export const listingManagementRoutes = new Elysia({ prefix: '/listings' })
         location: body.location,
         occurredOn: body.occurredOn,
       });
+
       if (!result.ok) {
         const error = MANAGEMENT_ERRORS[result.reason];
-        return status(error.status, { error: { code: error.code, message: error.message } });
+
+        return status(error.status, {
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        });
       }
-      return { listing: result.value };
+
+      return {
+        listing: result.value,
+      };
     },
     {
       authenticated: true,
@@ -94,15 +115,19 @@ export const listingManagementRoutes = new Elysia({ prefix: '/listings' })
         ) {
           throw new ValidationError('body', updateListingBodySchema, body);
         }
+
         // Keep the version a JSON number; Elysia otherwise coerces numeric strings.
         if (body && typeof body.expectedVersion !== 'number') {
           throw new ValidationError('body', updateListingBodySchema, body);
         }
+
         trimFields(body, ['title', 'description', 'location']);
+
         // Elysia 1.4's date format accepts rollover dates such as February 30.
         // PATCH must reject those before PostgreSQL sees the value.
         if (body && typeof body.occurredOn === 'string') {
           const date = new Date(body.occurredOn + 'T00:00:00.000Z');
+
           if (
             !/^\d{4}-\d{2}-\d{2}$/.test(body.occurredOn) ||
             body.occurredOn.startsWith('0000-') ||
@@ -114,37 +139,81 @@ export const listingManagementRoutes = new Elysia({ prefix: '/listings' })
         }
       },
       response: managementResponse,
+      detail: {
+        summary: 'Edit a report',
+        description:
+          'Updates the editable fields of an active report owned by the authenticated user using optimistic concurrency control.',
+        security: openApiMutationSecurity,
+      },
     },
   )
   .post(
     '/:id/resolve',
     async ({ auth, params, status }) => {
-      const result = await resolveOwnedListing({ listingId: params.id, ownerUserId: auth.user.id });
+      const result = await resolveOwnedListing({
+        listingId: params.id,
+        ownerUserId: auth.user.id,
+      });
+
       if (!result.ok) {
         const error = MANAGEMENT_ERRORS[result.reason];
-        return status(error.status, { error: { code: error.code, message: error.message } });
+
+        return status(error.status, {
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        });
       }
-      return { listing: result.value };
+
+      return {
+        listing: result.value,
+      };
     },
     {
       authenticated: true,
       params: listingIdParamsSchema,
       response: managementResponse,
+      detail: {
+        summary: 'Resolve a report',
+        description:
+          'Marks an active report owned by the authenticated user as resolved and rejects its pending claims.',
+        security: openApiMutationSecurity,
+      },
     },
   )
   .post(
     '/:id/archive',
     async ({ auth, params, status }) => {
-      const result = await archiveOwnedListing({ listingId: params.id, ownerUserId: auth.user.id });
+      const result = await archiveOwnedListing({
+        listingId: params.id,
+        ownerUserId: auth.user.id,
+      });
+
       if (!result.ok) {
         const error = MANAGEMENT_ERRORS[result.reason];
-        return status(error.status, { error: { code: error.code, message: error.message } });
+
+        return status(error.status, {
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        });
       }
-      return { listing: result.value };
+
+      return {
+        listing: result.value,
+      };
     },
     {
       authenticated: true,
       params: listingIdParamsSchema,
       response: managementResponse,
+      detail: {
+        summary: 'Archive a report',
+        description:
+          'Archives an active or resolved report owned by the authenticated user. Archiving an active report rejects its pending claims.',
+        security: openApiMutationSecurity,
+      },
     },
   );

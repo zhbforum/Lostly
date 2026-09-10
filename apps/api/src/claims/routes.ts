@@ -12,6 +12,7 @@ import {
 } from '@/claims/model';
 import { createClaim, decideClaim, findIncomingClaims } from '@/claims/service';
 import { trimFields } from '@/http/normalize';
+import { openApiMutationSecurity, openApiSessionSecurity } from '@/openapi';
 import { pageQuerySchema } from '@/pagination/model';
 
 const CLAIM_ERRORS = {
@@ -53,7 +54,11 @@ const CLAIM_ERRORS = {
   },
 } as const;
 
-export const claimRoutes = new Elysia()
+export const claimRoutes = new Elysia({
+  detail: {
+    tags: ['Claims'],
+  },
+})
   .use(authenticationPlugin)
   .post(
     '/listings/:id/claims',
@@ -91,6 +96,11 @@ export const claimRoutes = new Elysia()
         404: claimErrorResponseSchema,
         409: claimErrorResponseSchema,
       },
+      detail: {
+        summary: 'Submit a claim',
+        description: 'Submits private ownership verification for an active found report.',
+        security: openApiMutationSecurity,
+      },
     },
   )
   .get(
@@ -121,6 +131,12 @@ export const claimRoutes = new Elysia()
         403: claimErrorResponseSchema,
         404: claimErrorResponseSchema,
         409: claimErrorResponseSchema,
+      },
+      detail: {
+        summary: 'List incoming claims',
+        description:
+          'Returns claims submitted for a report when the authenticated user is allowed to review them.',
+        security: openApiSessionSecurity,
       },
     },
   )
@@ -159,6 +175,12 @@ export const claimRoutes = new Elysia()
         403: claimErrorResponseSchema,
         404: claimErrorResponseSchema,
         409: claimErrorResponseSchema,
+      },
+      detail: {
+        summary: 'Review a claim',
+        description:
+          'Approves or rejects a pending claim. Approval resolves the report and rejects competing pending claims.',
+        security: openApiMutationSecurity,
       },
     },
   );

@@ -25,6 +25,23 @@ Successful saves discard that version's draft before navigation. The update conf
 once from navigation state without dropping the URL query, fragment, or other state; it does not repeat
 after reloading the details page.
 
+## OpenAPI documentation
+
+In non-production environments the API exposes interactive OpenAPI documentation at `/openapi` and the
+generated OpenAPI 3.1 document at `/openapi/json`. When `NODE_ENV=production`, the application disables these endpoints.
+
+The document is generated from the same Elysia request, parameter and response schemas used at runtime.
+Route metadata adds operation summaries, feature tags and the browser security contract without introducing
+a separate set of API DTOs.
+
+Authenticated requests use the `lostly_session` HttpOnly cookie. Unsafe requests also require
+`X-CSRF-Protection: 1`. OpenAPI models authenticated mutations as requiring both mechanisms, while
+registration, login and idempotent logout require CSRF protection without requiring an existing session.
+
+OpenAPI security requirements are declared explicitly per operation. They are not inherited from the
+authentication macro because combining macro-level and route-level security arrays would represent
+alternative OpenAPI requirements rather than the API's required session-and-CSRF combination.
+
 ## Build and test
 
 `VITE_API_URL` must be an explicit absolute HTTP(S) URL without credentials, query or fragment.
@@ -104,5 +121,6 @@ Infrastructure is environment-specific; this checklist does not provision a depl
    the applied schema; do not automatically reverse migrations or overwrite live data during rollback.
 
 References: [Elysia lifecycle and error handling](https://elysiajs.com/essential/life-cycle),
+[Elysia OpenAPI](https://elysiajs.com/plugins/openapi),
 [Vite environment configuration](https://vite.dev/guide/env-and-mode),
 [Playwright CI setup](https://playwright.dev/docs/ci-intro).

@@ -15,8 +15,9 @@
     "db:migrate": "bunx --bun drizzle-kit migrate"
   },
   "dependencies": {
-    "@lostly/contracts": "workspace:*",
     "@elysia/cors": "^1.4.2",
+    "@elysia/openapi": "^1.4.16",
+    "@lostly/contracts": "workspace:*",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^1.0.0-rc.4",
     "elysia": "^1.4.30"
