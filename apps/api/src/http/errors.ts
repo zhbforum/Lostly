@@ -1,5 +1,7 @@
 import { Elysia } from 'elysia';
 import type { ApiErrorResponse } from '@lostly/contracts/errors';
+import { IMAGE_ERRORS, ImageError } from '@/listing-images/errors';
+import { StorageUnavailableError } from '@/storage/object-storage';
 
 const errors = {
   VALIDATION: { status: 422, code: 'VALIDATION_ERROR', message: 'Request fields are invalid' },
@@ -11,6 +13,19 @@ export const errorHandler = new Elysia({ name: 'error-handler' }).onError(
   { as: 'global' },
   ({ code, error, request, set, status }) => {
     set.headers['Cache-Control'] = 'private, no-store';
+    if (error instanceof ImageError) {
+      const [httpStatus, errorCode, message] = IMAGE_ERRORS[error.reason];
+      if (httpStatus === 429) set.headers['Retry-After'] = '60';
+      return status(httpStatus, { error: { code: errorCode, message } });
+    }
+    if (error instanceof StorageUnavailableError) {
+      return status(503, {
+        error: {
+          code: 'IMAGE_STORAGE_UNAVAILABLE',
+          message: 'Image storage is temporarily unavailable',
+        },
+      });
+    }
     if (
       (code === 'VALIDATION' && error.type !== 'response') ||
       code === 'PARSE' ||

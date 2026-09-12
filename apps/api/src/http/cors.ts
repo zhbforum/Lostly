@@ -9,6 +9,6 @@ export const corsPlugin = cors({
     process.env.ADMIN_ORIGIN ?? DEFAULT_ADMIN_ORIGIN,
   ],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-CSRF-Protection'],
+  allowedHeaders: ['Content-Type', 'X-CSRF-Protection', 'Idempotency-Key'],
   credentials: true,
 });

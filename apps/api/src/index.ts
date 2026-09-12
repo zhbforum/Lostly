@@ -1,6 +1,9 @@
 import { app } from '@/app';
 import { createAuthRateLimit } from '@/auth/rate-limit';
 import { startSessionCleanup } from '@/auth/session-cleanup';
+import { readR2Config } from '@/storage/r2-storage';
+
+readR2Config();
 
 let stopCleanup: (() => void) | undefined;
 app
