@@ -15,6 +15,7 @@ const incoming = vi.mocked(getIncomingClaims);
 const decision = vi.mocked(decideClaim);
 const id = '550e8400-e29b-41d4-a716-446655440001';
 const ownerDetails: ListingDetailResponse = {
+  images: [],
   listing: {
     id,
     kind: 'found',
@@ -28,6 +29,7 @@ const ownerDetails: ListingDetailResponse = {
     updatedAt: '2026-09-01T10:00:00.000Z',
   },
   capabilities: {
+    canManageImages: true,
     canReviewClaims: true,
     canClaim: false,
     canEdit: true,
@@ -115,6 +117,7 @@ describe('listing claims flow', () => {
       handoverDetails: 'Collect from library reception.',
     };
     const viewer = {
+      canManageImages: false,
       canReviewClaims: false,
       canClaim: true,
       canEdit: false,
@@ -150,6 +153,7 @@ describe('listing claims flow', () => {
     details.mockResolvedValue({
       ...ownerDetails,
       capabilities: {
+        canManageImages: false,
         canClaim: false,
         canReviewClaims: false,
         canEdit: false,

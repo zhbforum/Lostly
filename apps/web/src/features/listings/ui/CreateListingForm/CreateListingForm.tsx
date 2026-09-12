@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { createListing } from '@/features/listings/api/listings-api';
 import { useFormDraft } from '@/shared/model/use-form-draft';
@@ -15,19 +15,20 @@ import {
   type Listing,
   type ListingKind,
 } from '@/features/listings/model/types';
-import styles from '../ListingFormFields/ListingForm.module.css';
-import { ListingDateField } from '../ListingFormFields/ListingDateField/ListingDateField';
+import styles from '@/features/listings/ui/ListingFormFields/ListingForm.module.css';
+import { ListingDateField } from '@/features/listings/ui/ListingFormFields/ListingDateField/ListingDateField';
 import {
   type ListingFormError,
   ListingFormErrorSummary,
-} from '../ListingFormFields/ListingFormErrorSummary';
+} from '@/features/listings/ui/ListingFormFields/ListingFormErrorSummary';
 import { ListingKindField } from './_parts/ListingKindField';
-import { ListingTextareaField } from '../ListingFormFields/ListingTextareaField';
-import { ListingTextField } from '../ListingFormFields/ListingTextField';
+import { ListingTextareaField } from '@/features/listings/ui/ListingFormFields/ListingTextareaField';
+import { ListingTextField } from '@/features/listings/ui/ListingFormFields/ListingTextField';
 
 interface CreateListingFormProps {
   initialKind?: ListingKind | null;
   onCreated: (listing: Listing) => void;
+  photoPicker?: ReactNode;
 }
 
 const FIELD_IDS = {
@@ -103,7 +104,11 @@ function getDateHint(kind: ListingKind | null): string {
   return 'Choose the closest date you remember.';
 }
 
-export function CreateListingForm({ initialKind = null, onCreated }: CreateListingFormProps) {
+export function CreateListingForm({
+  initialKind = null,
+  onCreated,
+  photoPicker,
+}: CreateListingFormProps) {
   const [values, setValues, discardDraft] = useFormDraft<CreateListingFormValues>(
     'listing:new:' + initialKind,
     () => createInitialListingFormValues(initialKind),
@@ -283,6 +288,9 @@ export function CreateListingForm({ initialKind = null, onCreated }: CreateListi
         />
       </section>
 
+      <fieldset disabled={isSubmitting} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+        {photoPicker}
+      </fieldset>
       {submitError && (
         <div className={styles.submitError} role="alert">
           <p className={styles.submitErrorTitle}>We couldn&apos;t create your report.</p>

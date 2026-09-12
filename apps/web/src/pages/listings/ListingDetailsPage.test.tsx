@@ -40,8 +40,10 @@ const secondListing = {
 } satisfies Listing;
 
 const listingDetails = {
+  images: [],
   listing,
   capabilities: {
+    canManageImages: false,
     canClaim: false,
     canReviewClaims: false,
     canEdit: false,
@@ -52,8 +54,10 @@ const listingDetails = {
 } satisfies ListingDetailResponse;
 
 const secondListingDetails = {
+  images: [],
   listing: secondListing,
   capabilities: {
+    canManageImages: false,
     canClaim: false,
     canReviewClaims: false,
     canEdit: false,

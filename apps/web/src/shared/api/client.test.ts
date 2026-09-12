@@ -10,6 +10,23 @@ const failure = (code = 'UNAUTHENTICATED') =>
   Response.json({ error: { code, message: 'No session' } }, { status: 401 });
 
 describe('API client', () => {
+  it('sends FormData unchanged and lets the browser set the multipart boundary', async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ image: { id: 'photo' } }));
+    vi.stubGlobal('fetch', fetcher);
+    const body = new FormData();
+    body.append('file', new File(['png'], 'photo.png'));
+    await apiRequest('/listings/id/images', {
+      method: 'POST',
+      body,
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'request' },
+    });
+    const options = fetcher.mock.calls[0][1];
+    expect(options.body).toBe(body);
+    expect(options.credentials).toBe('include');
+    expect(options.headers.has('Content-Type')).toBe(false);
+    expect(options.headers.get('X-CSRF-Protection')).toBe('1');
+    expect(options.headers.get('Idempotency-Key')).toBe('request');
+  });
   it('serializes JSON, includes cookies and CSRF only on mutations, and supports 204', async () => {
     const fetcher = vi
       .fn()

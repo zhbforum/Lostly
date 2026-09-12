@@ -5,12 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getListing, getListings } from '@/features/listings/api/listings-api';
 import { ListingDetailsPage } from '@/pages/listings/ListingDetailsPage';
 import { ListingFeed } from './ListingFeed';
-import type { Listing } from '@/features/listings/model/types';
+import type { ListingSummary } from '@/features/listings/model/types';
 
 vi.mock('@/features/listings/api/listings-api');
 const listMock = vi.mocked(getListings);
 const detailsMock = vi.mocked(getListing);
-const item: Listing = {
+const item: ListingSummary = {
+  coverImage: null,
   id: '550e8400-e29b-41d4-a716-446655440001',
   kind: 'found',
   status: 'active',
@@ -46,8 +47,10 @@ describe('ListingFeed navigation', () => {
       pageInfo: input.cursor ? end : { endCursor: 'second-page', hasNextPage: true },
     }));
     detailsMock.mockResolvedValue({
+      images: [],
       listing: item,
       capabilities: {
+        canManageImages: false,
         canClaim: false,
         canReviewClaims: false,
         canEdit: false,
