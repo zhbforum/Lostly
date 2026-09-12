@@ -9,7 +9,8 @@
     "types": ["bun"],
 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@tests/*": ["./tests/*"]
     },
 
     "strict": true,
