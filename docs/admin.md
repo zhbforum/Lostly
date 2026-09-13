@@ -15,15 +15,16 @@ bun run --cwd apps/api db:migrate
 bun run --cwd apps/api dev
 ```
 
-In another terminal:
+Use Node.js 24.15.0 (the CI version) for the Angular development server. In another terminal:
 
 ```sh
-bun --bun run --cwd apps/admin start
+bun run --cwd apps/admin start
 ```
 
 Open `http://localhost:4200`. The development proxy sends `/api/**` to
 `http://localhost:3000`, stripping `/api`. Requests use the existing HttpOnly session
-cookie and `X-CSRF-Protection: 1` for mutations.
+cookie and `X-CSRF-Protection: 1` for mutations. Keep the CLI's Node.js runtime when
+serving; `--bun` overrides its Node.js shebang and is not used for the E2E dev server.
 
 Register an account through the web application first. A project operator can promote
 that specific account in the intended database:

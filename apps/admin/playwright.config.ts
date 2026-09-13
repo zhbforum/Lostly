@@ -18,7 +18,7 @@ export default defineConfig({
       env: { DATABASE_URL: process.env.DATABASE_URL },
     },
     {
-      command: 'bun --bun run start --host localhost --port 4200',
+      command: 'bun run start --host localhost --port 4200',
       url: 'http://localhost:4200',
       reuseExistingServer: false,
     },
