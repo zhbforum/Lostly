@@ -12,7 +12,7 @@ export async function createClaim(input: {
 }): Promise<ClaimResult<ClaimRecord>> {
   return db.transaction(async (tx) => {
     const listing = await lockListing(tx, input.listingId);
-    if (!listing) return { ok: false, reason: 'listing-not-found' };
+    if (!listing || listing.isHidden) return { ok: false, reason: 'listing-not-found' };
     if (listing.createdByUserId === input.claimantUserId)
       return { ok: false, reason: 'cannot-claim-own-listing' };
     if (!isClaimableListingKind(listing.kind) || listing.status !== 'active')

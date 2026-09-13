@@ -2,9 +2,17 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import type { AdminClaim, AdminListing, AdminPage, AdminUser } from '@lostly/contracts/admin';
 import { app } from '@/app';
+import { setListingVisibility } from '@/admin/service';
 import { db } from '@/db';
 import { claims, listings, moderationEvents, users } from '@/db/schema';
-import { claim, clearDatabase, report, request, user } from './listings/management-fixtures';
+import {
+  claim,
+  clearDatabase,
+  report,
+  request,
+  updateInput,
+  user,
+} from './listings/management-fixtures';
 
 async function clear() {
   await db.delete(moderationEvents);
@@ -20,6 +28,244 @@ async function admin() {
 }
 
 describe('admin moderation', () => {
+  test('rolls back visibility and version if its audit event cannot be saved', async () => {
+    const actor = await admin();
+    const original = await report(actor.id);
+    await expect(
+      setListingVisibility(original.id, actor.id, 'hide', {
+        expectedVersion: 1,
+        reason: 'x'.repeat(501),
+      }),
+    ).rejects.toThrow();
+    expect((await db.select().from(listings))[0]).toEqual(original);
+    expect(await db.select().from(moderationEvents)).toEqual([]);
+  });
+  test('combines search and filters and binds cursors to the current query', async () => {
+    const actor = await admin();
+    const owner = await user('Finder');
+    const first = await report(owner.id);
+    const second = await report(owner.id);
+    await report(owner.id, 'lost');
+    await report(owner.id, 'found', 'archived');
+    const page = (await (
+      await request('/admin/listings?q=BACKPACK&kind=found&status=active&limit=1', actor.cookie)
+    ).json()) as AdminPage<AdminListing>;
+    expect(page.items).toHaveLength(1);
+    const cursor = page.pageInfo.endCursor!;
+    const next = (await (
+      await request(
+        '/admin/listings?q=backpack&kind=found&status=active&limit=1&cursor=' + cursor,
+        actor.cookie,
+      )
+    ).json()) as AdminPage<AdminListing>;
+    expect(new Set([...page.items, ...next.items].map((row) => row.id))).toEqual(
+      new Set([first.id, second.id]),
+    );
+    for (const query of [
+      'q=Berlin&kind=found&status=active',
+      'q=backpack&kind=lost&status=active',
+      'q=backpack&kind=found&status=archived',
+      'q=backpack&kind=found&status=active&visibility=hidden',
+    ])
+      expect(
+        (await request('/admin/listings?' + query + '&cursor=' + cursor, actor.cookie)).status,
+      ).toBe(400);
+    for (const q of ['FINDER', 'finder@example.com']) {
+      const matches = (await (
+        await request('/admin/users?q=' + encodeURIComponent(q), actor.cookie)
+      ).json()) as AdminPage<AdminUser>;
+      expect(matches.items.map((row) => row.id)).toEqual([owner.id]);
+    }
+    const pending = await claim(first.id, actor.id);
+    await claim(second.id, actor.id, 'rejected', owner.id);
+    const matches = (await (
+      await request('/admin/claims?status=pending&q=backpack', actor.cookie)
+    ).json()) as AdminPage<AdminClaim>;
+    expect(matches.items.map((row) => row.id)).toEqual([pending.id]);
+    expect(JSON.stringify(matches)).not.toMatch(/verificationDetails|handoverDetails/);
+  });
+
+  test('treats search wildcards literally and rejects invalid or misplaced filters', async () => {
+    const actor = await admin();
+    const listing = await report(actor.id);
+    await db
+      .update(listings)
+      .set({ title: '100%_backpack\\label' })
+      .where(eq(listings.id, listing.id));
+    await report(actor.id);
+    for (const q of ['%', '_', '\\']) {
+      const page = (await (
+        await request('/admin/listings?q=' + encodeURIComponent(q), actor.cookie)
+      ).json()) as AdminPage<AdminListing>;
+      expect(page.items.map((row) => row.id)).toEqual([listing.id]);
+    }
+    for (const path of [
+      '/admin/users?status=active',
+      '/admin/users?kind=lost',
+      '/admin/claims?kind=found',
+      '/admin/listings?status=pending',
+      '/admin/claims?status=active',
+      '/admin/users?visibility=hidden',
+      '/admin/listings?visibility=invalid',
+      '/admin/listings?kind=invalid',
+      '/admin/users?q=' + 'x'.repeat(101),
+    ])
+      expect((await request(path, actor.cookie)).status).toBe(422);
+  });
+
+  test.each(['active', 'resolved', 'archived'] as const)(
+    'hides and restores %s listings without changing lifecycle or claim history',
+    async (status) => {
+      const actor = await admin();
+      const owner = await user('owner');
+      const claimant = await user('claimant');
+      const original = await report(owner.id, 'found', status);
+      const existing = await claim(
+        original.id,
+        claimant.id,
+        status === 'active' ? 'pending' : 'approved',
+        status === 'active' ? undefined : owner.id,
+      );
+      const path = '/admin/listings/' + original.id;
+      expect(
+        (
+          await request(path + '/hide', actor.cookie, {
+            expectedVersion: 1,
+            reason: '  Unsafe report  ',
+          })
+        ).status,
+      ).toBe(204);
+      expect((await db.select().from(listings))[0]).toMatchObject({
+        isHidden: true,
+        status,
+        version: 2,
+      });
+      expect((await db.select().from(claims))[0]).toEqual(existing);
+      for (const session of [owner, claimant, actor]) {
+        expect((await request('/listings/' + original.id, session.cookie)).status).toBe(404);
+        expect((await request('/listings/' + original.id + '/claims', session.cookie)).status).toBe(
+          404,
+        );
+        for (const endpoint of [
+          '/listings',
+          '/me/listings',
+          '/me/claims',
+          '/me/claims?direction=incoming',
+        ]) {
+          const response = await request(endpoint, session.cookie);
+          expect(response.status).toBe(200);
+          expect(await response.text()).not.toContain(original.id);
+        }
+      }
+      expect(
+        (await request('/listings/' + original.id, owner.cookie, updateInput, 'PATCH')).status,
+      ).toBe(404);
+      for (const action of ['resolve', 'archive'])
+        expect(
+          (
+            await request(
+              '/listings/' + original.id + '/' + action,
+              owner.cookie,
+              undefined,
+              'POST',
+            )
+          ).status,
+        ).toBe(404);
+      expect(
+        (
+          await request('/listings/' + original.id + '/claims', claimant.cookie, {
+            verificationDetails: 'Private ownership evidence',
+          })
+        ).status,
+      ).toBe(404);
+      expect(
+        (await request('/claims/' + existing.id, owner.cookie, { decision: 'rejected' }, 'PATCH'))
+          .status,
+      ).toBe(404);
+      const hidden = (await (
+        await request('/admin/listings?visibility=hidden', actor.cookie)
+      ).json()) as AdminPage<AdminListing>;
+      expect(hidden.items.map((row) => row.id)).toEqual([original.id]);
+      expect(
+        await (await request('/admin/listings?visibility=visible', actor.cookie)).json(),
+      ).toMatchObject({ items: [] });
+      expect(
+        (
+          await request(path + '/restore', actor.cookie, {
+            expectedVersion: 2,
+            reason: 'Reviewed and allowed',
+          })
+        ).status,
+      ).toBe(204);
+      expect((await db.select().from(listings))[0]).toMatchObject({
+        isHidden: false,
+        status,
+        version: 3,
+      });
+      expect((await db.select().from(claims))[0]).toEqual(existing);
+      expect((await request('/listings/' + original.id, claimant.cookie)).status).toBe(200);
+      const feed = (await (await request('/listings', owner.cookie)).json()) as {
+        listings: { id: string }[];
+      };
+      expect(feed.listings.some((row) => row.id === original.id)).toBe(status === 'active');
+      const events = await db.select().from(moderationEvents);
+      expect(events).toHaveLength(2);
+      expect(events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: 'hide_listing',
+            targetId: original.id,
+            actorUserId: actor.id,
+            reason: 'Unsafe report',
+          }),
+          expect.objectContaining({
+            action: 'restore_listing',
+            targetId: original.id,
+            actorUserId: actor.id,
+            reason: 'Reviewed and allowed',
+          }),
+        ]),
+      );
+    },
+  );
+
+  test('protects visibility actions, validates input and refuses stale or repeated transitions', async () => {
+    const actor = await admin();
+    const owner = await user('owner');
+    const listing = await report(owner.id);
+    const input = { expectedVersion: 1, reason: 'Moderator decision' };
+    for (const action of ['hide', 'restore']) {
+      const path = `/admin/listings/${listing.id}/${action}`;
+      expect((await request(path, undefined, input)).status).toBe(401);
+      expect((await request(path, owner.cookie, input)).status).toBe(403);
+      expect((await request(path, actor.cookie, { ...input, reason: '  ' })).status).toBe(422);
+      expect((await request(path, actor.cookie, { reason: input.reason })).status).toBe(422);
+      expect(
+        (await request(`/admin/listings/${crypto.randomUUID()}/${action}`, actor.cookie, input))
+          .status,
+      ).toBe(404);
+      const csrf = await app.handle(
+        new Request('http://localhost' + path, {
+          method: 'POST',
+          headers: { cookie: actor.cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        }),
+      );
+      expect(csrf.status).toBe(403);
+    }
+    const path = '/admin/listings/' + listing.id;
+    expect((await request(path + '/restore', actor.cookie, input)).status).toBe(409);
+    expect(
+      (await request(path + '/hide', actor.cookie, { ...input, expectedVersion: 2 })).status,
+    ).toBe(409);
+    expect(await db.select().from(moderationEvents)).toEqual([]);
+    expect((await request(path + '/hide', actor.cookie, input)).status).toBe(204);
+    expect(
+      (await request(path + '/hide', actor.cookie, { ...input, expectedVersion: 2 })).status,
+    ).toBe(409);
+    expect((await request(path + '/restore', actor.cookie, input)).status).toBe(409);
+    expect(await db.select().from(moderationEvents)).toHaveLength(1);
+  });
   test('protects every endpoint and rechecks the role of an existing session', async () => {
     const ordinary = await user('ordinary');
     const actor = await admin();

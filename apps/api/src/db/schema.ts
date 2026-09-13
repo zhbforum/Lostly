@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   date,
   index,
   integer,
@@ -23,6 +24,8 @@ export const claimStatusEnum = pgEnum('claim_status', CLAIM_STATUSES);
 export const moderationActionEnum = pgEnum('moderation_action', [
   'archive_listing',
   'reject_claim',
+  'hide_listing',
+  'restore_listing',
 ]);
 
 export const moderationEvents = pgTable('moderation_events', {
@@ -92,6 +95,7 @@ export const listings = pgTable(
 
     kind: listingKindEnum('kind').notNull(),
     status: listingStatusEnum('status').notNull().default('active'),
+    isHidden: boolean('is_hidden').notNull().default(false),
     version: integer('version').notNull().default(1),
 
     title: varchar('title', {

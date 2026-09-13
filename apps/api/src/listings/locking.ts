@@ -11,6 +11,7 @@ export async function lockListing(tx: DatabaseTransaction, listingId: string) {
       id: listings.id,
       kind: listings.kind,
       status: listings.status,
+      isHidden: listings.isHidden,
       version: listings.version,
       createdByUserId: listings.createdByUserId,
     })

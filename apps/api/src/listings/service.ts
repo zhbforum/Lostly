@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { listings } from '@/db/schema';
 import { findClaimForClaimant } from '@/claims/queries';
@@ -41,7 +41,7 @@ export async function findListingById(id: string) {
   const [listing] = await db
     .select(publicListingSelection)
     .from(listings)
-    .where(eq(listings.id, id))
+    .where(and(eq(listings.id, id), eq(listings.isHidden, false)))
     .limit(1);
   return listing ?? null;
 }
@@ -53,7 +53,7 @@ export async function findListingForViewer(id: string, viewerUserId: string) {
       createdByUserId: listings.createdByUserId,
     })
     .from(listings)
-    .where(eq(listings.id, id))
+    .where(and(eq(listings.id, id), eq(listings.isHidden, false)))
     .limit(1);
   if (!row) return null;
 

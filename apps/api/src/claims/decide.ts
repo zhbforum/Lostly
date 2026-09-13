@@ -21,7 +21,7 @@ export async function decideClaim(
       .limit(1);
     if (!reference) return { ok: false, reason: 'claim-not-found' };
     const listing = await lockListing(tx, reference.listingId);
-    if (!listing) return { ok: false, reason: 'claim-not-found' };
+    if (!listing || listing.isHidden) return { ok: false, reason: 'claim-not-found' };
     if (listing.createdByUserId !== input.reviewerUserId)
       return { ok: false, reason: 'review-forbidden' };
     const [claim] = await tx

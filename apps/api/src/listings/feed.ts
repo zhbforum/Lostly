@@ -44,6 +44,7 @@ async function listListings(input: ListListingsInput, ownerUserId?: string) {
     .from(listings)
     .where(
       and(
+        eq(listings.isHidden, false),
         ownerUserId ? eq(listings.createdByUserId, ownerUserId) : eq(listings.status, 'active'),
         input.kind ? eq(listings.kind, input.kind) : undefined,
         cursor ? cursorCondition(column, listings.id, cursor, ascending, dateOnly) : undefined,

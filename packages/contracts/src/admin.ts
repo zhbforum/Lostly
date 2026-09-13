@@ -1,7 +1,14 @@
 import type { AuthUser } from './auth';
 import type { ClaimStatus } from './claims';
-import type { Listing } from './listings';
-import type { PageInfo } from './pagination';
+import type { Listing, ListingKind, ListingStatus } from './listings';
+import type { PageInfo, PageQuery } from './pagination';
+
+export interface AdminRecordsQuery extends PageQuery {
+  q?: string;
+  kind?: ListingKind;
+  status?: ListingStatus | ClaimStatus;
+  visibility?: 'visible' | 'hidden';
+}
 
 export interface AdminOverview {
   users: number;
@@ -11,6 +18,7 @@ export interface AdminOverview {
 }
 
 export interface AdminListing extends Listing {
+  isHidden: boolean;
   owner: { id: string; displayName: string };
 }
 
@@ -39,3 +47,5 @@ export interface ModerationInput {
 export interface ArchiveListingInput extends ModerationInput {
   expectedVersion: number;
 }
+
+export type ListingVisibilityInput = ArchiveListingInput;
