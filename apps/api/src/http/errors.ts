@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, ParseError } from 'elysia';
 import type { ApiErrorResponse } from '@lostly/contracts/errors';
 import { IMAGE_ERRORS, ImageError } from '@/listing-images/errors';
 import { StorageUnavailableError } from '@/storage/object-storage';
@@ -13,8 +13,10 @@ export const errorHandler = new Elysia({ name: 'error-handler' }).onError(
   { as: 'global' },
   ({ code, error, request, set, status }) => {
     set.headers['Cache-Control'] = 'private, no-store';
-    if (error instanceof ImageError) {
-      const [httpStatus, errorCode, message] = IMAGE_ERRORS[error.reason];
+    // Elysia wraps errors thrown by custom body parsers. Unwrap only our safe domain errors.
+    const imageError = error instanceof ParseError ? error.cause : error;
+    if (imageError instanceof ImageError) {
+      const [httpStatus, errorCode, message] = IMAGE_ERRORS[imageError.reason];
       if (httpStatus === 429) set.headers['Retry-After'] = '60';
       return status(httpStatus, { error: { code: errorCode, message } });
     }

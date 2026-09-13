@@ -1,12 +1,9 @@
 import { Elysia, t } from 'elysia';
 import { authenticationPlugin } from '@/auth/plugin';
-import { SESSION_COOKIE_NAME } from '@/auth/cookie';
-import { getSession } from '@/auth/service';
-import { createRateLimiter } from '@/http/rate-limit';
 import { listingIdParamsSchema } from '@/listings/model';
 import { openApiMutationSecurity } from '@/openapi';
 import type { ObjectStorage } from '@/storage/object-storage';
-import { ImageError } from './errors';
+import { createImageUploadIngress } from './ingress';
 import { deleteOwnedImage, orderOwnedImages } from './management';
 import {
   imageErrorSchema,
@@ -23,6 +20,7 @@ const errors = {
   400: imageErrorSchema,
   403: imageErrorSchema,
   404: imageErrorSchema,
+  408: imageErrorSchema,
   409: imageErrorSchema,
   413: imageErrorSchema,
   422: imageErrorSchema,
@@ -30,10 +28,12 @@ const errors = {
   503: imageErrorSchema,
 };
 
-export function createListingImageRoutes(storage: ObjectStorage) {
+export function createListingImageRoutes(
+  storage: ObjectStorage,
+  { bodyReadTimeoutMs }: { bodyReadTimeoutMs?: number } = {},
+) {
   const upload = createImageUploader(storage);
-  const ingressRateLimit = createRateLimiter(30, 60_000);
-  const requests = new Set<Request>();
+  const ingress = createImageUploadIngress();
   return new Elysia({ prefix: '/listings', detail: { tags: ['Listing images'] } })
     .use(authenticationPlugin)
     .onRequest(async ({ request, server, status }) => {
@@ -42,32 +42,14 @@ export function createListingImageRoutes(storage: ObjectStorage) {
         !/\/listings\/[^/]+\/images\/?$/.test(new URL(request.url).pathname)
       )
         return;
-      if (
-        requests.size >= 4 ||
-        ingressRateLimit(server?.requestIP(request)?.address ?? 'unknown') !== null
-      ) {
-        throw new ImageError('busy');
-      }
-      requests.add(request);
-      try {
-        const token = new Bun.CookieMap(request.headers.get('cookie') ?? '').get(
-          SESSION_COOKIE_NAME,
-        );
-        // onRequest can short-circuit before route-scoped cleanup runs.
-        // Reject unauthenticated uploads before reading their multipart bodies.
-        if (!token || !(await getSession(token))) {
-          requests.delete(request);
-          return status(401, {
-            error: { code: 'UNAUTHENTICATED', message: 'Authentication required' },
-          });
-        }
-      } catch (error) {
-        requests.delete(request);
-        throw error;
+      if (!(await ingress.begin(request, server?.requestIP(request)?.address ?? 'unknown'))) {
+        return status(401, {
+          error: { code: 'UNAUTHENTICATED', message: 'Authentication required' },
+        });
       }
     })
     .onAfterResponse({ as: 'global' }, ({ request }) => {
-      requests.delete(request);
+      ingress.finish(request);
     })
     .post(
       '/:id/images',
@@ -86,14 +68,14 @@ export function createListingImageRoutes(storage: ObjectStorage) {
         headers: imageUploadHeadersSchema,
         // The bounded parser always returns or throws; the trailing parser declares the media
         // type for OpenAPI 1.4, which omits content types for custom parser functions.
-        parse: [({ request }) => parseImageUpload(request), 'formdata'],
+        parse: [({ request }) => parseImageUpload(request, bodyReadTimeoutMs), 'formdata'],
         body: imageUploadBodySchema,
         response: { ...errors, 200: listingImageResponseSchema, 201: listingImageResponseSchema },
         detail: {
           summary: 'Upload a report photo',
           security: openApiMutationSecurity,
           description:
-            'Upload one JPEG, PNG or WebP (up to 5 MiB). Reuse Idempotency-Key only when retrying the same file. Images are normalized to WebP. A replay returns 200; a new image returns 201.',
+            'Upload one JPEG, PNG or WebP (up to 5 MiB). One concurrent upload per user; body reads have a 30-second deadline. Reuse Idempotency-Key only when retrying the same file. Images are normalized to WebP. A replay returns 200; a new image returns 201.',
         },
       },
     )

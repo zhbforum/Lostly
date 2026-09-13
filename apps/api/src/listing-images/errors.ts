@@ -24,6 +24,8 @@ export const IMAGE_ERRORS = {
     'Choose a valid, non-animated JPEG, PNG or WebP image up to 5 MiB and 40 megapixels',
   ],
   'body-too-large': [413, 'REQUEST_TOO_LARGE', 'The upload request is too large'],
+  'body-timeout': [408, 'IMAGE_UPLOAD_TIMEOUT', 'The photo upload took too long. Please try again'],
+  'upload-aborted': [400, 'REQUEST_ABORTED', 'The upload request was cancelled'],
   'invalid-multipart': [400, 'INVALID_MULTIPART', 'Send exactly one file in a multipart upload'],
   busy: [429, 'RATE_LIMITED', 'Too many photo uploads. Please try again shortly'],
 } as const;

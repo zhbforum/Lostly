@@ -27,6 +27,8 @@ export function validateImageSelection(files: File[], existingCount: number): st
 
 export function imageErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    if (error.status === 408)
+      return 'The photo upload took too long. Check your connection and try again.';
     if (error.status === 401) return 'Sign in again to manage photos.';
     if (error.status === 403 || error.code === 'LISTING_IMAGES_NOT_EDITABLE')
       return 'Photos can only be changed on your own active report.';
