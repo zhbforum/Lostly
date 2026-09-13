@@ -1,0 +1,212 @@
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Moderation</p>
+    <h1>{{ resource | titlecase }}</h1>
+  </div>
+  <button class="secondary" (click)="load()" [disabled]="busy() || saving()">Refresh</button>
+</div>
+@if (resource === 'claims') {
+  <p>Claim summaries. Ownership proof and collection instructions remain private.</p>
+}
+@if (resource === 'users') {
+  <p>Account overview. Roles are managed by the project operator.</p>
+}
+@if (notice()) {
+  <p class="success" role="status">{{ notice() }}</p>
+}
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}
+@if (busy()) {
+  <p role="status">Loading {{ resource }}…</p>
+}
+@if (!busy() && !error()) {
+  @if (!rows().length) {
+    <p class="panel">No {{ resource }} on this page.</p>
+  } @else {
+    <div class="table-scroll" role="region" [attr.aria-label]="resource + ' overview'" tabindex="0">
+      <table>
+        <caption>
+          {{
+            resource | titlecase
+          }}
+          · newest first
+        </caption>
+        @switch (resource) {
+          @case ('listings') {
+            <thead>
+              <tr>
+                <th scope="col">Report</th>
+                <th scope="col">Owner</th>
+                <th scope="col">Status</th>
+                <th scope="col">Created</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of listings(); track row.id) {
+                <tr>
+                  <td>
+                    <strong>{{ row.title }}</strong
+                    ><small>{{ row.kind | titlecase }} · {{ row.location }}</small>
+                    <details>
+                      <summary>Report details</summary>
+                      <p>{{ row.description }}</p>
+                      <small>Occurred: {{ row.occurredOn }}</small
+                      ><small>ID: {{ row.id }}</small>
+                    </details>
+                  </td>
+                  <td>
+                    {{ row.owner.displayName }}<small>{{ row.owner.id }}</small>
+                  </td>
+                  <td>
+                    <span class="badge">{{ row.status }}</span>
+                  </td>
+                  <td>{{ row.createdAt | date: 'mediumDate' }}</td>
+                  <td>
+                    @if (row.status !== 'archived') {
+                      <button class="danger" (click)="begin(row)" [disabled]="saving()">
+                        Archive
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          }
+          @case ('users') {
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Role</th>
+                <th scope="col">Joined</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of users(); track row.id) {
+                <tr>
+                  <td>
+                    <strong>{{ row.displayName }}</strong
+                    ><small>{{ row.id }}</small>
+                  </td>
+                  <td>{{ row.email }}</td>
+                  <td>
+                    <span class="badge">{{ row.role }}</span>
+                  </td>
+                  <td>{{ row.createdAt | date: 'mediumDate' }}</td>
+                </tr>
+              }
+            </tbody>
+          }
+          @case ('claims') {
+            <thead>
+              <tr>
+                <th scope="col">Listing</th>
+                <th scope="col">Claimant</th>
+                <th scope="col">Status</th>
+                <th scope="col">Submitted</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of claims(); track row.id) {
+                <tr>
+                  <td>
+                    <strong>{{ row.listing.title }}</strong
+                    ><small>Listing: {{ row.listing.status }} · {{ row.listing.id }}</small
+                    ><small>Claim: {{ row.id }}</small>
+                  </td>
+                  <td>
+                    {{ row.claimant.displayName }}<small>{{ row.claimant.id }}</small>
+                  </td>
+                  <td>
+                    <span class="badge">{{ row.status }}</span>
+                  </td>
+                  <td>{{ row.createdAt | date: 'mediumDate' }}</td>
+                  <td>
+                    @if (row.status === 'pending' && row.listing.status === 'active') {
+                      <button class="danger" (click)="begin(row)" [disabled]="saving()">
+                        Reject
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          }
+        }
+      </table>
+    </div>
+  }
+}
+<div class="pagination" aria-label="Pagination">
+  <button
+    class="secondary"
+    (click)="previous()"
+    [disabled]="busy() || saving() || pageNumber() === 1"
+  >
+    Previous
+  </button>
+  <span>Page {{ pageNumber() }}</span>
+  <button
+    class="secondary"
+    (click)="next()"
+    [disabled]="busy() || saving() || !!error() || !pageInfo().hasNextPage"
+  >
+    Next
+  </button>
+</div>
+<dialog
+  #confirmation
+  aria-labelledby="confirmation-title"
+  aria-describedby="confirmation-description"
+  (cancel)="cancel($event)"
+>
+  @if (selected(); as row) {
+    <h2 id="confirmation-title">
+      {{ resource === 'listings' ? 'Archive listing?' : 'Reject claim?' }}
+    </h2>
+    <p id="confirmation-description">
+      {{
+        resource === 'listings'
+          ? 'This removes the listing from discovery and rejects its pending claims. History remains accessible. This cannot be undone here.'
+          : 'This permanently rejects the pending claim. The listing stays active.'
+      }}
+    </p>
+    <p>
+      <strong>{{ 'title' in row ? row.title : row.listing.title }}</strong
+      ><small>{{ row.id }}</small>
+    </p>
+    @if (actionError()) {
+      <p class="error" role="alert">{{ actionError() }}</p>
+    }
+    <form (ngSubmit)="confirm()">
+      <label for="reason">Moderation reason</label>
+      <textarea
+        id="reason"
+        name="reason"
+        required
+        minlength="3"
+        maxlength="500"
+        rows="3"
+        [(ngModel)]="reason"
+        [disabled]="saving()"
+        autofocus
+      ></textarea>
+      <small>3–500 characters. Saved in the moderation log.</small>
+      <div class="dialog-actions">
+        <button type="button" class="secondary" (click)="cancel()" [disabled]="saving()">
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="danger"
+          [disabled]="saving() || reason.trim().length < 3 || reason.length > 500"
+        >
+          {{ saving() ? 'Saving…' : 'Confirm' }}
+        </button>
+      </div>
+    </form>
+  }
+</dialog>

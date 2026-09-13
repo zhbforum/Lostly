@@ -1,1 +1,276 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  font-family: system-ui, sans-serif;
+  color: #202b31;
+  background: #f4f6f5;
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+a {
+  color: #176445;
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+button {
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  padding: 0.6rem 1rem;
+  background: #176445;
+  color: white;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button.secondary {
+  background: white;
+  color: #263d32;
+  border-color: #c3d0c8;
+}
+button.danger {
+  background: #a33232;
+}
+:focus-visible {
+  outline: 3px solid #9b6900;
+  outline-offset: 3px;
+}
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+}
+h2 {
+  margin-top: 0;
+  font-size: 1.2rem;
+}
+p {
+  line-height: 1.6;
+}
+small {
+  display: block;
+  color: #56645c;
+  font-size: 0.8rem;
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem max(1rem, calc((100vw - 1200px) / 2));
+  background: white;
+  border-bottom: 1px solid #dbe3de;
+}
+.brand {
+  font-size: 1.4rem;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brand span {
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+  color: #56645c;
+  font-weight: 500;
+}
+.account {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+nav {
+  display: flex;
+  gap: 0.4rem;
+  padding: 1rem;
+  max-width: 1232px;
+  margin: auto;
+  flex-wrap: wrap;
+}
+nav a {
+  text-decoration: none;
+  padding: 0.6rem 1rem;
+  border-radius: 0.4rem;
+  color: #47594e;
+}
+nav a.active {
+  background: #dcebe2;
+  color: #174c34;
+  font-weight: 650;
+}
+main {
+  max-width: 1232px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  color: #5d7063;
+  margin: 0 0 0.5rem;
+}
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.panel {
+  background: white;
+  border: 1px solid #dbe3de;
+  border-radius: 0.7rem;
+  padding: 1.5rem;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 2rem;
+}
+.metric {
+  text-decoration: none;
+  color: inherit;
+}
+.metric strong {
+  display: block;
+  font-size: 2.2rem;
+  margin-top: 0.7rem;
+  color: #176445;
+}
+.login {
+  max-width: 450px;
+  margin: 3rem auto;
+}
+label {
+  display: block;
+  margin: 1rem 0 0.4rem;
+  font-weight: 600;
+}
+input,
+textarea {
+  width: 100%;
+  padding: 0.65rem;
+  border: 1px solid #9eafa4;
+  border-radius: 0.4rem;
+  background: white;
+  color: inherit;
+}
+textarea {
+  resize: vertical;
+}
+.login button {
+  width: 100%;
+  margin-top: 1.3rem;
+}
+.error,
+.success {
+  padding: 0.9rem 1rem;
+  border-radius: 0.4rem;
+}
+.error {
+  background: #ffeded;
+  color: #8d2424;
+}
+.success {
+  background: #e1f0e6;
+  color: #17542d;
+}
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid #dbe3de;
+  border-radius: 0.6rem;
+  background: white;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.9rem;
+}
+caption {
+  text-align: left;
+  padding: 1rem;
+  color: #56645c;
+}
+th {
+  background: #eef3ef;
+  color: #40584a;
+  font-size: 0.8rem;
+}
+th,
+td {
+  padding: 1rem;
+  border-bottom: 1px solid #e4eae6;
+  vertical-align: top;
+}
+td:first-child {
+  min-width: 240px;
+  max-width: 460px;
+  overflow-wrap: anywhere;
+}
+details {
+  margin-top: 0.6rem;
+}
+summary {
+  cursor: pointer;
+  color: #176445;
+}
+details p {
+  white-space: pre-wrap;
+}
+.badge {
+  display: inline-block;
+  background: #edf1ee;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.3rem;
+}
+.pagination,
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+dialog {
+  border: 1px solid #c3d0c8;
+  border-radius: 0.7rem;
+  padding: 1.5rem;
+  width: min(520px, calc(100vw - 2rem));
+  color: inherit;
+}
+dialog::backdrop {
+  background: rgb(20 35 28 / 45%);
+}
+.skip-link {
+  position: fixed;
+  top: -5rem;
+  left: 1rem;
+  background: white;
+  padding: 1rem;
+  z-index: 2;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+@media (max-width: 600px) {
+  .account > span {
+    display: none;
+  }
+  .login {
+    margin: 1rem auto;
+  }
+  th,
+  td {
+    padding: 0.75rem;
+  }
+}

@@ -101,3 +101,9 @@ jobs:
         env:
           DATABASE_URL: postgresql://lostly:lostly_test@localhost:5432/lostly_test
         run: bun run test:e2e
+
+      - name: Test admin browser flow
+        working-directory: apps/admin
+        env:
+          DATABASE_URL: postgresql://lostly:lostly_test@localhost:5432/lostly_test
+        run: bun run test:e2e
