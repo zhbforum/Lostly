@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { Elysia, t } from 'elysia';
 
 import { activityRoutes } from '@/activity/routes';
+import { adminRoutes } from '@/admin/routes';
 import { authRoutes } from '@/auth/routes';
 import { claimRoutes } from '@/claims/routes';
 import { db } from '@/db';
@@ -94,4 +95,5 @@ export const app = new Elysia()
   .use(listingRoutes)
   .use(listingManagementRoutes)
   .use(claimRoutes)
-  .use(activityRoutes);
+  .use(activityRoutes)
+  .use(adminRoutes);

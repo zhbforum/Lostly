@@ -20,6 +20,22 @@ export const userRoleEnum = pgEnum('user_role', USER_ROLES);
 export const listingKindEnum = pgEnum('listing_kind', LISTING_KINDS);
 export const listingStatusEnum = pgEnum('listing_status', LISTING_STATUSES);
 export const claimStatusEnum = pgEnum('claim_status', CLAIM_STATUSES);
+export const moderationActionEnum = pgEnum('moderation_action', [
+  'archive_listing',
+  'reject_claim',
+]);
+
+export const moderationEvents = pgTable('moderation_events', {
+  id: uuid('id')
+    .default(sql`uuidv7()`)
+    .primaryKey(),
+  // Keep historical identifiers even if the actor or target is later deleted.
+  actorUserId: uuid('actor_user_id').notNull(),
+  targetId: uuid('target_id').notNull(),
+  action: moderationActionEnum('action').notNull(),
+  reason: varchar('reason', { length: 500 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const users = pgTable(
   'users',
