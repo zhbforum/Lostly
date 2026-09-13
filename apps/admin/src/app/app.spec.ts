@@ -1,7 +1,14 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router, provideRouter } from '@angular/router';
+import {
+  ActivatedRoute,
+  Router,
+  convertToParamMap,
+  provideRouter,
+  type Params,
+} from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
 import type { AuthUser } from '@lostly/contracts/auth';
 import type { AdminListing } from '@lostly/contracts/admin';
 import { AdminApi, adminGuard } from './api';
@@ -23,6 +30,7 @@ const listing: AdminListing = {
   occurredOn: '2026-09-01',
   kind: 'found',
   status: 'active',
+  isHidden: false,
   version: 2,
   createdAt: '2026-09-01T10:00:00Z',
   updatedAt: '2026-09-01T10:00:00Z',
@@ -108,16 +116,41 @@ describe('admin access and moderation flow', () => {
 
 describe('listing overview', () => {
   let http: HttpTestingController;
+  let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+  let route: {
+    snapshot: { data: { resource: string }; queryParamMap: ReturnType<typeof convertToParamMap> };
+    queryParamMap: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+  };
+  function navigate(query: Params) {
+    route.snapshot.queryParamMap = convertToParamMap(query);
+    params.next(route.snapshot.queryParamMap);
+  }
   beforeEach(() => {
+    params = new BehaviorSubject(convertToParamMap({}));
+    route = {
+      snapshot: { data: { resource: 'listings' }, queryParamMap: params.value },
+      queryParamMap: params,
+    };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: ActivatedRoute, useValue: { snapshot: { data: { resource: 'listings' } } } },
+        { provide: ActivatedRoute, useValue: route },
       ],
     });
     http = TestBed.inject(HttpTestingController);
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockImplementation(async (_, options) => {
+      const previous = Object.fromEntries(
+        params.value.keys.map((key) => [key, params.value.get(key)]),
+      );
+      const query = {
+        ...(options?.queryParamsHandling === 'merge' ? previous : {}),
+        ...options?.queryParams,
+      };
+      navigate(Object.fromEntries(Object.entries(query).filter(([, value]) => value !== null)));
+      return true;
+    });
     // jsdom has no modal top layer; actual dialog behavior is covered in the browser.
     Object.defineProperties(HTMLDialogElement.prototype, {
       showModal: {
@@ -177,7 +210,7 @@ describe('listing overview', () => {
     await confirm;
     fixture.detectChanges();
     expect(view.notice()).toContain('Listing archived');
-    expect(fixture.nativeElement.querySelector('tbody button')).toBeNull();
+    expect(fixture.nativeElement.querySelector('tbody')?.textContent).not.toContain('Archive');
   });
 
   it('refreshes a conflict and preserves the reason after a network failure', async () => {
@@ -221,4 +254,71 @@ describe('listing overview', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('No listings on this page');
   });
+
+  it('restores filters and a deep-linked page and resets the cursor on filtering', async () => {
+    navigate({
+      q: 'backpack',
+      kind: 'found',
+      status: 'active',
+      visibility: 'visible',
+      cursor: 'saved',
+      page: '3',
+    });
+    const fixture = TestBed.createComponent(Records);
+    http
+      .expectOne(
+        '/api/admin/listings?q=backpack&kind=found&status=active&visibility=visible&cursor=saved',
+      )
+      .flush({ items: [listing], pageInfo: { endCursor: null, hasNextPage: false } });
+    await fixture.whenStable();
+    const view = fixture.componentInstance;
+    expect(view.pageNumber()).toBe(3);
+    expect(view.q).toBe('backpack');
+    expect(view.hasPrevious()).toBe(false);
+    view.q = '  library  ';
+    void view.applyFilters();
+    http
+      .expectOne('/api/admin/listings?q=library&kind=found&status=active&visibility=visible')
+      .flush({ items: [], pageInfo: { endCursor: null, hasNextPage: false } });
+    await fixture.whenStable();
+    expect(params.value.has('cursor')).toBe(false);
+    expect(params.value.has('page')).toBe(false);
+    expect(view.pageNumber()).toBe(1);
+  });
+
+  it('ignores an older result when URL filters change while a request is pending', async () => {
+    const fixture = TestBed.createComponent(Records);
+    const old = http.expectOne('/api/admin/listings');
+    navigate({ status: 'archived' });
+    http
+      .expectOne('/api/admin/listings?status=archived')
+      .flush({ items: [], pageInfo: { endCursor: null, hasNextPage: false } });
+    old.flush({ items: [listing], pageInfo: { endCursor: 'stale', hasNextPage: true } });
+    await fixture.whenStable();
+    expect(fixture.componentInstance.rows()).toEqual([]);
+    expect(fixture.componentInstance.pageInfo().hasNextPage).toBe(false);
+  });
+
+  it.each(['hide', 'restore'] as const)(
+    'confirms %s with a reason and current version',
+    async (action) => {
+      const fixture = await open();
+      const view = fixture.componentInstance;
+      view.begin({ ...listing, isHidden: action === 'restore' }, action);
+      view.reason = 'Moderator decision';
+      const save = view.confirm();
+      const command = http.expectOne('/api/admin/listings/listing/' + action);
+      expect(command.request.body).toEqual({ reason: 'Moderator decision', expectedVersion: 2 });
+      command.flush(null, { status: 204, statusText: 'No Content' });
+      await Promise.resolve();
+      await Promise.resolve();
+      http.expectOne('/api/admin/listings').flush({
+        items: [{ ...listing, isHidden: action === 'hide', version: 3 }],
+        pageInfo: { endCursor: null, hasNextPage: false },
+      });
+      await save;
+      expect(view.rows()[0]).toMatchObject({ isHidden: action === 'hide', version: 3 });
+      expect(view.selected()).toBeNull();
+    },
+  );
 });

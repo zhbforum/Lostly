@@ -1,6 +1,7 @@
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import {
   ChangeDetectorRef,
+  DestroyRef,
   Component,
   ElementRef,
   ViewChild,
@@ -10,12 +11,14 @@ import {
 } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { AdminClaim, AdminListing, AdminPage, AdminUser } from '@lostly/contracts/admin';
 import type { PageInfo } from '@lostly/contracts/pagination';
 import { AdminApi, errorMessage } from './api';
 
 type Row = AdminListing | AdminClaim | AdminUser;
+type ModerationAction = 'archive' | 'hide' | 'restore' | 'reject';
 
 @Component({
   imports: [DatePipe, TitleCasePipe, FormsModule],
@@ -24,8 +27,10 @@ type Row = AdminListing | AdminClaim | AdminUser;
 export class Records {
   private readonly api = inject(AdminApi);
   private readonly changeDetector = inject(ChangeDetectorRef);
-  readonly resource = inject(ActivatedRoute).snapshot.data['resource'] as
-    'listings' | 'users' | 'claims';
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  readonly resource = this.route.snapshot.data['resource'] as 'listings' | 'users' | 'claims';
   readonly rows = signal<Row[]>([]);
   readonly listings = computed(() =>
     this.rows().filter((row): row is AdminListing => 'owner' in row),
@@ -41,45 +46,131 @@ export class Records {
   readonly actionError = signal('');
   readonly notice = signal('');
   readonly selected = signal<AdminListing | AdminClaim | null>(null);
+  readonly action = signal<ModerationAction>('archive');
+  readonly actionCopy = {
+    archive: {
+      title: 'Archive listing?',
+      description:
+        'This removes the listing from discovery and rejects its pending claims. History remains accessible unless hidden. This cannot be undone here.',
+      success: 'Listing archived. Pending claims were closed.',
+    },
+    hide: {
+      title: 'Hide listing?',
+      description:
+        'Only administrators will be able to access this listing. Owner actions and claims are paused. Its status and claim history are preserved for restoration.',
+      success: 'Listing hidden from ordinary access.',
+    },
+    restore: {
+      title: 'Restore listing?',
+      description:
+        'This restores ordinary access with the existing listing status and claim history. Archived or resolved listings will not return to active discovery.',
+      success: 'Listing visibility restored.',
+    },
+    reject: {
+      title: 'Reject claim?',
+      description: 'This permanently rejects the pending claim. The listing stays active.',
+      success: 'Claim rejected.',
+    },
+  };
   readonly pageNumber = signal(1);
+  readonly hasPrevious = signal(false);
+  q = '';
+  kind = '';
+  status = '';
+  visibility = '';
   reason = '';
-  private cursors: (string | null)[] = [null];
+  private cursors = new Map<number, string | null>([[1, null]]);
+  private filterKey = '';
+  private loadId = 0;
   @ViewChild('confirmation') private dialog!: ElementRef<HTMLDialogElement>;
 
   constructor() {
-    void this.load();
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      this.dialog?.nativeElement.close();
+      this.q = params.get('q') ?? '';
+      this.kind = params.get('kind') ?? '';
+      this.status = params.get('status') ?? '';
+      this.visibility = params.get('visibility') ?? '';
+      const key = JSON.stringify([this.q, this.kind, this.status, this.visibility]);
+      if (key !== this.filterKey) {
+        this.cursors = new Map([[1, null]]);
+        this.notice.set('');
+      }
+      this.filterKey = key;
+      const page = Number(params.get('page') ?? 1);
+      this.pageNumber.set(
+        Number.isSafeInteger(page) && page > 0 && params.has('cursor') ? page : 1,
+      );
+      this.cursors.set(this.pageNumber(), params.get('cursor'));
+      this.hasPrevious.set(this.cursors.has(this.pageNumber() - 1));
+      void this.load();
+    });
+    this.destroyRef.onDestroy(() => this.loadId++);
   }
 
-  async load(cursor = this.cursors[this.pageNumber() - 1], destination = this.pageNumber()) {
-    if (this.busy()) return;
+  async load() {
+    const loadId = ++this.loadId;
     this.busy.set(true);
     this.error.set('');
     this.selected.set(null);
     try {
+      const query = new URLSearchParams();
+      for (const key of ['q', 'kind', 'status', 'visibility', 'cursor']) {
+        const value = this.route.snapshot.queryParamMap.get(key);
+        if (value) query.set(key, value);
+      }
       const page = await this.api.request<AdminPage<Row>>(
-        '/admin/' + this.resource + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''),
+        '/admin/' + this.resource + (query.size ? '?' + query : ''),
       );
+      if (loadId !== this.loadId) return;
       this.rows.set(page.items);
       this.pageInfo.set(page.pageInfo);
-      this.cursors[destination - 1] = cursor;
-      this.pageNumber.set(destination);
     } catch (error) {
+      if (loadId !== this.loadId) return;
       this.rows.set([]);
       this.error.set(errorMessage(error));
     } finally {
-      this.busy.set(false);
+      if (loadId === this.loadId) this.busy.set(false);
     }
   }
 
+  applyFilters() {
+    return this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        q: this.q.trim() || null,
+        kind: this.resource === 'listings' ? this.kind || null : null,
+        status: this.resource !== 'users' ? this.status || null : null,
+        visibility: this.resource === 'listings' ? this.visibility || null : null,
+      },
+    });
+  }
+  resetFilters() {
+    return this.router.navigate([], { relativeTo: this.route, queryParams: {} });
+  }
   next() {
-    return this.load(this.pageInfo().endCursor, this.pageNumber() + 1);
+    return this.navigatePage(this.pageInfo().endCursor, this.pageNumber() + 1);
   }
   previous() {
-    return this.load(this.cursors[this.pageNumber() - 2], this.pageNumber() - 1);
+    return this.navigatePage(
+      this.cursors.get(this.pageNumber() - 1) ?? null,
+      this.hasPrevious() ? this.pageNumber() - 1 : 1,
+    );
+  }
+  private navigatePage(cursor: string | null, page: number) {
+    return this.router.navigate([], {
+      relativeTo: this.route,
+      queryParamsHandling: 'merge',
+      queryParams: { cursor, page: page === 1 ? null : page },
+    });
   }
 
-  begin(row: AdminListing | AdminClaim) {
+  begin(
+    row: AdminListing | AdminClaim,
+    action: ModerationAction = 'version' in row ? 'archive' : 'reject',
+  ) {
     this.selected.set(row);
+    this.action.set(action);
     this.reason = '';
     this.actionError.set('');
     // Render the selected record and autofocus field before opening the native dialog.
@@ -103,16 +194,15 @@ export class Records {
     this.saving.set(true);
     this.actionError.set('');
     try {
-      const archive = 'version' in row;
+      const isListing = 'version' in row;
       await this.api.request(
-        '/admin/' + (archive ? 'listings/' + row.id + '/archive' : 'claims/' + row.id + '/reject'),
-        archive ? { reason, expectedVersion: row.version } : { reason },
+        '/admin/' + (isListing ? 'listings/' : 'claims/') + row.id + '/' + this.action(),
+        isListing ? { reason, expectedVersion: row.version } : { reason },
       );
+      if (this.destroyRef.destroyed) return;
       this.dialog.nativeElement.close();
       this.selected.set(null);
-      this.notice.set(
-        archive ? 'Listing archived. Pending claims were closed.' : 'Claim rejected.',
-      );
+      this.notice.set(this.actionCopy[this.action()].success);
       await this.load();
     } catch (error) {
       if (error instanceof HttpErrorResponse && [404, 409].includes(error.status)) {

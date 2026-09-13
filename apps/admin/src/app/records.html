@@ -5,6 +5,64 @@
   </div>
   <button class="secondary" (click)="load()" [disabled]="busy() || saving()">Refresh</button>
 </div>
+<form class="filters" (ngSubmit)="applyFilters()">
+  <div>
+    <label for="search">Search {{ resource }}</label>
+    <input
+      id="search"
+      name="search"
+      type="search"
+      maxlength="100"
+      [(ngModel)]="q"
+      [placeholder]="
+        resource === 'users'
+          ? 'Name or email'
+          : resource === 'claims'
+            ? 'Listing title or claimant name'
+            : 'Title, description or location'
+      "
+    />
+  </div>
+  @if (resource === 'listings') {
+    <div>
+      <label for="kind">Type</label
+      ><select id="kind" name="kind" [(ngModel)]="kind">
+        <option value="">All types</option>
+        <option value="lost">Lost</option>
+        <option value="found">Found</option>
+      </select>
+    </div>
+    <div>
+      <label for="visibility">Visibility</label
+      ><select id="visibility" name="visibility" [(ngModel)]="visibility">
+        <option value="">All visibility</option>
+        <option value="visible">Visible</option>
+        <option value="hidden">Hidden</option>
+      </select>
+    </div>
+  }
+  @if (resource !== 'users') {
+    <div>
+      <label for="status">Status</label
+      ><select id="status" name="status" [(ngModel)]="status">
+        <option value="">All statuses</option>
+        @if (resource === 'listings') {
+          <option value="active">Active</option>
+          <option value="resolved">Resolved</option>
+          <option value="archived">Archived</option>
+        } @else {
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        }
+      </select>
+    </div>
+  }
+  <button type="submit" [disabled]="saving()">Apply filters</button>
+  <button type="button" class="secondary" (click)="resetFilters()" [disabled]="saving()">
+    Reset
+  </button>
+</form>
 @if (resource === 'claims') {
   <p>Claim summaries. Ownership proof and collection instructions remain private.</p>
 }
@@ -61,9 +119,17 @@
                   </td>
                   <td>
                     <span class="badge">{{ row.status }}</span>
+                    <small>{{ row.isHidden ? 'Hidden' : 'Visible' }}</small>
                   </td>
                   <td>{{ row.createdAt | date: 'mediumDate' }}</td>
                   <td>
+                    <button
+                      [class]="row.isHidden ? 'secondary' : 'danger'"
+                      (click)="begin(row, row.isHidden ? 'restore' : 'hide')"
+                      [disabled]="saving()"
+                    >
+                      {{ row.isHidden ? 'Restore' : 'Hide' }}
+                    </button>
                     @if (row.status !== 'archived') {
                       <button class="danger" (click)="begin(row)" [disabled]="saving()">
                         Archive
@@ -146,7 +212,7 @@
     (click)="previous()"
     [disabled]="busy() || saving() || pageNumber() === 1"
   >
-    Previous
+    {{ hasPrevious() ? 'Previous' : 'First page' }}
   </button>
   <span>Page {{ pageNumber() }}</span>
   <button
@@ -165,14 +231,10 @@
 >
   @if (selected(); as row) {
     <h2 id="confirmation-title">
-      {{ resource === 'listings' ? 'Archive listing?' : 'Reject claim?' }}
+      {{ actionCopy[action()].title }}
     </h2>
     <p id="confirmation-description">
-      {{
-        resource === 'listings'
-          ? 'This removes the listing from discovery and rejects its pending claims. History remains accessible. This cannot be undone here.'
-          : 'This permanently rejects the pending claim. The listing stays active.'
-      }}
+      {{ actionCopy[action()].description }}
     </p>
     <p>
       <strong>{{ 'title' in row ? row.title : row.listing.title }}</strong
