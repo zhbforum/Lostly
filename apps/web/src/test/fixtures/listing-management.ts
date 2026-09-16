@@ -3,6 +3,7 @@ import type { ListingDetailResponse, ListingStatus } from '@/features/listings/m
 export const reportId = '550e8400-e29b-41d4-a716-446655440001';
 export function ownerReport(status: ListingStatus = 'active'): ListingDetailResponse {
   return {
+    images: [],
     listing: {
       id: reportId,
       kind: 'lost',
@@ -16,6 +17,7 @@ export function ownerReport(status: ListingStatus = 'active'): ListingDetailResp
       updatedAt: '2026-09-01T10:00:00.000Z',
     },
     capabilities: {
+      canManageImages: status === 'active',
       canClaim: false,
       canReviewClaims: false,
       canEdit: status === 'active',

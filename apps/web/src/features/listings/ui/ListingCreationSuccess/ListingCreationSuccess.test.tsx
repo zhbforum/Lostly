@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Listing } from '@/features/listings/model/types';
-import { ListingCreationSuccess } from '@/features/listings/ui/ListingCreationSuccess/ListingCreationSuccess';
+import { ListingCreationSuccess } from '@/features/listings/ui/ListingCreationSuccess';
 
 const listing = {
   id: '550e8400-e29b-41d4-a716-446655440000',

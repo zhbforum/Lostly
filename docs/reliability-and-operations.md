@@ -99,6 +99,35 @@ in batches of 1000 (up to ten batches per run), using `SKIP LOCKED`. Runs do not
 multiple processes can cooperate safely. The expiration index is included in migrations. Shutdown stops
 scheduling new batches. Cleanup failures produce a sanitized structured log event and retry next interval.
 
+## Listing photo uploads and URL recovery
+
+Photo upload admission is process-local: four requests may be admitted (including session checks),
+but only one authenticated upload per user may proceed to body reading and processing at a time.
+The user key comes from the verified session, not a cookie value, IP or listing ID. The existing
+global limit of two processing/upload operations remains in place. Rejected requests discard their
+bodies; success, validation failure, body timeout and disconnect during body reading release admission.
+A disconnect after processing starts does not release its slot early or cancel a potentially committed
+storage/database operation. Multiple processes still need gateway-level resource and rate controls.
+
+Multipart reads have a 30-second absolute deadline and a 5 MiB + 64 KiB byte budget. Small incoming
+chunks do not extend the deadline. Timeout cancels the reader and returns `408 IMAGE_UPLOAD_TIMEOUT`;
+cleanup does not wait indefinitely for the underlying stream's cancellation promise. Invalid bodies,
+oversized bodies and client cancellation keep their safe domain errors. Elysia's parser wrapper is
+unwrapped only for known image errors; arbitrary parser exceptions are never exposed. Configure proxy
+body/idle limits consistently with this budget and the separate processing/storage limits.
+
+Photo URL recovery retries transient API failures after 30, 60 and then at most 120 seconds. Timer,
+focus, visibility and online events share one request and respect the cooldown. Automatic requests
+are skipped while offline or hidden, and stop on non-retryable 4xx responses (408 and 429 may retry).
+Explicit Reload photos can retry immediately. Requests superseded by a mutation remain successful
+cancellations, not network failures. The one-replacement-per-image guard for broken image bytes is
+separate from API retry state, preventing a broken object from causing an unbounded refresh loop.
+
+Tests cover stalled/trickling streams, cancellation that never completes, per-user limits across
+sessions, cross-user access, global capacity, slot cleanup and transient URL recovery with fake time.
+A real HTTP test also leaves a chunked body unfinished, verifies the timeout response from Bun,
+and uploads again as the same user to check that the slot was released.
+
 ## Deployment checklist
 
 Infrastructure is environment-specific; this checklist does not provision a deployment or backup service.

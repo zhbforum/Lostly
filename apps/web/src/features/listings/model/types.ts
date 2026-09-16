@@ -1,5 +1,6 @@
 export {
   LISTING_CONSTRAINTS,
+  LISTING_IMAGE_CONSTRAINTS,
   LISTING_FEED_SORTS,
   LISTING_KINDS,
   LISTING_STATUSES,
@@ -8,6 +9,8 @@ export type {
   CreateListingInput,
   UpdateListingInput,
   Listing,
+  ListingSummary,
+  ListingImage,
   ListingCapabilities,
   ListingDetailResponse,
   ListingFeedSort,

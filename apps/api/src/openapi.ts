@@ -27,6 +27,10 @@ export const openApiPlugin = openapi({
     },
     tags: [
       {
+        name: 'Listing images',
+        description: 'Report photos, private storage and owner photo management.',
+      },
+      {
         name: 'System',
         description: 'API metadata and service health.',
       },

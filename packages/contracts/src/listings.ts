@@ -56,6 +56,7 @@ export interface UpdateListingInput {
 }
 
 export interface ListingCapabilities {
+  canManageImages: boolean;
   canClaim: boolean;
   canReviewClaims: boolean;
   canEdit: boolean;
@@ -64,6 +65,7 @@ export interface ListingCapabilities {
 }
 
 export interface ListingDetailResponse extends ListingResponse {
+  images: ListingImage[];
   capabilities: ListingCapabilities;
   claim: Claim | null;
 }
@@ -71,6 +73,40 @@ export interface ListingDetailResponse extends ListingResponse {
 export type ListingPageInfo = PageInfo;
 
 export interface ListingListResponse {
-  listings: Listing[];
+  listings: ListingSummary[];
   pageInfo: ListingPageInfo;
+}
+
+export const LISTING_IMAGE_CONSTRAINTS = {
+  maxCount: 5,
+  maxSizeBytes: 5 * 1024 * 1024,
+  allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
+} as const;
+
+export type ListingImageContentType =
+  (typeof LISTING_IMAGE_CONSTRAINTS.allowedContentTypes)[number];
+
+export interface ListingImage {
+  id: string;
+  url: string;
+  urlExpiresAt: string;
+  position: number;
+  width: number;
+  height: number;
+}
+
+export interface ListingSummary extends Listing {
+  coverImage: ListingImage | null;
+}
+
+export interface ListingImageResponse {
+  image: ListingImage;
+}
+
+export interface ListingImagesResponse {
+  images: ListingImage[];
+}
+
+export interface OrderListingImagesInput {
+  imageIds: string[];
 }

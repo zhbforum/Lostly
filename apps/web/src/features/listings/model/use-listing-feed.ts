@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { getListings } from '@/features/listings/api/listings-api';
 import type {
-  Listing,
+  ListingSummary,
   ListingFeedSort,
   ListingKind,
   ListingPageInfo,
@@ -10,7 +10,7 @@ import type {
 
 export type ListingFeedState =
   | { status: 'loading' }
-  | { status: 'success'; listings: Listing[]; pageInfo: ListingPageInfo }
+  | { status: 'success'; listings: ListingSummary[]; pageInfo: ListingPageInfo }
   | { status: 'error' };
 
 interface UseListingFeedInput {

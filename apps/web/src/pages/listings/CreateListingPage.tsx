@@ -3,9 +3,14 @@ import { Link, useSearchParams } from 'react-router';
 
 import type { Listing, ListingKind } from '@/features/listings/model/types';
 import { CreateListingForm } from '@/features/listings/ui/CreateListingForm';
-import { ListingCreationSuccess } from '@/features/listings/ui/ListingCreationSuccess/ListingCreationSuccess';
+import { ListingCreationSuccess } from '@/features/listings/ui/ListingCreationSuccess';
 import styles from '@/pages/listings/ListingFormPage.module.css';
 import { Brand } from '@/shared/ui/Brand/Brand';
+import { useImageQueue } from '@/features/listings/model/use-image-queue';
+import {
+  ListingImagePicker,
+  ListingUploadProgress,
+} from '@/features/listings/ui/ListingPhotos/upload';
 
 function getInitialKind(searchParams: URLSearchParams): ListingKind | null {
   const kind = searchParams.get('kind');
@@ -21,10 +26,12 @@ export function CreateListingPage() {
   const [searchParams] = useSearchParams();
   const [createdListing, setCreatedListing] = useState<Listing | null>(null);
   const [formVersion, setFormVersion] = useState(0);
+  const photos = useImageQueue();
 
   const initialKind = getInitialKind(searchParams);
 
   function handleCreateAnother() {
+    photos.reset();
     setCreatedListing(null);
     setFormVersion((version) => version + 1);
   }
@@ -54,15 +61,31 @@ export function CreateListingPage() {
 
         <div className={styles.card}>
           {createdListing ? (
-            <ListingCreationSuccess
-              listing={createdListing}
-              onCreateAnother={handleCreateAnother}
-            />
+            <>
+              <ListingCreationSuccess
+                listing={createdListing}
+                onCreateAnother={handleCreateAnother}
+                uploading={photos.busy}
+              >
+                <ListingUploadProgress listingId={createdListing.id} queue={photos} />
+              </ListingCreationSuccess>
+            </>
           ) : (
             <CreateListingForm
               key={formVersion}
               initialKind={initialKind}
-              onCreated={setCreatedListing}
+              photoPicker={
+                <ListingImagePicker
+                  items={photos.items}
+                  error={photos.error}
+                  onAdd={photos.add}
+                  onRemove={photos.remove}
+                />
+              }
+              onCreated={(listing) => {
+                setCreatedListing(listing);
+                void photos.upload(listing.id);
+              }}
             />
           )}
         </div>

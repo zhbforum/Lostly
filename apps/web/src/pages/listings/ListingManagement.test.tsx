@@ -56,6 +56,7 @@ describe('listing owner management', () => {
     details.mockResolvedValue({
       ...ownerReport(),
       capabilities: {
+        canManageImages: false,
         canClaim: false,
         canReviewClaims: false,
         canEdit: false,
@@ -212,7 +213,7 @@ describe('listing owner management', () => {
     await user.type(screen.getByLabelText('Title'), edited.listing.title);
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     await screen.findByRole('heading', { name: 'Edited backpack' });
-    expect(screen.getByRole('status')).toHaveTextContent('Your report was updated.');
+    expect(screen.getByText('Your report was updated.')).toHaveAttribute('role', 'status');
     expect(details).toHaveBeenCalledTimes(3);
   });
 
@@ -261,6 +262,7 @@ describe('listing owner management', () => {
     details.mockResolvedValue({
       ...ownerReport(),
       capabilities: {
+        canManageImages: false,
         canClaim: false,
         canReviewClaims: false,
         canEdit: false,

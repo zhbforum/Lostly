@@ -2,8 +2,12 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "target": "es2023",
-    "lib": ["ES2023"],
+    /* E2E evaluate callbacks use browser APIs; the runner and tooling use Node. */
+    "lib": ["ES2023", "DOM"],
     "types": ["node"],
+    "paths": {
+      "@api-tests/*": ["../api/tests/*.ts"]
+    },
     "skipLibCheck": true,
 
     /* Bundler mode */

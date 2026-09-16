@@ -10,11 +10,11 @@ import {
 } from '@/features/listings/model/editable-listing-form';
 import { ApiError } from '@/shared/api/client';
 import { useFormDraft } from '@/shared/model/use-form-draft';
-import { ListingTextField } from '../ListingFormFields/ListingTextField';
-import { ListingTextareaField } from '../ListingFormFields/ListingTextareaField';
-import { ListingDateField } from '../ListingFormFields/ListingDateField/ListingDateField';
-import { ListingFormErrorSummary } from '../ListingFormFields/ListingFormErrorSummary';
-import styles from '../ListingFormFields/ListingForm.module.css';
+import { ListingTextField } from '@/features/listings/ui/ListingFormFields/ListingTextField';
+import { ListingTextareaField } from '@/features/listings/ui/ListingFormFields/ListingTextareaField';
+import { ListingDateField } from '@/features/listings/ui/ListingFormFields/ListingDateField/ListingDateField';
+import { ListingFormErrorSummary } from '@/features/listings/ui/ListingFormFields/ListingFormErrorSummary';
+import styles from '@/features/listings/ui/ListingFormFields/ListingForm.module.css';
 
 const ids: Record<EditableListingFormField, string> = {
   title: 'edit-title',
