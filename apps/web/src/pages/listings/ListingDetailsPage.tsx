@@ -7,6 +7,7 @@ import { ClaimPanel } from '@/features/claims/ui/ClaimPanel/ClaimPanel';
 import { ListingOwnerControls } from '@/features/listings/ui/ListingOwnerControls';
 import styles from '@/pages/listings/ListingDetailsPage.module.css';
 import { Brand } from '@/shared/ui/Brand/Brand';
+import { ListingPhotos } from '@/features/listings/ui/ListingPhotos';
 
 export function ListingDetailsPage() {
   const location = useLocation();
@@ -149,6 +150,12 @@ export function ListingDetailsPage() {
         {state.status === 'success' && (
           <>
             <ListingDetails listing={state.listing.listing} titleRef={listingTitleRef} />
+            <ListingPhotos
+              key={state.listing.listing.id}
+              listingId={state.listing.listing.id}
+              images={state.listing.images}
+              canManage={state.listing.capabilities.canManageImages}
+            />
             {message && <p role="status">{message}</p>}
             <ListingOwnerControls
               listingId={state.listing.listing.id}

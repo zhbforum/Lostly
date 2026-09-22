@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { formatListingDate } from '@/features/listings/model/formatters';
@@ -8,13 +8,20 @@ import styles from '@/features/listings/ui/ListingCreationSuccess/ListingCreatio
 interface ListingCreationSuccessProps {
   listing: Listing;
   onCreateAnother: () => void;
+  uploading?: boolean;
+  children?: ReactNode;
 }
 
 function getKindLabel(listing: Listing): string {
   return listing.kind === 'lost' ? 'Lost item report' : 'Found item report';
 }
 
-export function ListingCreationSuccess({ listing, onCreateAnother }: ListingCreationSuccessProps) {
+export function ListingCreationSuccess({
+  listing,
+  onCreateAnother,
+  uploading = false,
+  children,
+}: ListingCreationSuccessProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -54,18 +61,33 @@ export function ListingCreationSuccess({ listing, onCreateAnother }: ListingCrea
         </div>
       </dl>
 
-      <div className={styles.actions}>
-        <Link className={styles.primaryAction} to={`/listings/${listing.id}`}>
-          View report
-        </Link>
+      {children}
 
-        <button className={styles.secondaryAction} type="button" onClick={onCreateAnother}>
+      <div className={styles.actions}>
+        {uploading ? (
+          <button className={styles.primaryAction} type="button" disabled>
+            Uploading photos…
+          </button>
+        ) : (
+          <Link className={styles.primaryAction} to={`/listings/${listing.id}`}>
+            View report
+          </Link>
+        )}
+
+        <button
+          className={styles.secondaryAction}
+          type="button"
+          disabled={uploading}
+          onClick={onCreateAnother}
+        >
           Create another report
         </button>
 
-        <Link className={styles.textAction} to="/">
-          Back to home
-        </Link>
+        {!uploading && (
+          <Link className={styles.textAction} to="/">
+            Back to home
+          </Link>
+        )}
       </div>
     </section>
   );

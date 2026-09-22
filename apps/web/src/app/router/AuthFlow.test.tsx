@@ -129,6 +129,9 @@ describe('authentication and report flow', () => {
       expect(screen.getByLabelText('Current URL')).toHaveTextContent(destination);
       expect(updates).toBe(1); // Reauthentication must not replay PATCH.
     },
+    // Includes the first lazy editor/dialog import plus a complete reauthentication journey.
+    // Keep the same allowance as the deep-link journey below, without changing assertion waits.
+    10_000,
   );
 
   it('returns to a deep link with its query and hash after switching auth pages', async () => {
@@ -140,7 +143,9 @@ describe('authentication and report flow', () => {
         if (url.endsWith('/listings/' + listing.id))
           return Response.json({
             listing,
+            images: [],
             capabilities: {
+              canManageImages: false,
               canClaim: false,
               canReviewClaims: false,
               canEdit: false,
@@ -182,7 +187,9 @@ describe('authentication and report flow', () => {
         if (url.endsWith('/listings/' + listing.id))
           return Response.json({
             listing,
+            images: [],
             capabilities: {
+              canManageImages: false,
               canClaim: false,
               canReviewClaims: false,
               canEdit: false,

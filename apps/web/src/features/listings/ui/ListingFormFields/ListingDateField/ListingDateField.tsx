@@ -13,7 +13,7 @@ import {
   Text,
 } from 'react-aria-components';
 
-import fieldStyles from '../ListingField.module.css';
+import fieldStyles from '@/features/listings/ui/ListingFormFields/ListingField.module.css';
 import { ListingCalendar } from './ListingCalendar';
 import styles from './ListingDateField.module.css';
 

@@ -1,4 +1,5 @@
 import { t } from 'elysia';
+import { listingImageSchema, listingImagesSchema } from '@/listing-images/model';
 
 import { claimSchema } from '@/claims/model';
 import { pageInfoSchema, pageQueryProperties } from '@/pagination/model';
@@ -32,7 +33,9 @@ export const listingResponseSchema = t.Object({
 
 export const listingDetailResponseSchema = t.Object({
   listing: listingSchema,
+  images: listingImagesSchema,
   capabilities: t.Object({
+    canManageImages: t.Boolean(),
     canClaim: t.Boolean(),
     canReviewClaims: t.Boolean(),
     canEdit: t.Boolean(),
@@ -51,7 +54,9 @@ export const listListingsQuerySchema = t.Object({
 });
 
 export const listingListResponseSchema = t.Object({
-  listings: t.Array(listingSchema),
+  listings: t.Array(
+    t.Object({ ...listingSchema.properties, coverImage: t.Nullable(listingImageSchema) }),
+  ),
   pageInfo: pageInfoSchema,
 });
 

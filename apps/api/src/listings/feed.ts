@@ -2,6 +2,9 @@ import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { PageQuery } from '@lostly/contracts/pagination';
 import { db } from '@/db';
 import { listings } from '@/db/schema';
+import { findCovers } from '@/listing-images/queries';
+import type { ObjectStorage } from '@/storage/object-storage';
+import { objectStorage } from '@/storage/r2-storage';
 import type { ListingFeedSort, ListingKind } from '@/domain/listing';
 import { publicListingSelection } from '@/listings/selection';
 import {
@@ -16,15 +19,26 @@ export interface ListListingsInput extends PageQuery {
   sort?: ListingFeedSort;
 }
 
-export function listActiveListings(input: ListListingsInput) {
-  return listListings(input);
+export function listActiveListings(
+  input: ListListingsInput,
+  storage: ObjectStorage = objectStorage,
+) {
+  return listListings(input, undefined, storage);
 }
 
-export function listOwnedListings(userId: string, input: ListListingsInput) {
-  return listListings(input, userId);
+export function listOwnedListings(
+  userId: string,
+  input: ListListingsInput,
+  storage: ObjectStorage = objectStorage,
+) {
+  return listListings(input, userId, storage);
 }
 
-async function listListings(input: ListListingsInput, ownerUserId?: string) {
+async function listListings(
+  input: ListListingsInput,
+  ownerUserId: string | undefined,
+  storage: ObjectStorage,
+) {
   const sort = input.sort ?? 'newest';
   const dateOnly = sort === 'occurredOnAsc' || sort === 'occurredOnDesc';
   const ascending = sort === 'oldest' || sort === 'occurredOnAsc';
@@ -53,5 +67,15 @@ async function listListings(input: ListListingsInput, ownerUserId?: string) {
     .orderBy(order(column), order(listings.id))
     .limit(limit + 1);
   const { items, pageInfo } = pageFromRows(rows, limit, scope);
-  return { ok: true, value: { listings: items, pageInfo } } as const;
+  const covers = await findCovers(
+    items.map((row) => row.id),
+    storage,
+  );
+  return {
+    ok: true,
+    value: {
+      listings: items.map((row) => ({ ...row, coverImage: covers.get(row.id) ?? null })),
+      pageInfo,
+    },
+  } as const;
 }

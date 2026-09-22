@@ -4,6 +4,7 @@ import { useListingDetails } from '@/features/listings/model/use-listing-details
 import { EditListingForm } from '@/features/listings/ui/EditListingForm';
 import { Brand } from '@/shared/ui/Brand/Brand';
 import styles from './ListingFormPage.module.css';
+import { ListingPhotos } from '@/features/listings/ui/ListingPhotos';
 
 export function EditListingPage() {
   const { id } = useParams<{ id: string }>();
@@ -51,15 +52,24 @@ export function EditListingPage() {
           )}
           {state.status === 'success' &&
             (state.listing.capabilities.canEdit ? (
-              <EditListingForm
-                listing={state.listing.listing}
-                onSaved={() => {
-                  navigate(detailPath, {
-                    replace: true,
-                    state: { ...location.state, reportNotice: 'Your report was updated.' },
-                  });
-                }}
-              />
+              <>
+                <EditListingForm
+                  listing={state.listing.listing}
+                  onSaved={() => {
+                    navigate(detailPath, {
+                      replace: true,
+                      state: { ...location.state, reportNotice: 'Your report was updated.' },
+                    });
+                  }}
+                />
+                <ListingPhotos
+                  mode="edit"
+                  key={state.listing.listing.id}
+                  listingId={state.listing.listing.id}
+                  images={state.listing.images}
+                  canManage={state.listing.capabilities.canManageImages}
+                />
+              </>
             ) : (
               <p>
                 You can edit only your own active reports. Return to the report to see its current

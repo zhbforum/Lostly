@@ -306,6 +306,7 @@ describe('owner authorization and transitions', () => {
           await request('/listings/' + listing.id, owner.cookie)
         ).json()) as ListingDetailResponse;
         expect(own.capabilities).toEqual({
+          canManageImages: status === 'active',
           canClaim: false,
           canReviewClaims: kind === 'found',
           canEdit: status === 'active',
@@ -316,6 +317,7 @@ describe('owner authorization and transitions', () => {
           await request('/listings/' + listing.id, other.cookie)
         ).json()) as ListingDetailResponse;
         expect(view.capabilities).toEqual({
+          canManageImages: false,
           canClaim: kind === 'found' && status === 'active',
           canReviewClaims: false,
           canEdit: false,

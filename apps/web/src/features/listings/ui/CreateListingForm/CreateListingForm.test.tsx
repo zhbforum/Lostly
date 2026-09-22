@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CreateListingForm } from '@/features/listings/ui/CreateListingForm/CreateListingForm';
+import { CreateListingForm } from '@/features/listings/ui/CreateListingForm';
 import type { Listing } from '@/features/listings/model/types';
 
 const { createListingMock } = vi.hoisted(() => ({
@@ -14,7 +14,7 @@ vi.mock('@/features/listings/api/listings-api', () => ({
   createListing: createListingMock,
 }));
 
-vi.mock('../ListingFormFields/ListingDateField/ListingDateField', () => ({
+vi.mock('@/features/listings/ui/ListingFormFields/ListingDateField/ListingDateField', () => ({
   ListingDateField: ({
     id,
     name,

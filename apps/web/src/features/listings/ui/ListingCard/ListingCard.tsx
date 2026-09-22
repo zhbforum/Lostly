@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router';
 
 import { formatListingDate } from '@/features/listings/model/formatters';
-import type { Listing } from '@/features/listings/model/types';
+import type { Listing, ListingSummary } from '@/features/listings/model/types';
+import { ListingCoverImage } from '@/features/listings/ui/ListingPhotos/cover';
 import styles from './ListingCard.module.css';
 
 interface ListingCardProps {
-  listing: Listing;
+  listing: ListingSummary;
 }
 
 function getKindLabel(kind: Listing['kind']): string {
@@ -24,6 +25,7 @@ export function ListingCard({ listing }: ListingCardProps) {
           returnPagination: location.state?.pagination,
         }}
       >
+        <ListingCoverImage listingId={listing.id} image={listing.coverImage} />
         <div className={styles.header}>
           <span className={listing.kind === 'lost' ? styles.lostBadge : styles.foundBadge}>
             {getKindLabel(listing.kind)}

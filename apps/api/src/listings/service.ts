@@ -9,6 +9,9 @@ import {
   type ListingKind,
 } from '@/domain/listing';
 import { publicListingSelection } from '@/listings/selection';
+import { findImages, toListingImage } from '@/listing-images/queries';
+import type { ObjectStorage } from '@/storage/object-storage';
+import { objectStorage } from '@/storage/r2-storage';
 
 export { listActiveListings } from '@/listings/feed';
 
@@ -46,7 +49,11 @@ export async function findListingById(id: string) {
   return listing ?? null;
 }
 
-export async function findListingForViewer(id: string, viewerUserId: string) {
+export async function findListingForViewer(
+  id: string,
+  viewerUserId: string,
+  storage: ObjectStorage = objectStorage,
+) {
   const [row] = await db
     .select({
       ...publicListingSelection,
@@ -63,7 +70,9 @@ export async function findListingForViewer(id: string, viewerUserId: string) {
   const claim = !isOwner && isFound ? await findClaimForClaimant(id, viewerUserId) : null;
   return {
     listing,
+    images: (await findImages(id)).map((row) => toListingImage(row, storage)),
     capabilities: {
+      canManageImages: isOwner && listing.status === 'active',
       canClaim: !isOwner && isFound && listing.status === 'active' && !claim,
       canReviewClaims: isOwner && isFound,
       canEdit: isOwner && canEditListing(listing.status),
