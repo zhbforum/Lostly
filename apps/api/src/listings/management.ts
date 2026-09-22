@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import type { UpdateListingInput } from '@lostly/contracts/listings';
-import { db } from '@/db';
+import { db, type DatabaseTransaction } from '@/db';
 import { claims, listings } from '@/db/schema';
 import { canArchiveListing, canEditListing, canResolveListing } from '@/domain/listing';
 import { lockListing } from '@/listings/locking';
@@ -28,7 +28,7 @@ export async function updateOwnedListing(
 ): Promise<ManagementResult> {
   return db.transaction(async (tx) => {
     const listing = await lockListing(tx, input.listingId);
-    if (!listing) return { ok: false, reason: 'listing-not-found' };
+    if (!listing || listing.isHidden) return { ok: false, reason: 'listing-not-found' };
     if (listing.createdByUserId !== input.ownerUserId)
       return { ok: false, reason: 'update-forbidden' };
     if (!canEditListing(listing.status)) return { ok: false, reason: 'not-editable' };
@@ -65,7 +65,7 @@ async function closeOwnedListing(
 ): Promise<ManagementResult> {
   return db.transaction(async (tx) => {
     const listing = await lockListing(tx, input.listingId);
-    if (!listing) return { ok: false, reason: 'listing-not-found' };
+    if (!listing || listing.isHidden) return { ok: false, reason: 'listing-not-found' };
     if (listing.createdByUserId !== input.ownerUserId)
       return {
         ok: false,
@@ -76,25 +76,36 @@ async function closeOwnedListing(
     if (target === 'archived' && !canArchiveListing(listing.status))
       return { ok: false, reason: 'already-archived' };
 
-    const now = new Date();
-    const [updated] = await tx
-      .update(listings)
-      .set({ status: target, version: listing.version + 1, updatedAt: now })
-      .where(eq(listings.id, listing.id))
-      .returning(publicListingSelection);
-    if (!updated) throw new Error('Failed to close locked listing');
-
-    if (listing.status === 'active') {
-      await tx
-        .update(claims)
-        .set({
-          status: 'rejected',
-          reviewedByUserId: input.ownerUserId,
-          reviewedAt: now,
-          updatedAt: now,
-        })
-        .where(and(eq(claims.listingId, listing.id), eq(claims.status, 'pending')));
-    }
+    const updated = await closeLockedListing(tx, listing, input.ownerUserId, target);
     return { ok: true, value: updated };
   });
+}
+
+// Caller holds the parent row lock and has checked authorization and transition policy.
+export async function closeLockedListing(
+  tx: DatabaseTransaction,
+  listing: NonNullable<Awaited<ReturnType<typeof lockListing>>>,
+  actorUserId: string,
+  target: 'resolved' | 'archived',
+  now = new Date(),
+) {
+  const [updated] = await tx
+    .update(listings)
+    .set({ status: target, version: listing.version + 1, updatedAt: now })
+    .where(eq(listings.id, listing.id))
+    .returning(publicListingSelection);
+  if (!updated) throw new Error('Failed to close locked listing');
+
+  if (listing.status === 'active') {
+    await tx
+      .update(claims)
+      .set({
+        status: 'rejected',
+        reviewedByUserId: actorUserId,
+        reviewedAt: now,
+        updatedAt: now,
+      })
+      .where(and(eq(claims.listingId, listing.id), eq(claims.status, 'pending')));
+  }
+  return updated;
 }

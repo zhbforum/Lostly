@@ -177,9 +177,14 @@ describe('listing photo HTTP lifecycle', () => {
           .status,
       ).toBe(409);
     }
-    expect((await db.select().from(listingImages)).map((row) => row.id)).toEqual([
-      first.id,
-      second.id,
+    expect(
+      await db
+        .select({ id: listingImages.id, position: listingImages.position })
+        .from(listingImages)
+        .orderBy(listingImages.position, listingImages.id),
+    ).toEqual([
+      { id: first.id, position: 0 },
+      { id: second.id, position: 1 },
     ]);
   });
 

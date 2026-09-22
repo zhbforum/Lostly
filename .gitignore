@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Local documentation
+/docs/
+
 # Build output
 dist/
 build/

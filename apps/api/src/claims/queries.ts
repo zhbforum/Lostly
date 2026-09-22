@@ -14,7 +14,14 @@ export async function findClaimForClaimant(listingId: string, claimantUserId: st
   const [claim] = await db
     .select(claimSelection)
     .from(claims)
-    .where(and(eq(claims.listingId, listingId), eq(claims.claimantUserId, claimantUserId)))
+    .innerJoin(listings, eq(listings.id, claims.listingId))
+    .where(
+      and(
+        eq(claims.listingId, listingId),
+        eq(claims.claimantUserId, claimantUserId),
+        eq(listings.isHidden, false),
+      ),
+    )
     .limit(1);
   return claim ?? null;
 }
@@ -27,7 +34,7 @@ export async function findIncomingClaims(
   const [listing] = await db
     .select({ ownerId: listings.createdByUserId })
     .from(listings)
-    .where(eq(listings.id, listingId))
+    .where(and(eq(listings.id, listingId), eq(listings.isHidden, false)))
     .limit(1);
   if (!listing) return { ok: false, reason: 'listing-not-found' } as const;
   if (listing.ownerId !== ownerUserId) return { ok: false, reason: 'review-forbidden' } as const;
@@ -43,8 +50,10 @@ export async function findIncomingClaims(
     })
     .from(claims)
     .innerJoin(users, eq(users.id, claims.claimantUserId))
+    .innerJoin(listings, eq(listings.id, claims.listingId))
     .where(
       and(
+        eq(listings.isHidden, false),
         eq(claims.listingId, listingId),
         cursor ? cursorCondition(claims.createdAt, claims.id, cursor, false) : undefined,
       ),
@@ -80,6 +89,7 @@ export async function listClaimActivity(
         direction === 'incoming'
           ? eq(listings.createdByUserId, userId)
           : eq(claims.claimantUserId, userId),
+        eq(listings.isHidden, false),
         cursor ? cursorCondition(claims.createdAt, claims.id, cursor, false) : undefined,
       ),
     )

@@ -3,7 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { ClaimResponse } from '@lostly/contracts/claims';
 import type { ListingResponse } from '@lostly/contracts/listings';
 import { db } from '@/db';
-import { claims, listings } from '@/db/schema';
+import { claims, listings, moderationEvents, users } from '@/db/schema';
 import * as locking from '@/listings/locking';
 import {
   claim,
@@ -108,6 +108,59 @@ async function runInLockOrder(first: () => Promise<Response>, second: () => Prom
 }
 
 describe('deterministic listing/claim concurrency', () => {
+  for (const other of ['edit', 'create', 'approve'] as const) {
+    test.each([true, false])(
+      `hide vs ${other}, hide first: %s`,
+      async (hideFirst) => {
+        const owner = await user('owner');
+        const actor = await user('admin');
+        await db.update(users).set({ role: 'admin' }).where(eq(users.id, actor.id));
+        const claimant = await user('claimant');
+        const newcomer = await user('newcomer');
+        const listing = await report(owner.id);
+        const pending = await claim(listing.id, claimant.id);
+        const hide = () =>
+          request(`/admin/listings/${listing.id}/hide`, actor.cookie, {
+            expectedVersion: 1,
+            reason: 'Unsafe report',
+          });
+        const competing = () =>
+          other === 'edit'
+            ? request('/listings/' + listing.id, owner.cookie, updateInput, 'PATCH')
+            : other === 'create'
+              ? request(`/listings/${listing.id}/claims`, newcomer.cookie, {
+                  verificationDetails: 'Private ownership evidence',
+                })
+              : request(
+                  '/claims/' + pending.id,
+                  owner.cookie,
+                  { decision: 'approved', handoverDetails: 'Collect from the library desk.' },
+                  'PATCH',
+                );
+        const { responses } = await runInLockOrder(
+          hideFirst ? hide : competing,
+          hideFirst ? competing : hide,
+        );
+        const hiding = responses[hideFirst ? 0 : 1]!;
+        const competition = responses[hideFirst ? 1 : 0]!;
+        expect(hiding.status).toBe(hideFirst || other === 'create' ? 204 : 409);
+        expect(competition.status).toBe(hideFirst ? 404 : other === 'create' ? 201 : 200);
+        const [stored] = await db.select().from(listings).where(eq(listings.id, listing.id));
+        expect(stored?.isHidden).toBe(hideFirst || other === 'create');
+        expect(stored?.version).toBe(2);
+        const [storedClaim] = await db.select().from(claims).where(eq(claims.id, pending.id));
+        expect(storedClaim?.status).toBe(
+          !hideFirst && other === 'approve' ? 'approved' : 'pending',
+        );
+        const events = await db
+          .select()
+          .from(moderationEvents)
+          .where(eq(moderationEvents.targetId, listing.id));
+        expect(events).toHaveLength(hideFirst || other === 'create' ? 1 : 0);
+      },
+      15000,
+    );
+  }
   test('checks the editor version after waiting for a competing edit to commit', async () => {
     const owner = await user('owner');
     const listing = await report(owner.id);

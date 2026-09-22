@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./admin": "./src/admin.ts",
     "./auth": "./src/auth.ts",
     "./errors": "./src/errors.ts",
     "./listings": "./src/listings.ts",
