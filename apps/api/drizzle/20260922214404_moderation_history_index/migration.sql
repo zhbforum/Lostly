@@ -1,0 +1,1 @@
+CREATE INDEX "moderation_events_target_created_idx" ON "moderation_events" ("target_id","created_at","id");

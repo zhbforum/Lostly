@@ -7,6 +7,9 @@ import type {
 } from '@lostly/contracts/admin';
 import type { ListingStatus } from '@lostly/contracts/listings';
 import type { ClaimStatus } from '@lostly/contracts/claims';
+import type { PageQuery } from '@lostly/contracts/pagination';
+import type { ObjectStorage } from '@/storage/object-storage';
+import { findImages, toListingImage } from '@/listing-images/queries';
 import { db } from '@/db';
 import { claims, listings, moderationEvents, users } from '@/db/schema';
 import { canArchiveListing } from '@/domain/listing';
@@ -152,6 +155,50 @@ export async function moderateListing(id: string, actorUserId: string, input: Ar
     });
     return 'ok' as const;
   });
+}
+
+export async function adminReview(
+  resource: 'listings' | 'claims',
+  id: string,
+  query: PageQuery,
+  storage: ObjectStorage,
+) {
+  const table = resource === 'listings' ? listings : claims;
+  const [target] = await db.select({ id: table.id }).from(table).where(eq(table.id, id)).limit(1);
+  if (!target) return 'not-found' as const;
+  const scope = 'admin-review:' + resource + ':' + id;
+  const cursor = query.cursor ? decodeCursor(query.cursor, scope) : null;
+  if (query.cursor && !cursor) return 'invalid-cursor' as const;
+  const limit = query.limit ?? 20;
+  const rows = await db
+    .select({
+      id: moderationEvents.id,
+      actorUserId: moderationEvents.actorUserId,
+      actorName: users.displayName,
+      action: moderationEvents.action,
+      reason: moderationEvents.reason,
+      createdAt: moderationEvents.createdAt,
+      cursorValue: timestampCursorValue(moderationEvents.createdAt),
+    })
+    .from(moderationEvents)
+    .leftJoin(users, eq(users.id, moderationEvents.actorUserId))
+    .where(
+      and(
+        eq(moderationEvents.targetId, id),
+        cursor
+          ? cursorCondition(moderationEvents.createdAt, moderationEvents.id, cursor, false)
+          : undefined,
+      ),
+    )
+    .orderBy(desc(moderationEvents.createdAt), desc(moderationEvents.id))
+    .limit(limit + 1);
+  return {
+    images:
+      resource === 'listings'
+        ? (await findImages(id)).map((image) => toListingImage(image, storage))
+        : [],
+    events: pageFromRows(rows, limit, scope),
+  };
 }
 
 export async function moderateClaim(id: string, actorUserId: string, input: ModerationInput) {

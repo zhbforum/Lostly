@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { Elysia, t } from 'elysia';
 
-import { adminRoutes } from '@/admin/routes';
+import { createAdminRoutes } from '@/admin/routes';
 import { createActivityRoutes } from '@/activity/routes';
 import { authRoutes } from '@/auth/routes';
 import { claimRoutes } from '@/claims/routes';
@@ -104,6 +104,6 @@ export const createApp = (storage: ObjectStorage = objectStorage) =>
     .use(createListingImageRoutes(storage))
     .use(claimRoutes)
     .use(createActivityRoutes(storage))
-    .use(adminRoutes);
+    .use(createAdminRoutes(storage));
 
 export const app = createApp();

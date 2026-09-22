@@ -1,6 +1,6 @@
 import type { AuthUser } from './auth';
 import type { ClaimStatus } from './claims';
-import type { Listing, ListingKind, ListingStatus } from './listings';
+import type { Listing, ListingImage, ListingKind, ListingStatus } from './listings';
 import type { PageInfo, PageQuery } from './pagination';
 
 export interface AdminRecordsQuery extends PageQuery {
@@ -49,3 +49,17 @@ export interface ArchiveListingInput extends ModerationInput {
 }
 
 export type ListingVisibilityInput = ArchiveListingInput;
+
+export interface AdminModerationEvent {
+  id: string;
+  actorUserId: string;
+  actorName: string | null;
+  action: 'archive_listing' | 'reject_claim' | 'hide_listing' | 'restore_listing';
+  reason: string;
+  createdAt: string;
+}
+
+export interface AdminReview {
+  images: ListingImage[];
+  events: AdminPage<AdminModerationEvent>;
+}
