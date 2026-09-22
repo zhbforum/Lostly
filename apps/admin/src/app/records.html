@@ -113,6 +113,7 @@
                       <small>Occurred: {{ row.occurredOn }}</small
                       ><small>ID: {{ row.id }}</small>
                     </details>
+                    <app-review resource="listings" [recordId]="row.id" />
                   </td>
                   <td>
                     {{ row.owner.displayName }}<small>{{ row.owner.id }}</small>
@@ -182,6 +183,7 @@
                     <strong>{{ row.listing.title }}</strong
                     ><small>Listing: {{ row.listing.status }} · {{ row.listing.id }}</small
                     ><small>Claim: {{ row.id }}</small>
+                    <app-review resource="claims" [recordId]="row.id" />
                   </td>
                   <td>
                     {{ row.claimant.displayName }}<small>{{ row.claimant.id }}</small>

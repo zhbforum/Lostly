@@ -16,12 +16,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { AdminClaim, AdminListing, AdminPage, AdminUser } from '@lostly/contracts/admin';
 import type { PageInfo } from '@lostly/contracts/pagination';
 import { AdminApi, errorMessage } from './api';
+import { Review } from './review';
 
 type Row = AdminListing | AdminClaim | AdminUser;
 type ModerationAction = 'archive' | 'hide' | 'restore' | 'reject';
 
 @Component({
-  imports: [DatePipe, TitleCasePipe, FormsModule],
+  imports: [DatePipe, TitleCasePipe, FormsModule, Review],
   templateUrl: './records.html',
 })
 export class Records {
@@ -68,7 +69,8 @@ export class Records {
     },
     reject: {
       title: 'Reject claim?',
-      description: 'This permanently rejects the pending claim. The listing stays active.',
+      description:
+        'This permanently rejects the pending claim. The listing status and visibility stay unchanged.',
       success: 'Claim rejected.',
     },
   };
@@ -205,6 +207,7 @@ export class Records {
       this.notice.set(this.actionCopy[this.action()].success);
       await this.load();
     } catch (error) {
+      if (this.destroyRef.destroyed) return;
       if (error instanceof HttpErrorResponse && [404, 409].includes(error.status)) {
         this.dialog.nativeElement.close();
         await this.load();

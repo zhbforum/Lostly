@@ -9,8 +9,10 @@ export class AdminApi {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   readonly user = signal<AuthUser | null>(null);
+  private sessionGeneration = 0;
 
   async request<T>(path: string, body?: unknown): Promise<T> {
+    const generation = this.sessionGeneration;
     try {
       return await firstValueFrom(
         this.http.request<T>(body === undefined ? 'GET' : 'POST', '/api' + path, {
@@ -22,12 +24,17 @@ export class AdminApi {
     } catch (error) {
       if (
         path.startsWith('/admin/') &&
+        generation === this.sessionGeneration &&
         error instanceof HttpErrorResponse &&
         [401, 403].includes(error.status)
       ) {
+        this.sessionGeneration++;
         this.user.set(null);
         void this.router.navigate(['/login'], {
-          queryParams: { reason: error.status === 403 ? 'forbidden' : 'expired' },
+          queryParams: {
+            reason: error.status === 403 ? 'forbidden' : 'expired',
+            returnUrl: adminReturnUrl(this.router.url),
+          },
         });
       }
       throw error;
@@ -35,38 +42,53 @@ export class AdminApi {
   }
 
   async restore() {
-    const { user } = await this.request<AuthResponse>('/auth/me');
-    this.user.set(user);
-    return user;
+    const generation = this.sessionGeneration;
+    try {
+      const { user } = await this.request<AuthResponse>('/auth/me');
+      if (generation === this.sessionGeneration) this.user.set(user);
+      return user;
+    } catch (error) {
+      if (generation === this.sessionGeneration) this.user.set(null);
+      throw error;
+    }
   }
 
   async login(input: LoginInput) {
+    const generation = ++this.sessionGeneration;
     const { user } = await this.request<AuthResponse>('/auth/login', input);
-    this.user.set(user);
+    if (generation === this.sessionGeneration) this.user.set(user);
     return user;
   }
 
   async logout() {
+    const generation = ++this.sessionGeneration;
     await this.request('/auth/logout', {});
+    if (generation !== this.sessionGeneration) return;
     this.user.set(null);
     await this.router.navigateByUrl('/login');
   }
 }
 
-export const adminGuard: CanActivateFn = async () => {
+export function adminReturnUrl(value: string | null | undefined) {
+  return value && /^\/(?:listings|users|claims)?(?:\?[^#]*)?(?:#.*)?$/.test(value) ? value : '/';
+}
+
+export const adminGuard: CanActivateFn = async (_, state) => {
   const api = inject(AdminApi);
   const router = inject(Router);
   try {
     return (
       (await api.restore()).role === 'admin' ||
-      router.createUrlTree(['/login'], { queryParams: { reason: 'forbidden' } })
+      router.createUrlTree(['/login'], {
+        queryParams: { reason: 'forbidden', returnUrl: adminReturnUrl(state.url) },
+      })
     );
   } catch (error) {
-    api.user.set(null);
     return router.createUrlTree(['/login'], {
       queryParams: {
         reason:
           error instanceof HttpErrorResponse && error.status === 401 ? 'expired' : 'unavailable',
+        returnUrl: adminReturnUrl(state.url),
       },
     });
   }
@@ -77,8 +99,13 @@ export function errorMessage(error: unknown): string {
     if (error.status === 0) return 'Cannot reach the server. Check your connection and retry.';
     if (error.status === 401) return 'Sign in again. Check your email and password.';
     if (error.status === 403) return 'Administrator access is required.';
+    if (error.status === 404) return 'This record is no longer available. Refresh the list.';
+    if (error.status === 400)
+      return 'This page link is no longer valid. Reset the filters to start again.';
     if (error.status === 409) return 'This record changed. Refresh the list before trying again.';
     if (error.status === 422) return 'Check the form fields and try again.';
+    if (error.status === 429) return 'Too many requests. Wait a minute before trying again.';
+    if (error.status >= 500) return 'The server is temporarily unavailable. Please retry.';
   }
   return 'The request failed. Please retry.';
 }

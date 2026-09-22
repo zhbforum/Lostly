@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AdminApi, errorMessage } from './api';
+import { AdminApi, adminReturnUrl, errorMessage } from './api';
 
 @Component({
   imports: [FormsModule],
@@ -46,6 +46,9 @@ export class Login {
   private readonly api = inject(AdminApi);
   private readonly router = inject(Router);
   private readonly reason = inject(ActivatedRoute).snapshot.queryParamMap.get('reason');
+  private readonly returnUrl = adminReturnUrl(
+    inject(ActivatedRoute).snapshot.queryParamMap.get('returnUrl'),
+  );
   readonly error = signal(
     this.reason === 'forbidden'
       ? 'This account does not have administrator access.'
@@ -67,7 +70,7 @@ export class Login {
       const user = await this.api.login({ email: this.email.trim(), password: this.password });
       this.password = '';
       if (user.role !== 'admin') this.error.set('This account does not have administrator access.');
-      else await this.router.navigateByUrl('/');
+      else await this.router.navigateByUrl(this.returnUrl);
     } catch (error) {
       this.error.set(errorMessage(error));
     } finally {

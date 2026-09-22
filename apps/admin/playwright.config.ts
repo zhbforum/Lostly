@@ -12,7 +12,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: 'bun run --cwd ../api start',
+      command: 'bun run --cwd ../api tests/support/test-server.ts',
       url: 'http://localhost:3000/health',
       reuseExistingServer: false,
       env: { DATABASE_URL: process.env.DATABASE_URL },

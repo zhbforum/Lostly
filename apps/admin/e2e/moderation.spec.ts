@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
+import { imageFixture } from '../../api/tests/support/image-fixture';
 
 test('filters, paginates, hides and restores listings, then moderates claims and archives', async ({
   page,
@@ -55,6 +56,21 @@ test('filters, paginates, hides and restores listings, then moderates claims and
   });
   expect(create.status()).toBe(201);
   const { listing } = await create.json();
+  const photo = await imageFixture();
+  expect(
+    (
+      await request.post(`http://localhost:3000/listings/${listing.id}/images`, {
+        headers: { ...csrf, 'Idempotency-Key': crypto.randomUUID() },
+        multipart: {
+          file: {
+            name: 'report.png',
+            mimeType: 'image/png',
+            buffer: Buffer.from(await photo.arrayBuffer()),
+          },
+        },
+      })
+    ).status(),
+  ).toBe(201);
   expect(
     (
       await request.post('http://localhost:3000/auth/login', {
@@ -83,6 +99,8 @@ test('filters, paginates, hides and restores listings, then moderates claims and
   await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Claims', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Moderation dashboard' })).toBeVisible();
 
   await page.getByRole('link', { name: 'Users', exact: true }).click();
@@ -110,6 +128,8 @@ test('filters, paginates, hides and restores listings, then moderates claims and
   await page.getByLabel('Status', { exact: true }).selectOption('rejected');
   await page.getByRole('button', { name: 'Apply filters' }).click();
   await expect(claimRow.getByRole('cell', { name: 'rejected', exact: true })).toBeVisible();
+  await claimRow.getByText('Moderation history', { exact: true }).click();
+  await expect(claimRow.getByText('E2E duplicate claim', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: 'Listings', exact: true }).click();
   await page.getByLabel('Search listings').fill('Pagination ' + user.id);
@@ -145,6 +165,11 @@ test('filters, paginates, hides and restores listings, then moderates claims and
   await page.getByLabel('Visibility', { exact: true }).selectOption('hidden');
   await page.getByRole('button', { name: 'Apply filters' }).click();
   await page.reload();
+  await report.getByText('Photos and moderation history', { exact: true }).click();
+  await expect(report.getByText('Review unsafe report', { exact: true })).toBeVisible();
+  const preview = report.getByRole('img', { name: /Report photo 1/ });
+  await expect(preview).toBeVisible();
+  await expect(preview).toHaveJSProperty('naturalWidth', 32);
   await report.getByRole('button', { name: 'Restore', exact: true }).click();
   const restore = page.getByRole('dialog', { name: 'Restore listing?' });
   await restore.getByLabel('Moderation reason').fill('Reviewed and allowed');
@@ -166,6 +191,15 @@ test('filters, paginates, hides and restores listings, then moderates claims and
   await expect(report.getByText('archived', { exact: true })).toBeVisible();
   await page.reload();
   await expect(report.getByText('archived', { exact: true })).toBeVisible();
+  const destination = page.url();
+  expect((await page.request.post('/api/auth/logout', { headers: csrf })).status()).toBe(204);
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(page).toHaveURL(/\/login\?reason=expired/);
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page).toHaveURL(destination);
+  await expect(page.getByLabel('Status', { exact: true })).toHaveValue('archived');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,

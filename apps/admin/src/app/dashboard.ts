@@ -24,10 +24,13 @@ import { AdminApi, errorMessage } from './api';
         <a class="panel metric" routerLink="/listings"
           ><span>All listings</span><strong>{{ data.listings }}</strong></a
         >
-        <a class="panel metric" routerLink="/listings"
+        <a
+          class="panel metric"
+          routerLink="/listings"
+          [queryParams]="{ status: 'active', visibility: 'visible' }"
           ><span>Active listings</span><strong>{{ data.activeListings }}</strong></a
         >
-        <a class="panel metric" routerLink="/claims"
+        <a class="panel metric" routerLink="/claims" [queryParams]="{ status: 'pending' }"
           ><span>Pending claims</span><strong>{{ data.pendingClaims }}</strong></a
         >
         <a class="panel metric" routerLink="/users"
@@ -38,12 +41,12 @@ import { AdminApi, errorMessage } from './api';
     <section class="panel">
       <h2>Review and act</h2>
       <p>
-        Browse reports, accounts and claim summaries. Archive a report or reject a pending claim
-        with a reason.
+        Review reports, photos and moderation history. Hide or restore a report, archive it, or
+        reject a pending claim with a reason.
       </p>
       <p>
         Archiving removes a report from discovery and closes pending claims. Its history remains
-        available.
+        available unless the report is hidden. Hiding preserves history and pauses ordinary access.
       </p>
     </section>
   `,

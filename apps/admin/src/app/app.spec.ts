@@ -11,7 +11,7 @@ import {
 import { BehaviorSubject } from 'rxjs';
 import type { AuthUser } from '@lostly/contracts/auth';
 import type { AdminListing } from '@lostly/contracts/admin';
-import { AdminApi, adminGuard } from './api';
+import { AdminApi, adminGuard, adminReturnUrl } from './api';
 import { App } from './app';
 import { Login } from './login';
 import { Records } from './records';
@@ -61,12 +61,12 @@ describe('admin access and moderation flow', () => {
     const forbidden = guard();
     http.expectOne('/api/auth/me').flush({ user: { ...admin, role: 'user' } });
     expect(TestBed.inject(Router).serializeUrl((await forbidden) as never)).toBe(
-      '/login?reason=forbidden',
+      '/login?reason=forbidden&returnUrl=%2F',
     );
     const expired = guard();
     http.expectOne('/api/auth/me').flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(TestBed.inject(Router).serializeUrl((await expired) as never)).toBe(
-      '/login?reason=expired',
+      '/login?reason=expired&returnUrl=%2F',
     );
     expect(api.user()).toBeNull();
   });
@@ -83,7 +83,9 @@ describe('admin access and moderation flow', () => {
     request.flush({}, { status: 403, statusText: 'Forbidden' });
     await assertion;
     expect(api.user()).toBeNull();
-    expect(navigation).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'forbidden' } });
+    expect(navigation).toHaveBeenCalledWith(['/login'], {
+      queryParams: { reason: 'forbidden', returnUrl: '/' },
+    });
   });
 
   it('keeps a non-admin login out of the dashboard', async () => {
@@ -97,6 +99,46 @@ describe('admin access and moderation flow', () => {
     expect(fixture.componentInstance.error()).toContain('does not have administrator access');
     expect(fixture.componentInstance.password).toBe('');
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps a fresh session when an old admin request fails after signing in again', async () => {
+    const navigation = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const old = api.request('/admin/listings');
+    const rejected = expect(old).rejects.toBeInstanceOf(HttpErrorResponse);
+    const pending = http.expectOne('/api/admin/listings');
+    const login = api.login({ email: admin.email, password: 'test-password' });
+    http.expectOne('/api/auth/login').flush({ user: admin });
+    await login;
+    pending.flush({}, { status: 401, statusText: 'Unauthorized' });
+    await rejected;
+    expect(api.user()).toEqual(admin);
+    expect(navigation).not.toHaveBeenCalled();
+  });
+
+  it('does not restore an old account after logout', async () => {
+    const restore = api.restore();
+    const pending = http.expectOne('/api/auth/me');
+    vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const logout = api.logout();
+    http.expectOne('/api/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
+    await logout;
+    pending.flush({ user: admin });
+    await restore;
+    expect(api.user()).toBeNull();
+  });
+
+  it('only accepts internal admin destinations after login', () => {
+    expect(adminReturnUrl('/listings?status=active&visibility=hidden')).toBe(
+      '/listings?status=active&visibility=hidden',
+    );
+    for (const value of [
+      'https://example.com',
+      '//example.com',
+      '/\\example.com',
+      '/login',
+      '/unknown',
+    ])
+      expect(adminReturnUrl(value)).toBe('/');
   });
 
   it('renders navigation only for administrators and signs out through the server', async () => {
