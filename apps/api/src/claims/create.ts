@@ -4,6 +4,7 @@ import { claims } from '@/db/schema';
 import { isClaimableListingKind } from '@/domain/claim';
 import { lockListing } from '@/listings/locking';
 import { claimSelection, type ClaimRecord, type ClaimResult } from '@/claims/selection';
+import { createClaimConversation } from '@/conversations/create';
 
 export async function createClaim(input: {
   listingId: string;
@@ -34,6 +35,11 @@ export async function createClaim(input: {
       })
       .returning(claimSelection);
     if (!claim) throw new Error('Failed to create claim');
+    await createClaimConversation(
+      tx,
+      { id: claim.id, claimantUserId: input.claimantUserId },
+      listing.createdByUserId,
+    );
     return { ok: true, value: claim };
   });
 }
