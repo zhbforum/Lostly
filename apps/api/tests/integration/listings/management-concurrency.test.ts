@@ -1,10 +1,10 @@
-import { afterAll, beforeEach, describe, expect, spyOn, test } from 'bun:test';
-import { eq, sql } from 'drizzle-orm';
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
+import { eq } from 'drizzle-orm';
 import type { ClaimResponse } from '@lostly/contracts/claims';
 import type { ListingResponse } from '@lostly/contracts/listings';
 import { db } from '@/db';
 import { claims, listings, moderationEvents, users } from '@/db/schema';
-import * as locking from '@/listings/locking';
+import { runInListingLockOrder as runInLockOrder } from '@tests/support/listing-lock-order';
 import {
   claim,
   clearDatabase,
@@ -17,95 +17,6 @@ import {
 
 beforeEach(clearDatabase);
 afterAll(clearDatabase);
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
-  return { promise, resolve };
-}
-
-async function within<T>(promise: Promise<T>): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error('Timed out waiting for lock test synchronization')),
-          5000,
-        );
-      }),
-    ]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function assertWaitingForListingLock(waiter: number, holder: number) {
-  const deadline = Date.now() + 5000;
-  while (Date.now() < deadline) {
-    const rows = await db.execute<{ blocked: boolean; query: string }>(sql`
-      select ${holder}::int = any(pg_blocking_pids(pid)) as blocked, query
-      from pg_stat_activity where pid = ${waiter} and wait_event_type = 'Lock'
-    `);
-    if (rows[0]?.blocked) {
-      expect(rows[0].query.toLowerCase()).toContain('for update');
-      expect(rows[0].query).toContain('listings');
-      return;
-    }
-    await Bun.sleep(10);
-  }
-  throw new Error(
-    'Second mutation did not demonstrably wait for the first listing FOR UPDATE lock',
-  );
-}
-
-// Only pause the real lock helper in tests. Both mutations still execute their
-// production transactions and SQL. PostgreSQL itself proves who blocks whom.
-async function runInLockOrder(first: () => Promise<Response>, second: () => Promise<Response>) {
-  const lockListing = locking.lockListing;
-  const acquired = deferred<number>();
-  const attempting = deferred<number>();
-  const release = deferred<void>();
-  let calls = 0;
-  let secondAcquired = false;
-  const spy = spyOn(locking, 'lockListing').mockImplementation(async (tx, id) => {
-    const order = calls++;
-    await tx.execute(sql`set local lock_timeout = '8s'`);
-    const rows = await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
-    if (order === 1) attempting.resolve(rows[0]!.pid);
-    const listing = await lockListing(tx, id);
-    if (order === 0) {
-      acquired.resolve(rows[0]!.pid);
-      await within(release.promise);
-    } else {
-      secondAcquired = true;
-    }
-    return listing;
-  });
-  const firstRequest = first();
-  let secondRequest: Promise<Response> | undefined;
-  try {
-    const holder = await within(acquired.promise);
-    secondRequest = second();
-    const waiter = await within(attempting.promise);
-    expect(waiter).not.toBe(holder);
-    await assertWaitingForListingLock(waiter, holder);
-    expect(secondAcquired).toBe(false);
-    const releasedAt = new Date();
-    release.resolve();
-    const responses = await within(Promise.all([firstRequest, secondRequest]));
-    expect(secondAcquired).toBe(true);
-    expect(calls).toBe(2);
-    return { responses, releasedAt };
-  } finally {
-    release.resolve();
-    await Promise.allSettled([firstRequest, ...(secondRequest ? [secondRequest] : [])]);
-    spy.mockRestore();
-  }
-}
 
 describe('deterministic listing/claim concurrency', () => {
   for (const other of ['edit', 'create', 'approve'] as const) {
