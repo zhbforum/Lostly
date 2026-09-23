@@ -9,6 +9,7 @@
     "./errors": "./src/errors.ts",
     "./listings": "./src/listings.ts",
     "./claims": "./src/claims.ts",
+    "./conversations": "./src/conversations.ts",
     "./pagination": "./src/pagination.ts"
   }
 }
