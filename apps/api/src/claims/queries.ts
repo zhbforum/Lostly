@@ -2,7 +2,8 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { PageQuery } from '@lostly/contracts/pagination';
 import { db } from '@/db';
 import { claims, listings, users } from '@/db/schema';
-import { claimSelection } from '@/claims/selection';
+import { claimConversations } from '@/db/conversations';
+import { participantClaimSelection } from '@/claims/selection';
 import {
   cursorCondition,
   decodeCursor,
@@ -12,8 +13,9 @@ import {
 
 export async function findClaimForClaimant(listingId: string, claimantUserId: string) {
   const [claim] = await db
-    .select(claimSelection)
+    .select(participantClaimSelection)
     .from(claims)
+    .innerJoin(claimConversations, eq(claimConversations.claimId, claims.id))
     .innerJoin(listings, eq(listings.id, claims.listingId))
     .where(
       and(
@@ -44,11 +46,12 @@ export async function findIncomingClaims(
   const limit = query.limit ?? 20;
   const rows = await db
     .select({
-      ...claimSelection,
+      ...participantClaimSelection,
       claimant: { id: users.id, displayName: users.displayName },
       cursorValue: timestampCursorValue(claims.createdAt),
     })
     .from(claims)
+    .innerJoin(claimConversations, eq(claimConversations.claimId, claims.id))
     .innerJoin(users, eq(users.id, claims.claimantUserId))
     .innerJoin(listings, eq(listings.id, claims.listingId))
     .where(
@@ -77,12 +80,14 @@ export async function listClaimActivity(
   const rows = await db
     .select({
       id: claims.id,
+      conversationId: claimConversations.id,
       status: claims.status,
       createdAt: claims.createdAt,
       listing: { id: listings.id, title: listings.title, status: listings.status },
       cursorValue: timestampCursorValue(claims.createdAt),
     })
     .from(claims)
+    .innerJoin(claimConversations, eq(claimConversations.claimId, claims.id))
     .innerJoin(listings, eq(listings.id, claims.listingId))
     .where(
       and(

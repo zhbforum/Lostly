@@ -15,6 +15,7 @@ describe('activity history', () => {
       claims: [
         {
           id: 'claim-1',
+          conversationId: 'conversation-1',
           status: 'approved',
           createdAt: '2026-09-01T10:00:00Z',
           listing: { id: 'report-1', title: 'Blue backpack', status: 'resolved' },

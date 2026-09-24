@@ -67,6 +67,7 @@ export const createActivityRoutes = (storage: ObjectStorage) =>
             claims: t.Array(
               t.Object({
                 id: t.String({ format: 'uuid' }),
+                conversationId: t.String({ format: 'uuid' }),
                 status: t.UnionEnum(CLAIM_STATUSES),
                 createdAt: t.Date(),
                 listing: t.Object({
