@@ -10,5 +10,6 @@ export const corsPlugin = cors({
   ],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'X-CSRF-Protection', 'Idempotency-Key'],
+  exposeHeaders: ['Retry-After'],
   credentials: true,
 });

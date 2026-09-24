@@ -5,6 +5,7 @@ import { createAdminRoutes } from '@/admin/routes';
 import { createActivityRoutes } from '@/activity/routes';
 import { authRoutes } from '@/auth/routes';
 import { claimRoutes } from '@/claims/routes';
+import { createConversationRoutes } from '@/conversations/routes';
 import { db } from '@/db';
 import { corsPlugin } from '@/http/cors';
 import { isCsrfProtectedRequest } from '@/http/csrf';
@@ -104,6 +105,7 @@ export const createApp = (storage: ObjectStorage = objectStorage) =>
     .use(createListingImageRoutes(storage))
     .use(claimRoutes)
     .use(createActivityRoutes(storage))
+    .use(createConversationRoutes(storage))
     .use(createAdminRoutes(storage));
 
 export const app = createApp();
