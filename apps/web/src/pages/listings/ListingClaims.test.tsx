@@ -40,6 +40,7 @@ const ownerDetails: ListingDetailResponse = {
 };
 const claim: IncomingClaim = {
   id: '550e8400-e29b-41d4-a716-446655440002',
+  conversationId: '550e8400-e29b-41d4-a716-446655440004',
   listingId: id,
   status: 'pending',
   verificationDetails: 'Red notebook in the inside pocket.',

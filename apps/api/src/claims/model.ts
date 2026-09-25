@@ -5,6 +5,7 @@ import { pageInfoSchema } from '@/pagination/model';
 
 export const claimSchema = t.Object({
   id: t.String({ format: 'uuid' }),
+  conversationId: t.String({ format: 'uuid' }),
   listingId: t.String({ format: 'uuid' }),
   status: t.UnionEnum(CLAIM_STATUSES),
   verificationDetails: t.String(),

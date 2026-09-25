@@ -1,6 +1,8 @@
+import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import type { UpdateListingInput } from '@lostly/contracts/listings';
 import { claims, listings, sessions, users } from '@/db/schema';
+import { claimConversations, claimConversationMembers } from '@/db/conversations';
 import { app } from '@/app';
 import { generateSessionToken, getSessionExpiresAt, hashSessionToken } from '@/auth/session';
 
@@ -70,22 +72,41 @@ export async function claim(
   status: 'pending' | 'approved' | 'rejected' = 'pending',
   reviewerId?: string,
 ) {
-  const [record] = await db
-    .insert(claims)
-    .values({
-      listingId,
-      claimantUserId,
-      status,
-      verificationDetails: 'Private proof of ownership.',
-      handoverDetails: status === 'approved' ? 'Collect from library reception.' : null,
-      reviewedByUserId: reviewerId ?? null,
-      reviewedAt: reviewerId ? fixtureTime : null,
-      createdAt: fixtureTime,
-      updatedAt: fixtureTime,
-    })
-    .returning();
-  if (!record) throw new Error('Missing fixture claim');
-  return record;
+  return db.transaction(async (tx) => {
+    const [listing] = await tx
+      .select({ ownerId: listings.createdByUserId })
+      .from(listings)
+      .where(eq(listings.id, listingId));
+    if (!listing) throw new Error('Missing fixture listing');
+    const [record] = await tx
+      .insert(claims)
+      .values({
+        listingId,
+        claimantUserId,
+        status,
+        verificationDetails: 'Private proof of ownership.',
+        handoverDetails: status === 'approved' ? 'Collect from library reception.' : null,
+        reviewedByUserId: reviewerId ?? null,
+        reviewedAt: reviewerId ? fixtureTime : null,
+        createdAt: fixtureTime,
+        updatedAt: fixtureTime,
+      })
+      .returning();
+    if (!record) throw new Error('Missing fixture claim');
+    const [conversation] = await tx
+      .insert(claimConversations)
+      .values({ claimId: record.id, createdAt: fixtureTime })
+      .returning();
+    if (!conversation) throw new Error('Missing fixture conversation');
+    await tx.insert(claimConversationMembers).values(
+      [claimantUserId, listing.ownerId].map((userId) => ({
+        conversationId: conversation.id,
+        userId,
+        createdAt: fixtureTime,
+      })),
+    );
+    return record;
+  });
 }
 
 export function request(

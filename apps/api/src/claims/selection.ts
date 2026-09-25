@@ -1,4 +1,5 @@
 import { claims } from '@/db/schema';
+import { claimConversations } from '@/db/conversations';
 
 export const claimSelection = {
   id: claims.id,
@@ -11,7 +12,13 @@ export const claimSelection = {
   reviewedAt: claims.reviewedAt,
 };
 
+export const participantClaimSelection = {
+  ...claimSelection,
+  conversationId: claimConversations.id,
+};
+
 export type ClaimRecord = Pick<typeof claims.$inferSelect, keyof typeof claimSelection>;
+export type ParticipantClaimRecord = ClaimRecord & { conversationId: string };
 export type ClaimFailure =
   | 'listing-not-found'
   | 'listing-not-claimable'

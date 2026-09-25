@@ -4,6 +4,14 @@ import { claimConversations, claimConversationMembers } from '@/db/conversations
 import { claims, listings } from '@/db/schema';
 import { canSendConversationMessages } from '@/domain/conversation';
 
+export function conversationAccessPredicate(userId: string) {
+  return and(
+    eq(claimConversationMembers.userId, userId),
+    or(eq(claims.claimantUserId, userId), eq(listings.createdByUserId, userId)),
+    eq(listings.isHidden, false),
+  );
+}
+
 export async function findConversationForMember(
   conversationId: string,
   userId: string,
@@ -29,14 +37,7 @@ export async function findConversationForMember(
     )
     .innerJoin(claims, eq(claims.id, claimConversations.claimId))
     .innerJoin(listings, eq(listings.id, claims.listingId))
-    .where(
-      and(
-        eq(claimConversations.id, conversationId),
-        eq(claimConversationMembers.userId, userId),
-        eq(listings.isHidden, false),
-        or(eq(claims.claimantUserId, userId), eq(listings.createdByUserId, userId)),
-      ),
-    )
+    .where(and(eq(claimConversations.id, conversationId), conversationAccessPredicate(userId)))
     .limit(1);
   return conversation
     ? { ...conversation, canSendMessages: canSendConversationMessages(conversation.claimStatus) }

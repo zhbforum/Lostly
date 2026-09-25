@@ -2,16 +2,22 @@ import { and, eq } from 'drizzle-orm';
 import type { DecideClaimInput } from '@lostly/contracts/claims';
 import { db } from '@/db';
 import { claims, listings } from '@/db/schema';
+import { claimConversations } from '@/db/conversations';
 import { canTransitionClaimStatus } from '@/domain/claim';
 import { lockListing } from '@/listings/locking';
-import { claimSelection, type ClaimRecord, type ClaimResult } from '@/claims/selection';
+import {
+  claimSelection,
+  participantClaimSelection,
+  type ParticipantClaimRecord,
+  type ClaimResult,
+} from '@/claims/selection';
 
 export async function decideClaim(
   input: DecideClaimInput & {
     claimId: string;
     reviewerUserId: string;
   },
-): Promise<ClaimResult<ClaimRecord>> {
+): Promise<ClaimResult<ParticipantClaimRecord>> {
   return db.transaction(async (tx) => {
     // Only locate the parent here, without locking the child or using its status.
     const [reference] = await tx
@@ -25,10 +31,11 @@ export async function decideClaim(
     if (listing.createdByUserId !== input.reviewerUserId)
       return { ok: false, reason: 'review-forbidden' };
     const [claim] = await tx
-      .select(claimSelection)
+      .select(participantClaimSelection)
       .from(claims)
+      .innerJoin(claimConversations, eq(claimConversations.claimId, claims.id))
       .where(eq(claims.id, input.claimId))
-      .for('update')
+      .for('update', { of: claims })
       .limit(1);
     if (!claim) return { ok: false, reason: 'claim-not-found' };
     if (!canTransitionClaimStatus(claim.status, input.decision) || listing.status !== 'active') {
@@ -56,6 +63,6 @@ export async function decideClaim(
         .set({ ...review, status: 'rejected' })
         .where(and(eq(claims.listingId, listing.id), eq(claims.status, 'pending')));
     }
-    return { ok: true, value: updated };
+    return { ok: true, value: { ...updated, conversationId: claim.conversationId } };
   });
 }

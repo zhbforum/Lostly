@@ -102,6 +102,7 @@ describe('listing owner management', () => {
       details.mockResolvedValueOnce(initial).mockResolvedValue(closed);
       const claim = {
         id: 'claim-one',
+        conversationId: 'conversation-one',
         listingId: reportId,
         status: 'pending' as const,
         verificationDetails: 'Private identifying details.',

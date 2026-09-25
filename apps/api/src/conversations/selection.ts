@@ -14,8 +14,14 @@ export type MessageRecord = Omit<ClaimMessage, 'createdAt'> & { createdAt: Date 
 export type ConversationFailure =
   | 'conversation-not-found'
   | 'conversation-read-only'
+  | 'message-not-found'
   | 'idempotency-conflict'
   | 'invalid-message'
-  | 'invalid-operation-id';
-export type ConversationResult<T> =
-  { ok: true; value: T } | { ok: false; reason: ConversationFailure };
+  | 'invalid-operation-id'
+  | 'rate-limited';
+export type ConversationResult<T, Failure extends ConversationFailure = ConversationFailure> =
+  | { ok: true; value: T }
+  | { ok: false; reason: Exclude<Failure, 'rate-limited'> }
+  | ('rate-limited' extends Failure
+      ? { ok: false; reason: 'rate-limited'; retryAfterSeconds: number }
+      : never);

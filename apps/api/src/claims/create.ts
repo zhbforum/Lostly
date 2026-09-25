@@ -3,14 +3,14 @@ import { db } from '@/db';
 import { claims } from '@/db/schema';
 import { isClaimableListingKind } from '@/domain/claim';
 import { lockListing } from '@/listings/locking';
-import { claimSelection, type ClaimRecord, type ClaimResult } from '@/claims/selection';
+import { claimSelection, type ParticipantClaimRecord, type ClaimResult } from '@/claims/selection';
 import { createClaimConversation } from '@/conversations/create';
 
 export async function createClaim(input: {
   listingId: string;
   claimantUserId: string;
   verificationDetails: string;
-}): Promise<ClaimResult<ClaimRecord>> {
+}): Promise<ClaimResult<ParticipantClaimRecord>> {
   return db.transaction(async (tx) => {
     const listing = await lockListing(tx, input.listingId);
     if (!listing || listing.isHidden) return { ok: false, reason: 'listing-not-found' };
@@ -35,11 +35,11 @@ export async function createClaim(input: {
       })
       .returning(claimSelection);
     if (!claim) throw new Error('Failed to create claim');
-    await createClaimConversation(
+    const conversation = await createClaimConversation(
       tx,
       { id: claim.id, claimantUserId: input.claimantUserId },
       listing.createdByUserId,
     );
-    return { ok: true, value: claim };
+    return { ok: true, value: { ...claim, conversationId: conversation.id } };
   });
 }

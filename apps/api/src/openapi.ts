@@ -47,6 +47,10 @@ export const openApiPlugin = openapi({
         description: 'Ownership claims, review, and reunion workflow.',
       },
       {
+        name: 'Conversations',
+        description: 'Private claim-bound conversations, text messages and unread state.',
+      },
+      {
         name: 'Activity',
         description: 'Authenticated user report and claim history.',
       },

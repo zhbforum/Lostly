@@ -18,6 +18,7 @@ export const CLAIM_CONSTRAINTS = {
 
 export interface Claim {
   id: string;
+  conversationId: string;
   listingId: string;
   status: ClaimStatus;
   verificationDetails: string;
@@ -52,6 +53,7 @@ export interface IncomingClaimsResponse {
 
 export interface ClaimActivity {
   id: string;
+  conversationId: string;
   status: ClaimStatus;
   createdAt: string;
   listing: Pick<Listing, 'id' | 'title' | 'status'>;
