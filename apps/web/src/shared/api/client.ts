@@ -1,5 +1,6 @@
 import type { ApiErrorResponse } from '@lostly/contracts/errors';
 import { getSessionGeneration, notifySessionExpiry } from './session-events';
+import { parseRetryAfter } from './retry-after';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -21,13 +22,20 @@ interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  readonly retryAfterSeconds: number | null;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    retryAfterSeconds: number | null = null,
+  ) {
     super(message);
 
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -105,5 +113,6 @@ async function createApiError(response: Response): Promise<ApiError> {
     response.status,
     errorResponse?.error?.code ?? 'HTTP_ERROR',
     errorResponse?.error?.message ?? `Request failed with status ${response.status}`,
+    parseRetryAfter(response.headers.get('Retry-After')),
   );
 }
