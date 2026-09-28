@@ -50,14 +50,6 @@ export function IncomingClaims({ listingId, onChanged }: Props) {
           )}
         </div>
       )}
-      {decision.error && (
-        <div className={styles.error} role="alert">
-          <p>{decision.error}</p>
-          <button type="button" onClick={onChanged}>
-            Refresh report
-          </button>
-        </div>
-      )}
       {state.status === 'success' && (
         <>
           {state.data.claims.length === 0 ? (
@@ -71,6 +63,9 @@ export function IncomingClaims({ listingId, onChanged }: Props) {
                   disabled={decision.pendingId !== null}
                   isUpdating={decision.pendingId === claim.id}
                   onDecision={decision.submit}
+                  error={decision.error}
+                  clearError={decision.clearError}
+                  onRefresh={onChanged}
                 />
               ))}
             </ul>
