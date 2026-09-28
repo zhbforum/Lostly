@@ -1,0 +1,93 @@
+.row {
+  /* Grouping must settle before the scroll anchor is measured, even when the
+     global reduced-motion rule supplies a nonzero transition duration. */
+  transition-property: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding-right: 40px;
+}
+.row[data-grouped='true'] {
+  margin-top: 5px;
+}
+.row[data-own='true'] {
+  justify-content: flex-end;
+  padding: 0 0 0 40px;
+}
+.row:not([data-own='true'])[data-grouped='true'] {
+  padding-left: 32px;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+.message {
+  max-width: 100%;
+  min-width: 0;
+}
+.bubble {
+  margin: 0;
+  padding: 10px 13px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+  background: var(--color-surface);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.row[data-own='true'] .bubble {
+  background: var(--color-primary-soft);
+  border-color: transparent;
+  color: var(--color-text);
+}
+.message time {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: 0.66rem;
+}
+.row[data-own='true'] time {
+  text-align: right;
+}
+.delivery {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.delivery button {
+  min-height: 44px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--color-primary);
+  border: 0;
+  cursor: pointer;
+}
+.delivery button:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+.delivery button:focus-visible {
+  outline: 3px solid var(--color-primary);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
