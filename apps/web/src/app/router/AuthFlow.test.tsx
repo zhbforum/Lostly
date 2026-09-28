@@ -6,6 +6,10 @@ import { AuthProvider } from '@/features/auth/model/AuthProvider';
 import { ownerReport } from '@/test/fixtures/listing-management';
 import { AppRouter } from './AppRouter';
 
+vi.mock('@/features/conversations/model/use-conversation-unread', () => ({
+  useConversationUnread: () => ({ unreadConversationCount: 0, refreshUnread: () => {} }),
+}));
+
 // Only the date widget is simplified; router, provider, forms and API client are real.
 vi.mock('@/features/listings/ui/ListingFormFields/ListingDateField/ListingDateField', () => ({
   ListingDateField: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (

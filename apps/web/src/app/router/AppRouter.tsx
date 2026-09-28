@@ -6,6 +6,8 @@ import { useAuth } from '@/features/auth/model/auth-context';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { HomePage } from '@/pages/home/HomePage';
+import { ConversationPage } from '@/pages/messages/ConversationPage';
+import { MessagesEmptyRoute } from '@/pages/messages/MessagesEmptyRoute';
 import { safeReturnTo } from '@/shared/navigation/return-to';
 
 const CreateListingPage = lazy(async () => {
@@ -38,6 +40,10 @@ const ListingsPage = lazy(async () => {
 
 const ActivityPage = lazy(async () => ({
   default: (await import('@/pages/activity/ActivityPage')).ActivityPage,
+}));
+
+const MessagesPage = lazy(async () => ({
+  default: (await import('@/pages/messages/MessagesPage')).MessagesPage,
 }));
 
 interface ListingPageFallbackProps {
@@ -134,6 +140,21 @@ export function AppRouter() {
           }
         />
         <Route path="/" element={<HomePage />} />
+        <Route
+          path="/messages"
+          element={
+            <Suspense
+              fallback={
+                <ListingPageFallback title="Your messages" description="Opening your inbox…" />
+              }
+            >
+              <MessagesPage />
+            </Suspense>
+          }
+        >
+          <Route index element={<MessagesEmptyRoute />} />
+          <Route path=":conversationId" element={<ConversationPage />} />
+        </Route>
         <Route
           path="/activity"
           element={
