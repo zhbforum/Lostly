@@ -8,6 +8,8 @@ import { ListingOwnerControls } from '@/features/listings/ui/ListingOwnerControl
 import styles from '@/pages/listings/ListingDetailsPage.module.css';
 import { Brand } from '@/shared/ui/Brand/Brand';
 import { ListingPhotos } from '@/features/listings/ui/ListingPhotos';
+import { safeReturnTo } from '@/shared/navigation/return-to';
+import { getConversationReturn } from '@/shared/navigation/conversation-return';
 
 export function ListingDetailsPage() {
   const location = useLocation();
@@ -25,12 +27,18 @@ export function ListingDetailsPage() {
       ? stateWithNotice.reportNotice
       : null;
   const candidate: unknown = location.state?.returnTo;
+  const conversationReturn = getConversationReturn(location.state);
+  const returningToConversation =
+    typeof candidate === 'string' &&
+    safeReturnTo(candidate) === candidate &&
+    /^\/messages\/[^/?#]+$/.test(candidate);
   const returnTo =
-    typeof candidate === 'string' && /^\/(listings|activity)(\?|$)/.test(candidate)
+    typeof candidate === 'string' &&
+    (/^\/(listings|activity)(\?|$)/.test(candidate) || returningToConversation)
       ? candidate
       : '/listings';
   const { id } = useParams<{ id: string }>();
-  const { state, retry } = useListingDetails(id);
+  const { state, retry, acceptClaim } = useListingDetails(id);
   const [notice, setNotice] = useState<{ id: string | undefined; message: string | null }>({
     id,
     message: navigationNotice,
@@ -78,9 +86,24 @@ export function ListingDetailsPage() {
           className={styles.backLink}
           to={returnTo}
           state={{ pagination: location.state?.returnPagination }}
+          replace={returningToConversation}
+          onClick={(event) => {
+            if (
+              returningToConversation &&
+              conversationReturn &&
+              event.button === 0 &&
+              !event.metaKey &&
+              !event.ctrlKey &&
+              !event.shiftKey &&
+              !event.altKey
+            ) {
+              event.preventDefault();
+              void navigate(-conversationReturn.steps);
+            }
+          }}
         >
           <span aria-hidden="true">←</span>
-          Back to results
+          {returningToConversation ? 'Back to conversation' : 'Back to results'}
         </Link>
       </header>
 
@@ -151,7 +174,7 @@ export function ListingDetailsPage() {
           <>
             <ListingDetails listing={state.listing.listing} titleRef={listingTitleRef} />
             <ListingPhotos
-              key={state.listing.listing.id}
+              key={`photos:${state.listing.listing.id}`}
               listingId={state.listing.listing.id}
               images={state.listing.images}
               canManage={state.listing.capabilities.canManageImages}
@@ -166,10 +189,12 @@ export function ListingDetailsPage() {
               }}
             />
             <ClaimPanel
+              key={`claim-panel:${state.listing.listing.id}`}
               listingId={state.listing.listing.id}
               capabilities={state.listing.capabilities}
               initialClaim={state.listing.claim}
               onChanged={retry}
+              onCreated={acceptClaim}
             />
           </>
         )}

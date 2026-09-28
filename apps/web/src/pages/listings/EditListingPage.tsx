@@ -5,6 +5,7 @@ import { EditListingForm } from '@/features/listings/ui/EditListingForm';
 import { Brand } from '@/shared/ui/Brand/Brand';
 import styles from './ListingFormPage.module.css';
 import { ListingPhotos } from '@/features/listings/ui/ListingPhotos';
+import { advanceConversationReturn } from '@/shared/navigation/conversation-return';
 
 export function EditListingPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,7 +31,11 @@ export function EditListingPage() {
     <main className={styles.page}>
       <header className={styles.siteHeader}>
         <Brand variant="header" />
-        <Link className={styles.backLink} to={detailPath} state={location.state}>
+        <Link
+          className={styles.backLink}
+          to={detailPath}
+          state={advanceConversationReturn(location.state)}
+        >
           Back to report
         </Link>
       </header>

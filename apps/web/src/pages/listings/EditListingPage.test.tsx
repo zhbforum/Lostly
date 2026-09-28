@@ -13,6 +13,7 @@ it('keeps a draft for the same version but remounts the editor when server versi
   vi.mocked(useListingDetails).mockReturnValue({
     state: { status: 'success', listing: report },
     retry,
+    acceptClaim: vi.fn(),
   });
   const page = () => (
     <MemoryRouter initialEntries={[`/listings/${report.listing.id}/edit`]}>
@@ -26,6 +27,7 @@ it('keeps a draft for the same version but remounts the editor when server versi
   vi.mocked(useListingDetails).mockReturnValue({
     state: { status: 'success', listing: structuredClone(report) },
     retry,
+    acceptClaim: vi.fn(),
   });
   view.rerender(page());
   expect(screen.getByLabelText('Title')).toHaveValue('Unsaved changes');
@@ -41,6 +43,7 @@ it('keeps a draft for the same version but remounts the editor when server versi
   vi.mocked(useListingDetails).mockReturnValue({
     state: { status: 'success', listing: newer },
     retry,
+    acceptClaim: vi.fn(),
   });
   view.rerender(page());
   expect(screen.getByLabelText('Title')).toHaveValue(newer.listing.title);

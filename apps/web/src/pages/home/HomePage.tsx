@@ -1,15 +1,13 @@
 import { SessionPanel } from '@/features/auth/ui/SessionPanel/SessionPanel';
 import { ListingIntentActions } from '@/features/listings/ui/ListingIntentActions/ListingIntentActions';
 import styles from '@/pages/home/HomePage.module.css';
-import { Brand } from '@/shared/ui/Brand/Brand';
+import { AppNavigation } from '@/app/navigation/AppNavigation';
 import { Link } from 'react-router';
 
 export function HomePage() {
   return (
     <main className={styles.page}>
-      <header className={styles.header}>
-        <Brand variant="header" />
-      </header>
+      <AppNavigation />
 
       <div className={styles.content}>
         <section className={styles.hero}>

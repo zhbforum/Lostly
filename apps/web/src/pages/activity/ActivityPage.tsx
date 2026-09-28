@@ -5,7 +5,7 @@ import { ListingCard } from '@/features/listings/ui/ListingCard/ListingCard';
 import { useApiResource } from '@/shared/model/use-api-resource';
 import { useCursorNavigation } from '@/shared/model/use-cursor-navigation';
 import { Pagination } from '@/shared/ui/Pagination/Pagination';
-import { Brand } from '@/shared/ui/Brand/Brand';
+import { AppNavigation } from '@/app/navigation/AppNavigation';
 import pageStyles from '@/pages/listings/ListingsPage.module.css';
 import styles from './ActivityPage.module.css';
 
@@ -29,12 +29,7 @@ export function ActivityPage() {
   const { state, refresh } = useApiResource(JSON.stringify([tab, cursor]), fetcher);
   return (
     <main className={pageStyles.page}>
-      <header className={pageStyles.siteHeader}>
-        <Brand variant="header" />
-        <Link className={pageStyles.backLink} to="/listings">
-          Browse reports
-        </Link>
-      </header>
+      <AppNavigation />
       <div className={pageStyles.content}>
         <h1>Your activity</h1>
         <p>Revisit your reports and claims, including resolved and archived items.</p>
@@ -102,6 +97,12 @@ export function ActivityPage() {
                         new Date(claim.createdAt),
                       )}
                     </p>
+                    <Link
+                      className={styles.conversation}
+                      to={`/messages/${encodeURIComponent(claim.conversationId)}`}
+                    >
+                      Open conversation
+                    </Link>
                   </li>
                 ))}
               </ul>

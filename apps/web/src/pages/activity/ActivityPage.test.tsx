@@ -6,6 +6,9 @@ import { getActivity } from '@/features/activity/api/activity-api';
 import { ActivityPage } from './ActivityPage';
 
 vi.mock('@/features/activity/api/activity-api');
+vi.mock('@/features/conversations/model/use-conversation-unread', () => ({
+  useConversationUnread: () => ({ unreadConversationCount: 0, refreshUnread: () => {} }),
+}));
 
 describe('activity history', () => {
   it('links an approved claim to its resolved report and switches to incoming claims', async () => {
@@ -34,8 +37,16 @@ describe('activity history', () => {
       '/listings/report-1',
     );
     expect(screen.getByText('approved')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open conversation' })).toHaveAttribute(
+      'href',
+      '/messages/conversation-1',
+    );
     await user.click(screen.getByRole('link', { name: 'Incoming claims' }));
     await screen.findByRole('link', { name: 'Blue backpack' });
+    expect(screen.getByRole('link', { name: 'Open conversation' })).toHaveAttribute(
+      'href',
+      '/messages/conversation-1',
+    );
     expect(mock).toHaveBeenLastCalledWith('incoming', undefined, expect.any(AbortSignal));
   });
 });
