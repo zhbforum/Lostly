@@ -1,0 +1,77 @@
+.context {
+  flex: none;
+  max-height: 35%;
+  overflow: auto;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: 0.8rem;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.item img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.item div {
+  min-width: 0;
+  flex: 1;
+}
+.item h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+.item p {
+  margin: 4px 0;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.item a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.status {
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.status p {
+  margin: 4px 0;
+  color: var(--color-text-muted);
+}
+.handover {
+  padding: 10px 12px;
+  margin-top: 8px;
+  background: var(--color-primary-soft);
+  border-radius: 8px;
+}
+.handover h4 {
+  margin: 0;
+}
+.handover p,
+.proof {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.context summary {
+  min-height: 44px;
+  align-content: center;
+  cursor: pointer;
+}
+.context :focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  .context {
+    padding: 8px 16px;
+    max-height: 30%;
+  }
+}
