@@ -1,0 +1,101 @@
+.inbox {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 100px;
+  padding: 22px 23px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.header h1 {
+  margin: 4px 0 0;
+  font-size: 1.4rem;
+  letter-spacing: -0.035em;
+}
+.eyebrow {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+.refresh {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.notice,
+.empty {
+  margin: 0;
+  padding: 32px 24px;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+.empty h2 {
+  font-size: 1rem;
+  color: var(--color-text);
+}
+.error {
+  margin: 16px;
+  padding: 14px;
+  border: 1px solid var(--color-error-border);
+  border-radius: 9px;
+  color: var(--color-error);
+  background: var(--color-error-background);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.error p {
+  margin: 0 0 8px;
+}
+.footer {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+.footer button,
+.error button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 9px;
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+.inbox button:focus-visible,
+.header h1:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.inbox button:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+}
+.inbox button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
