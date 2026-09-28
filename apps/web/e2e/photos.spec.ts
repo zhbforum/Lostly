@@ -21,9 +21,22 @@ test('creates a report with photos, reorders the cover and deletes a photo', asy
     .getByLabel('Description', { exact: true })
     .fill('A backpack with two identifying photos.');
   await page.getByLabel('Location', { exact: true }).fill('Berlin library');
-  await page.getByRole('spinbutton', { name: /month/i }).fill('9');
-  await page.getByRole('spinbutton', { name: /day/i }).fill('1');
-  await page.getByRole('spinbutton', { name: /year/i }).fill('2026');
+  // Date segments handle keyboard events; contenteditable fill is not portable to Firefox.
+  await page.getByRole('spinbutton', { name: /month/i }).pressSequentially('9');
+  await page.getByRole('spinbutton', { name: /day/i }).pressSequentially('1');
+  await page.getByRole('spinbutton', { name: /year/i }).pressSequentially('2026');
+  await expect(page.getByRole('spinbutton', { name: /month/i })).toHaveAttribute(
+    'aria-valuenow',
+    '9',
+  );
+  await expect(page.getByRole('spinbutton', { name: /day/i })).toHaveAttribute(
+    'aria-valuenow',
+    '1',
+  );
+  await expect(page.getByRole('spinbutton', { name: /year/i })).toHaveAttribute(
+    'aria-valuenow',
+    '2026',
+  );
   const files = await Promise.all(
     ['#3155d9', '#f97316'].map(async (color, index) => {
       const file = await imageFixture('png', color);

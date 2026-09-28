@@ -22,9 +22,22 @@ test('creates, edits, resolves, archives and reopens report history', async ({ p
     .getByLabel('Description', { exact: true })
     .fill('A blue backpack lost beside the library.');
   await page.getByLabel('Location', { exact: true }).fill('Berlin library');
-  await page.getByRole('spinbutton', { name: /month/i }).fill('9');
-  await page.getByRole('spinbutton', { name: /day/i }).fill('1');
-  await page.getByRole('spinbutton', { name: /year/i }).fill('2026');
+  // Date segments handle keyboard events; contenteditable fill is not portable to Firefox.
+  await page.getByRole('spinbutton', { name: /month/i }).pressSequentially('9');
+  await page.getByRole('spinbutton', { name: /day/i }).pressSequentially('1');
+  await page.getByRole('spinbutton', { name: /year/i }).pressSequentially('2026');
+  await expect(page.getByRole('spinbutton', { name: /month/i })).toHaveAttribute(
+    'aria-valuenow',
+    '9',
+  );
+  await expect(page.getByRole('spinbutton', { name: /day/i })).toHaveAttribute(
+    'aria-valuenow',
+    '1',
+  );
+  await expect(page.getByRole('spinbutton', { name: /year/i })).toHaveAttribute(
+    'aria-valuenow',
+    '2026',
+  );
   await page.getByRole('button', { name: 'Create report', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your report was created.' })).toBeVisible();
   await page.getByRole('link', { name: 'View report', exact: true }).click();
@@ -43,7 +56,11 @@ test('creates, edits, resolves, archives and reopens report history', async ({ p
     .getByLabel('Description', { exact: true })
     .fill('Updated description: a blue backpack with a red zip.');
   await page.getByLabel('Location', { exact: true }).fill('Berlin central library');
-  await page.getByRole('spinbutton', { name: /day/i }).fill('2');
+  await page.getByRole('spinbutton', { name: /day/i }).pressSequentially('2');
+  await expect(page.getByRole('spinbutton', { name: /day/i })).toHaveAttribute(
+    'aria-valuenow',
+    '2',
+  );
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
   await expect(page).toHaveURL(reportUrl);
   await expect(
@@ -70,7 +87,10 @@ test('creates, edits, resolves, archives and reopens report history', async ({ p
   await expect(page.getByRole('heading', { name: 'E2E edited backpack', exact: true })).toHaveCount(
     0,
   );
-  await page.getByRole('link', { name: 'My activity', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'Activity', exact: true })
+    .click();
   await page.getByRole('link', { name: 'My reports', exact: true }).click();
   await page.getByRole('link', { name: /E2E edited backpack/ }).click();
   await expect(page.getByText('Resolved', { exact: true })).toBeVisible();
