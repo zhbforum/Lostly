@@ -18,12 +18,20 @@ export function mergeInboxPage(
   page: ConversationInboxResponse,
   mode: 'initial' | 'refresh' | 'append',
 ): ConversationInboxState {
+  const boundary = page.conversations.at(-1);
+  // If the refreshed page no longer reaches an unchanged loaded row, its tail
+  // may contain unseen conversations above the old cursor (even after exhaustion).
+  const hasGap =
+    page.pageInfo.hasNextPage &&
+    boundary !== undefined &&
+    state.byId[boundary.id]?.lastActivityAt !== boundary.lastActivityAt;
+  const keepContinuation = mode === 'refresh' && !hasGap;
   const byId = { ...state.byId };
   for (const conversation of page.conversations) byId[conversation.id] = conversation;
   return {
     byId,
-    loadMoreCursor: mode === 'refresh' ? state.loadMoreCursor : page.pageInfo.endCursor,
-    hasMore: mode === 'refresh' ? state.hasMore : page.pageInfo.hasNextPage,
+    loadMoreCursor: keepContinuation ? state.loadMoreCursor : page.pageInfo.endCursor,
+    hasMore: keepContinuation ? state.hasMore : page.pageInfo.hasNextPage,
   };
 }
 

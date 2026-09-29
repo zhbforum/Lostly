@@ -17,7 +17,11 @@ describe('inbox live-list model', () => {
       inboxPage([conversation('A'), conversation('B')], 'page-3'),
       'append',
     );
-    state = mergeInboxPage(state, inboxPage([conversation('C')], 'new-page-2'), 'refresh');
+    state = mergeInboxPage(
+      state,
+      inboxPage([conversation('C'), conversation('A')], 'new-page-2'),
+      'refresh',
+    );
     expect(Object.keys(state.byId).sort()).toEqual(['A', 'B', 'C']);
     expect(state.loadMoreCursor).toBe('page-3');
     expect(state.hasMore).toBe(true);
@@ -25,6 +29,17 @@ describe('inbox live-list model', () => {
     state = mergeInboxPage(state, inboxPage([conversation('C')], 'new-page-2'), 'refresh');
     expect(state.loadMoreCursor).toBeNull();
     expect(state.hasMore).toBe(false);
+  });
+
+  it('rewinds pagination when a loaded boundary moves and can conceal unseen rows', () => {
+    let state = mergeInboxPage(emptyInbox(), inboxPage([conversation('A')]), 'initial');
+    state = mergeInboxPage(
+      state,
+      inboxPage([conversation('A', { lastActivityAt: '2026-09-25T12:00:00.000Z' })], 'new-tail'),
+      'refresh',
+    );
+    expect(state.loadMoreCursor).toBe('new-tail');
+    expect(state.hasMore).toBe(true);
   });
 
   it('reorders live activity, breaks ties by descending ID and replaces refreshed rows', () => {

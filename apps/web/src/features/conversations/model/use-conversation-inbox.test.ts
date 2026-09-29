@@ -124,7 +124,7 @@ it('appends/deduplicates and preserves the continuation cursor through a first-p
   vi.mocked(getConversationInbox)
     .mockResolvedValueOnce(inboxPage([conversation('A')], 'page-2'))
     .mockResolvedValueOnce(inboxPage([conversation('B'), conversation('A')], 'page-3'))
-    .mockResolvedValueOnce(inboxPage([conversation('C')], 'new-page-2'))
+    .mockResolvedValueOnce(inboxPage([conversation('C'), conversation('A')], 'new-page-2'))
     .mockResolvedValueOnce(inboxPage([conversation('D')]));
   const { result } = renderHook(useConversationInbox);
   await flush();
@@ -140,6 +140,35 @@ it('appends/deduplicates and preserves the continuation cursor through a first-p
   expect(result.current.conversations.map(({ id }) => id)).toEqual(['D', 'C', 'B', 'A']);
   expect(result.current.hasMore).toBe(false);
 });
+
+it.each(['empty', 'exhausted', 'more'] as const)(
+  'loads conversations beyond a new head page after an %s inbox',
+  async (previous) => {
+    const newRows = Array.from({ length: 25 }, (_, i) =>
+      conversation(`new-${i}`, { lastActivityAt: '2026-09-25T12:00:00.000Z' }),
+    );
+    const oldRows = previous === 'empty' ? [] : [conversation('A')];
+    vi.mocked(getConversationInbox)
+      .mockResolvedValueOnce(inboxPage(oldRows, previous === 'more' ? 'old-tail' : null))
+      .mockResolvedValueOnce(inboxPage(newRows.slice(0, 20), 'new-tail'))
+      .mockResolvedValueOnce(inboxPage([...newRows.slice(20), ...oldRows]))
+      .mockResolvedValueOnce(inboxPage(newRows.slice(0, 20), 'new-tail'));
+    const { result } = renderHook(useConversationInbox);
+    await flush();
+    await act(async () => result.current.refresh());
+    expect(result.current.hasMore).toBe(true);
+    await act(() => result.current.loadMore());
+    expect(getConversationInbox).toHaveBeenLastCalledWith(
+      { limit: 20, cursor: 'new-tail' },
+      expect.any(AbortSignal),
+    );
+    expect(result.current.conversations).toHaveLength(25 + oldRows.length);
+    expect(result.current.hasMore).toBe(false);
+    await act(async () => result.current.refresh());
+    expect(result.current.hasMore).toBe(false);
+    expect(result.current.conversations).toHaveLength(25 + oldRows.length);
+  },
+);
 
 it('keeps loaded rows across refresh failures and empty head pages; retries initial and append errors', async () => {
   vi.mocked(getConversationInbox)
