@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --config playwright.ui.config.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "preview": "vite preview"

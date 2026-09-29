@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import type { Claim } from '@/features/claims/model/types';
 import styles from './ClaimStatus.module.css';
 
@@ -40,6 +41,7 @@ export function ClaimStatus({ claim, onRefresh }: ClaimStatusProps) {
           <p>{claim.handoverDetails ?? 'The finder has not supplied collection instructions.'}</p>
         </div>
       )}
+      <Link to={`/messages/${encodeURIComponent(claim.conversationId)}`}>Open conversation</Link>
       <button type="button" onClick={onRefresh}>
         Refresh status
       </button>

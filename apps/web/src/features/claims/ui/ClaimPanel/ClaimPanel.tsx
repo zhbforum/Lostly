@@ -10,6 +10,7 @@ interface ClaimPanelProps {
   capabilities: ListingCapabilities;
   initialClaim: Claim | null;
   onChanged: () => void;
+  onCreated: (claim: Claim) => void;
 }
 
 export function ClaimPanel({
@@ -17,6 +18,7 @@ export function ClaimPanel({
   capabilities,
   initialClaim: claim,
   onChanged,
+  onCreated,
 }: ClaimPanelProps) {
   if (capabilities.canReviewClaims) {
     return (
@@ -37,7 +39,7 @@ export function ClaimPanel({
   if (capabilities.canClaim) {
     return (
       <div className={styles.panel}>
-        <ClaimSubmissionForm listingId={listingId} onCreated={onChanged} />
+        <ClaimSubmissionForm listingId={listingId} onCreated={onCreated} />
       </div>
     );
   }

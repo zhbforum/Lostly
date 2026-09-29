@@ -1,4 +1,5 @@
 import { useLocation, useSearchParams } from 'react-router';
+import { advanceConversationReturn } from '@/shared/navigation/conversation-return';
 
 export function useCursorNavigation(parameter = 'cursor') {
   const [params, setParams] = useSearchParams();
@@ -14,7 +15,9 @@ export function useCursorNavigation(parameter = 'cursor') {
     const next = new URLSearchParams(params);
     if (nextCursor) next.set(parameter, nextCursor);
     else next.delete(parameter);
-    setParams(next, { state: { ...location.state, pagination: history } });
+    setParams(next, {
+      state: { ...advanceConversationReturn(location.state), pagination: history },
+    });
   }
 
   return {
@@ -31,7 +34,7 @@ export function useCursorNavigation(parameter = 'cursor') {
         if (value) next.set(key, value);
         else next.delete(key);
       }
-      setParams(next, { state: { ...location.state, pagination: [] } });
+      setParams(next, { state: { ...advanceConversationReturn(location.state), pagination: [] } });
     },
   };
 }

@@ -98,15 +98,19 @@ jobs:
         working-directory: apps/admin
         run: bun --bun run test --watch=false
 
-      - name: Install browser for E2E
+      - name: Install browsers for E2E
         working-directory: apps/web
-        run: bunx playwright install --with-deps chromium
+        run: bunx playwright install --with-deps chromium firefox webkit
 
       - name: Test browser flow
         working-directory: apps/web
         env:
           DATABASE_URL: postgresql://lostly:lostly_test@localhost:5432/lostly_test
         run: bun run test:e2e
+
+      - name: Test responsive messages UI
+        working-directory: apps/web
+        run: bun run test:e2e:ui
 
       - name: Test admin browser flow
         working-directory: apps/admin

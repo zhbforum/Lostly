@@ -10,6 +10,27 @@ const failure = (code = 'UNAUTHENTICATED') =>
   Response.json({ error: { code, message: 'No session' } }, { status: 401 });
 
 describe('API client', () => {
+  it.each([true, false])(
+    'preserves Retry-After even when JSON error body is valid: %s',
+    async (json) => {
+      const response = json
+        ? Response.json(
+            { error: { code: 'RATE_LIMITED', message: 'Wait' } },
+            { status: 429, headers: { 'Retry-After': '42' } },
+          )
+        : new Response('Busy', { status: 429, headers: { 'Retry-After': '42' } });
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+      await expect(apiRequest('/conversations/A/messages')).rejects.toMatchObject({
+        status: 429,
+        retryAfterSeconds: 42,
+      });
+    },
+  );
+
+  it('keeps the existing ApiError constructor compatible', () => {
+    expect(new ApiError(409, 'CONFLICT', 'Conflict').retryAfterSeconds).toBeNull();
+  });
+
   it('sends FormData unchanged and lets the browser set the multipart boundary', async () => {
     const fetcher = vi.fn().mockResolvedValue(Response.json({ image: { id: 'photo' } }));
     vi.stubGlobal('fetch', fetcher);

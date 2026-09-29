@@ -1,11 +1,20 @@
 let generation = 0;
 const listeners = new Set<() => void>();
+const generationListeners = new Set<() => void>();
 
 export function getSessionGeneration() {
   return generation;
 }
 export function advanceSessionGeneration() {
   generation += 1;
+  for (const listener of generationListeners) listener();
+}
+
+export function subscribeToSessionGeneration(listener: () => void) {
+  generationListeners.add(listener);
+  return () => {
+    generationListeners.delete(listener);
+  };
 }
 
 export function subscribeToSessionExpiry(listener: () => void) {

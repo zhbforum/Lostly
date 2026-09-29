@@ -76,6 +76,52 @@ describe('listing claims flow', () => {
     vi.resetAllMocks();
   });
 
+  it.each(['pending', 'approved', 'rejected'] as const)(
+    'opens history for an incoming %s claim',
+    async (status) => {
+      details.mockResolvedValue(ownerDetails);
+      incoming.mockResolvedValue({ claims: [{ ...claim, status }], pageInfo: end });
+      renderPage();
+      expect(await screen.findByRole('link', { name: 'Open conversation' })).toHaveAttribute(
+        'href',
+        '/messages/' + claim.conversationId,
+      );
+    },
+  );
+
+  it('returns directly to the originating conversation after incoming-claims pagination', async () => {
+    details.mockResolvedValue(ownerDetails);
+    incoming
+      .mockResolvedValueOnce({
+        claims: [claim],
+        pageInfo: { endCursor: 'next', hasNextPage: true },
+      })
+      .mockResolvedValue({ claims: [claim], pageInfo: end });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/messages/A',
+          {
+            pathname: '/listings/' + id,
+            state: { returnTo: '/messages/A', conversationReturnSteps: 1 },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/messages/A" element={<h1>Original conversation</h1>} />
+          <Route path="/listings/:id" element={<ListingDetailsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    await waitFor(() =>
+      expect(incoming).toHaveBeenLastCalledWith(id, expect.any(AbortSignal), 'next'),
+    );
+    await user.click(screen.getByRole('link', { name: 'Back to conversation' }));
+    expect(await screen.findByRole('heading', { name: 'Original conversation' })).toBeVisible();
+  });
+
   it('requires collection instructions and refreshes the listing after approval', async () => {
     const approved = {
       ...claim,
@@ -111,6 +157,27 @@ describe('listing claims flow', () => {
     expect(screen.queryByRole('button', { name: 'Approve claim' })).not.toBeInTheDocument();
   });
 
+  it('offers reconciliation after a decision error and preserves the private handover draft', async () => {
+    details.mockResolvedValue(ownerDetails);
+    incoming.mockResolvedValue({ claims: [claim], pageInfo: end });
+    decision.mockRejectedValue(new TypeError('Response lost'));
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Approve claim' }));
+    await user.type(
+      screen.getByLabelText('Private collection instructions'),
+      'Collect at library reception.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Confirm approval' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the decision');
+    await user.click(screen.getByRole('button', { name: 'Refresh status' }));
+    await user.click(await screen.findByRole('button', { name: 'Approve claim' }));
+    expect(screen.getByLabelText('Private collection instructions')).toHaveValue(
+      'Collect at library reception.',
+    );
+    expect(details).toHaveBeenCalledTimes(2);
+  });
+
   it('shows a newly submitted claim and fetches its later decision', async () => {
     const approved = {
       ...claim,
@@ -125,25 +192,23 @@ describe('listing claims flow', () => {
       canResolve: false,
       canArchive: false,
     };
-    details
-      .mockResolvedValueOnce({ ...ownerDetails, capabilities: viewer })
-      .mockResolvedValueOnce({
-        ...ownerDetails,
-        capabilities: { ...viewer, canClaim: false },
-        claim,
-      })
-      .mockResolvedValue({
-        ...ownerDetails,
-        listing: { ...ownerDetails.listing, status: 'resolved' },
-        capabilities: { ...viewer, canClaim: false },
-        claim: approved,
-      });
+    details.mockResolvedValueOnce({ ...ownerDetails, capabilities: viewer }).mockResolvedValue({
+      ...ownerDetails,
+      listing: { ...ownerDetails.listing, status: 'resolved' },
+      capabilities: { ...viewer, canClaim: false },
+      claim: approved,
+    });
     vi.mocked(createClaim).mockResolvedValue({ claim });
     const user = userEvent.setup();
     renderPage();
     await user.type(await screen.findByLabelText(/Proof of ownership/), claim.verificationDetails);
     await user.click(screen.getByRole('button', { name: 'Submit private claim' }));
     await screen.findByText('Your claim is awaiting review');
+    expect(screen.getByRole('link', { name: 'Open conversation' })).toHaveAttribute(
+      'href',
+      '/messages/' + claim.conversationId,
+    );
+    expect(details).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole('button', { name: 'Refresh status' }));
     await screen.findByText('Your claim was approved');
     expect(screen.getByText(approved.handoverDetails)).toBeInTheDocument();

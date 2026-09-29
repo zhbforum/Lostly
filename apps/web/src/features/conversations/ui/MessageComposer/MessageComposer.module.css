@@ -1,0 +1,71 @@
+.composer {
+  flex: none;
+  padding: 12px 20px max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+}
+.composer textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  resize: none;
+  max-height: 144px;
+  min-height: 44px;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 9px;
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.notice {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.actions button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--color-primary);
+  color: white;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.actions button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.composer :focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.invalid {
+  color: var(--color-error);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .composer {
+    padding-inline: 16px;
+  }
+}

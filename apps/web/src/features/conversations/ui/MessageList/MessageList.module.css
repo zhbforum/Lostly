@@ -1,0 +1,76 @@
+.wrapper {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 80px;
+  overflow: hidden;
+}
+.scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  padding: 16px 24px;
+  background: var(--color-background, #f6f8fc);
+}
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.notice {
+  margin: 16px 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  line-height: 1.5;
+}
+.earlier {
+  display: flex;
+  justify-content: center;
+}
+.date {
+  margin: 16px 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+.wrapper button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 9px;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.wrapper button:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+.wrapper :focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: -3px;
+}
+.newMessages {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 3px 12px rgb(16 24 40 / 12%);
+  white-space: nowrap;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .scroll {
+    padding: 12px 16px;
+  }
+}

@@ -1,0 +1,32 @@
+.empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 28px;
+  text-align: center;
+}
+.empty h2 {
+  margin: 20px 0 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.025em;
+}
+.empty p {
+  max-width: 300px;
+  margin: 10px 0 0;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 70px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 22px;
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
+}

@@ -5,6 +5,7 @@ import type { ListingCapabilities } from '@/features/listings/model/types';
 import { archiveListing, resolveListing } from '@/features/listings/api/listings-api';
 import { ApiError } from '@/shared/api/client';
 import styles from './ListingOwnerControls.module.css';
+import { advanceConversationReturn } from '@/shared/navigation/conversation-return';
 
 interface ListingOwnerControlsProps {
   listingId: string;
@@ -87,7 +88,7 @@ function ListingOwnerControlsContent({
           <Link
             className={styles.button}
             to={`/listings/${encodeURIComponent(listingId)}/edit`}
-            state={location.state}
+            state={advanceConversationReturn(location.state)}
             aria-disabled={pending || undefined}
             onClick={(event) => {
               if (pending) event.preventDefault();

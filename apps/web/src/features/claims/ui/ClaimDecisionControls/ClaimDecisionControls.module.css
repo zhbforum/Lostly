@@ -1,0 +1,79 @@
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.button {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.primary {
+  color: white;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.button:focus-visible,
+.button[data-focus-visible],
+.dialog textarea:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgb(23 32 51 / 48%);
+}
+.modal {
+  width: min(100%, 520px);
+  max-height: 100%;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+}
+.dialog {
+  padding: 24px;
+  outline: none;
+}
+.dialog h2 {
+  margin: 0 0 18px;
+  font-size: 1.2rem;
+}
+.dialog label {
+  font-weight: 700;
+}
+.dialog p {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.dialog textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 16px;
+}
+.error {
+  color: var(--color-error);
+}

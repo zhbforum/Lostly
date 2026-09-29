@@ -1,0 +1,68 @@
+import type {
+  ClaimMessageResponse,
+  ConversationInboxQuery,
+  ConversationInboxResponse,
+  ConversationMessagesQuery,
+  ConversationMessagesResponse,
+  ConversationResponse,
+  ReadConversationResponse,
+  UnreadConversationsResponse,
+} from '../model/types';
+import { apiRequest } from '@/shared/api/client';
+
+const conversationPath = (id: string) => `/conversations/${encodeURIComponent(id)}`;
+
+function queryString(values: Record<string, string | number | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined) query.set(key, String(value));
+  }
+  return query.size ? `?${query}` : '';
+}
+
+export function getConversationInbox(query: ConversationInboxQuery = {}, signal?: AbortSignal) {
+  return apiRequest<ConversationInboxResponse>(
+    `/me/conversations${queryString({ cursor: query.cursor, limit: query.limit })}`,
+    { signal },
+  );
+}
+
+export function getConversation(id: string, signal?: AbortSignal) {
+  return apiRequest<ConversationResponse>(conversationPath(id), { signal });
+}
+
+export function getConversationMessages(
+  id: string,
+  query: ConversationMessagesQuery = {},
+  signal?: AbortSignal,
+) {
+  return apiRequest<ConversationMessagesResponse>(
+    `${conversationPath(id)}/messages${queryString({
+      before: query.before,
+      after: query.after,
+      limit: query.limit,
+    })}`,
+    { signal },
+  );
+}
+
+// Sends belong to the session provider, so route cleanup must not cancel them.
+export function sendConversationMessage(id: string, body: string, operationId: string) {
+  return apiRequest<ClaimMessageResponse>(`${conversationPath(id)}/messages`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': operationId },
+    body: { body },
+  });
+}
+
+export function readConversation(id: string, messageId: string, signal?: AbortSignal) {
+  return apiRequest<ReadConversationResponse>(`${conversationPath(id)}/read`, {
+    method: 'POST',
+    body: { messageId },
+    signal,
+  });
+}
+
+export function getUnreadConversationCount(signal?: AbortSignal) {
+  return apiRequest<UnreadConversationsResponse>('/me/conversations/unread-count', { signal });
+}

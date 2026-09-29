@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getListing } from '@/features/listings/api/listings-api';
 import type { ListingDetailResponse } from '@/features/listings/model/types';
 import { ApiError } from '@/shared/api/client';
+import type { Claim } from '@/features/claims/model/types';
 
 export type ListingDetailsState =
   | {
@@ -45,6 +46,7 @@ function isUnavailableListingError(error: unknown): boolean {
 export function useListingDetails(id: string | undefined): {
   state: ListingDetailsState;
   retry: () => void;
+  acceptClaim: (claim: Claim) => void;
 } {
   const [retryVersion, setRetryVersion] = useState(0);
   const [settledState, setSettledState] = useState<SettledListingDetailsState | null>(null);
@@ -97,8 +99,34 @@ export function useListingDetails(id: string | undefined): {
       ? settledState.state
       : LOADING_STATE;
 
+  const acceptClaim = useCallback(
+    (claim: Claim) => {
+      setSettledState((current) => {
+        if (
+          claim.listingId !== id ||
+          current?.requestKey !== requestKey ||
+          current.state.status !== 'success'
+        )
+          return current;
+        return {
+          ...current,
+          state: {
+            status: 'success',
+            listing: {
+              ...current.state.listing,
+              claim,
+              capabilities: { ...current.state.listing.capabilities, canClaim: false },
+            },
+          },
+        };
+      });
+    },
+    [id, requestKey],
+  );
+
   return {
     state,
     retry,
+    acceptClaim,
   };
 }
