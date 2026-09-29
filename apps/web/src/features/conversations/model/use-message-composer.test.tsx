@@ -1,11 +1,11 @@
-import { StrictMode, type ReactNode } from 'react';
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { StrictMode, useLayoutEffect, type ReactNode } from 'react';
+import { act, cleanup, render, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AuthContext } from '@/features/auth/model/auth-context';
 import { ApiError } from '@/shared/api/client';
 import { advanceSessionGeneration } from '@/shared/api/session-events';
 import * as uuid from '@/shared/lib/random-uuid';
-import { readDraft } from '@/shared/model/form-drafts';
+import { clearDrafts, readDraft } from '@/shared/model/form-drafts';
 import { deferred } from '@/test/deferred';
 import { message } from '@/test/fixtures/conversations';
 import { sendConversationMessage } from '../api/conversations-api';
@@ -36,6 +36,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  clearDrafts();
   vi.useRealTimers();
   vi.restoreAllMocks();
   advanceSessionGeneration();
@@ -238,3 +239,46 @@ it('restores the original body to the memory draft on a definitive read-only ret
   const reopened = renderHook(() => useMessageComposer('A', false), { wrapper: Wrapper });
   expect(reopened.result.current.draft).toBe(operation.body);
 });
+
+it.each(['send', 'retry'] as const)(
+  'recovers a rejected %s after leaving the composer without changing another conversation draft',
+  async (attempt) => {
+    const response = deferred<Awaited<ReturnType<typeof sendConversationMessage>>>();
+    if (attempt === 'retry')
+      vi.mocked(sendConversationMessage).mockRejectedValueOnce(new TypeError('Request lost'));
+    vi.mocked(sendConversationMessage).mockReturnValueOnce(response.promise);
+    let composer!: ReturnType<typeof useMessageComposer>;
+    function Composer({ id }: { id: string }) {
+      const current = useMessageComposer(id, true);
+      useLayoutEffect(() => {
+        composer = current;
+      });
+      return null;
+    }
+    const page = render(<Composer key="A" id="A" />, { wrapper: Wrapper });
+    act(() => composer.setDraft('Original A'));
+    let pending!: Promise<unknown>;
+    if (attempt === 'retry') {
+      await act(() => composer.submit());
+      act(() => {
+        pending = composer.retry(composer.operations[0]!.operationId);
+      });
+    } else {
+      act(() => {
+        pending = composer.submit();
+      });
+    }
+    expect(composer.draft).toBe('');
+    page.rerender(<Composer key="B" id="B" />);
+    act(() => composer.setDraft('Draft B'));
+    await act(async () => {
+      response.reject(new ApiError(409, 'CONVERSATION_READ_ONLY', 'Read-only'));
+      await pending;
+    });
+    expect(composer.draft).toBe('Draft B');
+    expect(readDraft('conversation:A')).toBe('Original A');
+    page.rerender(<Composer key="A" id="A" />);
+    expect(composer.operations).toEqual([]);
+    expect(composer.draft).toBe('Original A');
+  },
+);

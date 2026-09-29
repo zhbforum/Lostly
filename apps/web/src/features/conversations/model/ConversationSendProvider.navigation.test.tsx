@@ -6,12 +6,13 @@ import { afterEach, assert, beforeEach, expect, it, vi } from 'vitest';
 import { AuthContext, useAuth } from '@/features/auth/model/auth-context';
 import { AuthProvider } from '@/features/auth/model/AuthProvider';
 import { advanceSessionGeneration } from '@/shared/api/session-events';
-import { useFormDraft } from '@/shared/model/use-form-draft';
+import { clearDrafts } from '@/shared/model/form-drafts';
 import { deferred } from '@/test/deferred';
 import { message } from '@/test/fixtures/conversations';
 import { sendConversationMessage } from '../api/conversations-api';
 import { ConversationSendProvider } from './ConversationSendProvider';
 import { useConversationSend } from './conversation-send-context';
+import { useMessageComposer } from './use-message-composer';
 import type { ClaimMessageResponse } from './types';
 import type { SendResult } from './send-operations';
 
@@ -19,6 +20,7 @@ vi.mock('../api/conversations-api');
 beforeEach(() => vi.resetAllMocks());
 afterEach(() => {
   cleanup();
+  clearDrafts();
   vi.unstubAllGlobals();
   advanceSessionGeneration();
 });
@@ -36,14 +38,14 @@ const auth = {
   logout: async () => {},
 };
 
-// Route harness exercises provider lifetime before the production messages UI is introduced.
+// Use the production composer so navigation exercises draft/operation ownership.
 function ConversationRoute() {
   const { id } = useParams();
   return <DraftAndSend key={id} id={id!} />;
 }
 function DraftAndSend({ id }: { id: string }) {
-  const [draft, setDraft] = useFormDraft(`conversation:${id}`, () => '');
-  const { operations, sendMessage, retry, subscribeToResults } = useConversationSend();
+  const composer = useMessageComposer(id, true);
+  const { subscribeToResults } = useConversationSend();
   const [confirmed, setConfirmed] = useState('');
   useEffect(
     () =>
@@ -58,15 +60,18 @@ function DraftAndSend({ id }: { id: string }) {
       <h1>Conversation {id}</h1>
       <label>
         Message
-        <textarea value={draft} onChange={(event) => setDraft(event.target.value)} />
+        <textarea
+          value={composer.draft}
+          onChange={(event) => composer.setDraft(event.target.value)}
+        />
       </label>
-      <button onClick={() => void sendMessage(id, draft)}>Send</button>
-      {(operations[id] ?? []).map((operation) => (
+      <button onClick={() => void composer.submit()}>Send</button>
+      {composer.operations.map((operation) => (
         <div key={operation.operationId}>
           <span>
             {operation.body} · {operation.status}
           </span>
-          <button onClick={() => void retry(id, operation.operationId)}>Retry</button>
+          <button onClick={() => void composer.retry(operation.operationId)}>Retry</button>
         </div>
       ))}
       <output>{confirmed}</output>
@@ -112,7 +117,7 @@ it('preserves A operations and drafts through B, Activity, a listing and back to
   await interaction.click(screen.getByRole('link', { name: 'Activity' }));
   await interaction.click(screen.getByRole('link', { name: 'Listing' }));
   await interaction.click(screen.getByRole('link', { name: 'A' }));
-  expect(screen.getByLabelText('Message')).toHaveValue('Draft A');
+  expect(screen.getByLabelText('Message')).toHaveValue('');
   expect(screen.getByText('Draft A · uncertain')).toBeInTheDocument();
   await interaction.click(screen.getByRole('button', { name: 'Retry' }));
   await screen.findByText('message-7');

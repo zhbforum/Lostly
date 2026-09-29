@@ -10,6 +10,7 @@ import { useAuth } from '@/features/auth/model/auth-context';
 import { ApiError } from '@/shared/api/client';
 import { getSessionGeneration, subscribeToSessionGeneration } from '@/shared/api/session-events';
 import { randomUuid } from '@/shared/lib/random-uuid';
+import { saveDraft } from '@/shared/model/form-drafts';
 import { sendConversationMessage } from '../api/conversations-api';
 import { ConversationSendContext } from './conversation-send-context';
 import { isConversationUnavailable } from './conversation-errors';
@@ -107,6 +108,8 @@ export function ConversationSendProvider({ children }: { children: ReactNode }) 
             error.status !== 408 &&
             !unresolvedUnavailable
           ) {
+            // Preserve the body even if its composer has unmounted during the request.
+            saveDraft(`conversation:${operation.conversationId}`, operation.body);
             registry.current.operations.delete(operation.operationId);
             result = { status: 'rejected', operation, error };
           } else {

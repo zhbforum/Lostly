@@ -9,6 +9,7 @@ import {
   notifySessionExpiry,
 } from '@/shared/api/session-events';
 import { deferred } from '@/test/deferred';
+import { clearDrafts, readDraft, saveDraft } from '@/shared/model/form-drafts';
 import { message } from '@/test/fixtures/conversations';
 import { sendConversationMessage } from '../api/conversations-api';
 import { ConversationSendProvider } from './ConversationSendProvider';
@@ -20,6 +21,7 @@ vi.mock('../api/conversations-api');
 beforeEach(() => vi.resetAllMocks());
 afterEach(() => {
   cleanup();
+  clearDrafts();
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -308,7 +310,7 @@ describe('session-owned send operations', () => {
     });
   });
 
-  it.each(['success', 'error'] as const)(
+  it.each(['success', 'error', 'rejection'] as const)(
     'ignores a late old-session %s without disturbing a newer operation',
     async (completion) => {
       const oldRequest = deferred<ClaimMessageResponse>();
@@ -326,6 +328,7 @@ describe('session-owned send operations', () => {
       });
       await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
       act(() => advanceSessionGeneration());
+      saveDraft('conversation:A', 'New session draft');
       expect(result.current.operations).toEqual({});
       expect(oldMethods.sendMessage('A', 'Stale handler')).toEqual({
         accepted: false,
@@ -341,10 +344,13 @@ describe('session-owned send operations', () => {
       const current = result.current.operations.A[0];
       await act(async () => {
         if (completion === 'success') oldRequest.resolve({ message: message(1) });
+        else if (completion === 'rejection')
+          oldRequest.reject(new ApiError(409, 'CONVERSATION_READ_ONLY', 'Read-only'));
         else oldRequest.reject(new Error('Old network error'));
         expect(await oldSend).toEqual({ status: 'ignored' });
       });
       expect(oldListener).not.toHaveBeenCalled();
+      expect(readDraft('conversation:A')).toBe('New session draft');
       expect(result.current.operations.A).toEqual([current]);
       await act(async () => {
         newRequest.resolve({ message: message(2) });
