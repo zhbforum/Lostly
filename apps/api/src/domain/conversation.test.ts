@@ -9,22 +9,26 @@ describe('conversation rules', () => {
   });
 
   test('normalizes surrounding whitespace and line endings without interpreting markup', () => {
-    expect(normalizeMessageBody('  First line\r\n\r\n  Indented line\rLast line  ')).toBe(
-      'First line\n\n  Indented line\nLast line',
-    );
-    expect(normalizeMessageBody('<script>alert(1)</script> **plain text**')).toBe(
-      '<script>alert(1)</script> **plain text**',
-    );
+    expect(normalizeMessageBody('  First line\r\n\r\n  Indented line\rLast line  ')).toEqual({
+      status: 'text',
+      body: 'First line\n\n  Indented line\nLast line',
+    });
+    const body = '<script>alert(1)</script> **plain text**';
+    expect(normalizeMessageBody(body)).toEqual({ status: 'text', body });
   });
 
   test('bounds normalized Unicode text and rejects empty or invalid database text', () => {
-    expect(normalizeMessageBody(' \t\r\n ')).toBeNull();
-    expect(normalizeMessageBody('a')).toBe('a');
-    expect(normalizeMessageBody('a'.repeat(2000))).toHaveLength(2000);
-    expect(normalizeMessageBody('a'.repeat(2001))).toBeNull();
-    expect(normalizeMessageBody('😀'.repeat(2000))).toBe('😀'.repeat(2000));
-    expect(normalizeMessageBody('😀'.repeat(2001))).toBeNull();
-    expect(normalizeMessageBody('hello\0world')).toBeNull();
-    expect(normalizeMessageBody('\uD800')).toBeNull();
+    expect(normalizeMessageBody(' \t\r\n ')).toEqual({ status: 'empty' });
+    for (const body of ['a', 'a'.repeat(2000), '😀'.repeat(2000), '\uFFFD'])
+      expect(normalizeMessageBody(body)).toEqual({ status: 'text', body });
+    for (const body of [
+      'a'.repeat(2001),
+      '😀'.repeat(2001),
+      'hello\0world',
+      '\uD800',
+      '\uDC00',
+      'x'.repeat(500_000),
+    ])
+      expect(normalizeMessageBody(body)).toEqual({ status: 'invalid' });
   });
 });

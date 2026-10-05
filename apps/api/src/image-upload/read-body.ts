@@ -2,12 +2,12 @@ import { ImageUploadBodyError } from './errors';
 
 export async function readBoundedRequestBody(
   request: Request,
-  { maxBytes, timeoutMs }: { maxBytes: number; timeoutMs: number },
+  { maxBytes, timeoutMs }: { maxBytes: number; timeoutMs?: number },
 ) {
   if (!request.body) throw new ImageUploadBodyError('missing-body');
   const reader = request.body.getReader();
   const chunks: Uint8Array<ArrayBuffer>[] = [];
-  const deadline = performance.now() + timeoutMs;
+  const deadline = timeoutMs === undefined ? Infinity : performance.now() + timeoutMs;
   let size = 0;
   let failure: ImageUploadBodyError | undefined;
   let complete = false;
@@ -19,7 +19,10 @@ export async function readBoundedRequestBody(
     void reader.cancel(reason).catch(() => {});
   }
   const onAbort = () => stop(new ImageUploadBodyError('upload-aborted'));
-  const timer = setTimeout(() => stop(new ImageUploadBodyError('body-timeout')), timeoutMs);
+  const timer =
+    timeoutMs === undefined
+      ? undefined
+      : setTimeout(() => stop(new ImageUploadBodyError('body-timeout')), timeoutMs);
   request.signal.addEventListener('abort', onAbort, { once: true });
   if (request.signal.aborted) onAbort();
 

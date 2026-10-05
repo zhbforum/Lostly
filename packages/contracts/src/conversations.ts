@@ -114,6 +114,10 @@ export interface ClaimMessageResponse {
   message: ClaimMessage;
 }
 
+export interface RefreshMessageAttachmentsResponse {
+  attachments: ClaimMessageAttachment[];
+}
+
 export interface ReadConversationResponse {
   lastReadSequence: number;
   unreadCount: number;

@@ -128,6 +128,41 @@ export const sendMessageBodySchema = t.Object(
   { additionalProperties: false },
 );
 export const sendMessageResponseSchema = t.Object({ message: messageSchema });
+export const refreshAttachmentsParamsSchema = t.Object({
+  conversationId: idSchema,
+  messageId: idSchema,
+});
+export const refreshAttachmentsResponseSchema = t.Object({
+  attachments: t.Array(messageAttachmentSchema, {
+    maxItems: CONVERSATION_IMAGE_CONSTRAINTS.maxCount,
+  }),
+});
+export const sendMessageRequestBody = {
+  required: true,
+  content: {
+    'application/json': { schema: sendMessageBodySchema },
+    'multipart/form-data': {
+      schema: {
+        type: 'object' as const,
+        additionalProperties: false,
+        required: ['images'],
+        properties: {
+          body: {
+            type: 'string' as const,
+            description:
+              'Optional plain text; normalized to at most 2000 Unicode code points. Empty becomes null.',
+          },
+          images: {
+            type: 'array' as const,
+            minItems: 1,
+            maxItems: CONVERSATION_IMAGE_CONSTRAINTS.maxCount,
+            items: { type: 'string' as const, format: 'binary' },
+          },
+        },
+      },
+    },
+  },
+};
 export const readConversationBodySchema = t.Object(
   { messageId: idSchema },
   { additionalProperties: false },
@@ -141,11 +176,12 @@ export const conversationErrorSchema = t.Object({
   error: t.Object({ code: t.String(), message: t.String() }),
 });
 export const conversationRateLimitSchema = t.Object(conversationErrorSchema.properties, {
-  description: 'New-send attempt budget exhausted. Persisted matching retries remain available.',
+  description:
+    'Request temporarily limited by upload admission, processing capacity or new-send budget.',
   headers: {
     'Retry-After': t.Integer({
       minimum: 1,
-      description: 'Seconds until a new send can be retried.',
+      description: 'Seconds to wait before retrying the request.',
     }),
   },
 });

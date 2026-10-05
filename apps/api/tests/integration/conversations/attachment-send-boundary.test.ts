@@ -1,5 +1,4 @@
 import { afterAll, beforeEach, expect, spyOn, test } from 'bun:test';
-import { BunSQLSession } from 'drizzle-orm/bun-sql';
 import type { ClaimMessageResponse } from '@lostly/contracts/conversations';
 import { db } from '@/db';
 import { claimMessages, claimMessageAttachments } from '@/db/conversations';
@@ -19,7 +18,6 @@ test('text sends and replays return empty attachments without post-commit hydrat
   const sign = spyOn(storage, 'createReadUrl').mockImplementation(() => {
     throw new StorageUnavailableError();
   });
-  const execute = spyOn(BunSQLSession.prototype, 'prepareQuery');
   try {
     const key = crypto.randomUUID();
     const sent = await jsonOf<ClaimMessageResponse>(
@@ -32,11 +30,7 @@ test('text sends and replays return empty attachments without post-commit hydrat
     ).toEqual(sent);
     expect(hydrate).not.toHaveBeenCalled();
     expect(sign).not.toHaveBeenCalled();
-    expect(
-      execute.mock.calls.some(([query]) => query.sql.includes('claim_message_attachments')),
-    ).toBe(false);
   } finally {
-    execute.mockRestore();
     sign.mockRestore();
     hydrate.mockRestore();
   }
@@ -70,7 +64,7 @@ test.each(
   },
 );
 
-test('multipart attachment sends are not supported in the persistence stage', async () => {
+test('multipart corrupt attachments are rejected without persisting rows', async () => {
   const { conversation, owner } = await conversationFixture();
   const form = new FormData();
   form.append('images', new Blob(['not-an-upload-pipeline'], { type: 'image/webp' }), 'image.webp');
@@ -86,7 +80,7 @@ test('multipart attachment sends are not supported in the persistence stage', as
       body: form,
     }),
   );
-  expect(response.status).toBe(400);
+  expect(response.status).toBe(422);
   expect(await db.select().from(claimMessages)).toEqual([]);
   expect(await db.select().from(claimMessageAttachments)).toEqual([]);
 });

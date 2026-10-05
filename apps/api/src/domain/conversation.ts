@@ -5,15 +5,15 @@ export function canSendConversationMessages(status: ClaimStatus): boolean {
   return status === 'pending' || status === 'approved';
 }
 
-export function normalizeMessageBody(input: string): string | null {
+export type MessageBodyNormalization =
+  { status: 'text'; body: string } | { status: 'empty' } | { status: 'invalid' };
+
+export function normalizeMessageBody(input: string): MessageBodyNormalization {
   const body = input.replace(/\r\n?/g, '\n').trim();
-  const length = Array.from(body).length;
-  if (
-    !body.isWellFormed() ||
-    body.includes('\0') ||
-    length < CONVERSATION_CONSTRAINTS.messageMinLength ||
-    length > CONVERSATION_CONSTRAINTS.messageMaxLength
-  )
-    return null;
-  return body;
+  if (!body.isWellFormed() || body.includes('\0')) return { status: 'invalid' };
+  let length = 0;
+  for (const _ of body) {
+    if (++length > CONVERSATION_CONSTRAINTS.messageMaxLength) return { status: 'invalid' };
+  }
+  return body ? { status: 'text', body } : { status: 'empty' };
 }

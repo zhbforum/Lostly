@@ -4,18 +4,20 @@ import { Elysia, t } from 'elysia';
 import { createAdminRoutes } from '@/admin/routes';
 import { createActivityRoutes } from '@/activity/routes';
 import { authRoutes } from '@/auth/routes';
+import { createAuthRateLimit } from '@/auth/rate-limit';
 import { claimRoutes } from '@/claims/routes';
 import { createConversationRoutes } from '@/conversations/routes';
 import { db } from '@/db';
 import { corsPlugin } from '@/http/cors';
 import { isCsrfProtectedRequest } from '@/http/csrf';
 import { errorHandler } from '@/http/errors';
+import { legacyBodyLimit } from '@/http/body-limit';
+import { CONVERSATION_MESSAGE_REQUEST_MAX_BYTES } from '@/conversations/multipart';
 import { createImageUploadInfrastructure } from '@/image-upload/infrastructure';
 import { listingManagementRoutes } from '@/listings/management-routes';
 import { createListingRoutes } from '@/listings/routes';
 import { openApiPlugin } from '@/openapi';
 import { createListingImageRoutes } from '@/listing-images/routes';
-import { IMAGE_REQUEST_MAX_BYTES } from '@/listing-images/multipart';
 import type { ObjectStorage } from '@/storage/object-storage';
 import { objectStorage } from '@/storage/r2-storage';
 
@@ -34,10 +36,14 @@ const healthUnavailableResponseSchema = t.Object({
   database: t.Literal('unavailable'),
 });
 
-export const createApp = (storage: ObjectStorage = objectStorage) => {
+export const createApp = (
+  storage: ObjectStorage = objectStorage,
+  { authRateLimit = false }: { authRateLimit?: boolean } = {},
+) => {
   const imageUploads = createImageUploadInfrastructure();
+  // Production enables auth admission after CSRF, before any body buffering.
   return new Elysia({
-    serve: { maxRequestBodySize: IMAGE_REQUEST_MAX_BYTES },
+    serve: { maxRequestBodySize: CONVERSATION_MESSAGE_REQUEST_MAX_BYTES },
   })
     .use(corsPlugin)
     .use(errorHandler)
@@ -55,6 +61,8 @@ export const createApp = (storage: ObjectStorage = objectStorage) => {
         });
       }
     })
+    .use(authRateLimit ? createAuthRateLimit() : new Elysia())
+    .use(legacyBodyLimit)
     .get(
       '/',
       () =>
@@ -107,7 +115,7 @@ export const createApp = (storage: ObjectStorage = objectStorage) => {
     .use(createListingImageRoutes(storage, imageUploads))
     .use(claimRoutes)
     .use(createActivityRoutes(storage))
-    .use(createConversationRoutes(storage))
+    .use(createConversationRoutes(storage, imageUploads))
     .use(createAdminRoutes(storage));
 };
 
