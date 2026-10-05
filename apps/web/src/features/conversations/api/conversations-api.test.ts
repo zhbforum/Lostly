@@ -61,7 +61,9 @@ describe('conversation API', () => {
     async (status) => {
       const fetcher = vi.fn().mockResolvedValue(Response.json({ message: message(3) }, { status }));
       vi.stubGlobal('fetch', fetcher);
-      expect(await sendConversationMessage('A', 'Hello\nAlex', 'operation-1')).toEqual({
+      expect(
+        await sendConversationMessage('A', { body: 'Hello\nAlex', images: [] }, 'operation-1'),
+      ).toEqual({
         message: message(3),
       });
       const [, options] = fetcher.mock.calls[0];
@@ -70,6 +72,7 @@ describe('conversation API', () => {
         body: JSON.stringify({ body: 'Hello\nAlex' }),
       });
       expect(options.headers.get('Idempotency-Key')).toBe('operation-1');
+      expect(options.headers.get('Content-Type')).toBe('application/json');
       expect(options.headers.get('X-CSRF-Protection')).toBe('1');
       expect(options.signal).toBeUndefined();
     },
@@ -92,3 +95,29 @@ describe('conversation API', () => {
     });
   });
 });
+
+it.each([null, 'Caption\ntext'])(
+  'builds a fresh ordered multipart payload with body %j',
+  async (body) => {
+    const fetcher = vi.fn().mockImplementation(async () => Response.json({ message: message(1) }));
+    vi.stubGlobal('fetch', fetcher);
+    const a = new File(['A'], 'private-a.jpg', { type: 'image/jpeg' });
+    const b = new File(['B'], 'private-b.webp', { type: 'image/webp' });
+    const images = [a, b, a];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await sendConversationMessage('A', { body, images }, 'same-operation');
+      const [, options] = fetcher.mock.calls[attempt];
+      expect(options.body).toBeInstanceOf(FormData);
+      expect(options.body.getAll('body')).toEqual(body === null ? [] : [body]);
+      const files = options.body.getAll('images');
+      expect(files).toHaveLength(3);
+      images.forEach((file, index) => expect(files[index]).toBe(file));
+      expect(options.headers.has('Content-Type')).toBe(false);
+      expect(options.headers.get('Idempotency-Key')).toBe('same-operation');
+      expect(options.headers.get('X-CSRF-Protection')).toBe('1');
+      expect(options.credentials).toBe('include');
+      expect(options.signal).toBeUndefined();
+    }
+    expect(fetcher.mock.calls[0][1].body).not.toBe(fetcher.mock.calls[1][1].body);
+  },
+);

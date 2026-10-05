@@ -5,7 +5,13 @@ import { MemoryRouter, Link, Route, Routes, useParams } from 'react-router';
 import { afterEach, assert, beforeEach, expect, it, vi } from 'vitest';
 import { AuthContext, useAuth } from '@/features/auth/model/auth-context';
 import { AuthProvider } from '@/features/auth/model/AuthProvider';
-import { advanceSessionGeneration } from '@/shared/api/session-events';
+import {
+  advanceSessionGeneration,
+  getSessionGeneration,
+  notifySessionExpiry,
+} from '@/shared/api/session-events';
+import { ApiError } from '@/shared/api/client';
+import { readConversationDraft } from './message-drafts';
 import { clearDrafts } from '@/shared/model/form-drafts';
 import { deferred } from '@/test/deferred';
 import { message } from '@/test/fixtures/conversations';
@@ -61,8 +67,8 @@ function DraftAndSend({ id }: { id: string }) {
       <label>
         Message
         <textarea
-          value={composer.draft}
-          onChange={(event) => composer.setDraft(event.target.value)}
+          value={composer.draft.text}
+          onChange={(event) => composer.setText(event.target.value)}
         />
       </label>
       <button onClick={() => void composer.submit()}>Send</button>
@@ -121,7 +127,11 @@ it('preserves A operations and drafts through B, Activity, a listing and back to
   expect(screen.getByText('Draft A · uncertain')).toBeInTheDocument();
   await interaction.click(screen.getByRole('button', { name: 'Retry' }));
   await screen.findByText('message-7');
-  expect(vi.mocked(sendConversationMessage).mock.calls[1]).toEqual(['A', 'Draft A', key]);
+  expect(vi.mocked(sendConversationMessage).mock.calls[1]).toEqual([
+    'A',
+    { body: 'Draft A', images: [] },
+    key,
+  ]);
   expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   await interaction.click(screen.getByRole('link', { name: 'B' }));
   expect(screen.getByLabelText('Message')).toHaveValue('Draft B');
@@ -152,7 +162,7 @@ it('clears sends at the beginning of real AuthProvider logout, before its HTTP r
   await waitFor(() => expect(result.current.auth.status).toBe('authenticated'));
   let send!: Promise<SendResult>;
   act(() => {
-    const started = result.current.sends.sendMessage('A', 'Hello');
+    const started = result.current.sends.sendMessage('A', { body: 'Hello', images: [] });
     assert(started.accepted);
     send = started.completion;
   });
@@ -170,4 +180,54 @@ it('clears sends at the beginning of real AuthProvider logout, before its HTTP r
     await logout;
   });
   expect(result.current.auth.status).toBe('unauthenticated');
+});
+
+it('real session expiry and relogin of the same owner never restore old conversation files', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation(async () => Response.json({ user })),
+  );
+  const transport = deferred<ClaimMessageResponse>();
+  vi.mocked(sendConversationMessage).mockReturnValueOnce(transport.promise);
+  function wrapper({ children }: { children: ReactNode }) {
+    return (
+      <AuthProvider>
+        <ConversationSendProvider>{children}</ConversationSendProvider>
+      </AuthProvider>
+    );
+  }
+  const { result } = renderHook(
+    () => ({
+      auth: useAuth(),
+      composer: useMessageComposer('A', true),
+      otherDraft: useMessageComposer('B', true),
+    }),
+    { wrapper },
+  );
+  await waitFor(() => expect(result.current.auth.status).toBe('authenticated'));
+  const file = new File(['private'], 'private.jpg', { type: 'image/jpeg' });
+  act(() => {
+    result.current.composer.addImages([file]);
+    result.current.otherDraft.addImages([file]);
+  });
+  let send!: Promise<void>;
+  act(() => {
+    send = result.current.composer.submit();
+  });
+  await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
+  act(() => notifySessionExpiry(getSessionGeneration()));
+  expect(result.current.auth.status).toBe('unauthenticated');
+  expect(result.current.composer.operations).toEqual([]);
+  expect(result.current.otherDraft.draft).toEqual({ text: '', images: [] });
+  expect(readConversationDraft('B')).toEqual({ text: '', images: [] });
+  await act(() => result.current.auth.login({ email: user.email, password: 'password' }));
+  expect(result.current.auth.user?.id).toBe(user.id);
+  expect(result.current.auth.status).toBe('authenticated');
+  await act(async () => {
+    transport.reject(new ApiError(422, 'VALIDATION_ERROR', 'Late rejection'));
+    await send;
+  });
+  for (const id of ['A', 'B']) expect(readConversationDraft(id)).toEqual({ text: '', images: [] });
+  expect(result.current.composer.draft.images).toEqual([]);
+  expect(result.current.otherDraft.draft.images).toEqual([]);
 });

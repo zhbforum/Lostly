@@ -1,10 +1,14 @@
 import type { ApiError } from '@/shared/api/client';
 import type { ClaimMessage } from './types';
 
-export interface PendingSendOperation {
+export interface ConversationMessagePayload {
+  readonly body: string | null;
+  readonly images: readonly File[];
+}
+
+export interface PendingSendOperation extends ConversationMessagePayload {
   readonly conversationId: string;
   readonly operationId: string;
-  readonly body: string;
   readonly sessionGeneration: number;
   readonly createdAt: string;
   readonly status: 'sending' | 'uncertain' | 'rate-limited';
@@ -25,7 +29,7 @@ export type SendStart =
       result: Extract<SendResult, { status: 'ignored' | 'invalid' }>;
     }
   | {
-      // The operation is already registered; the registry owns its outgoing body.
+      // The registry owns the registered outgoing body and files.
       accepted: true;
       operation: PendingSendOperation;
       completion: Promise<SendResult>;
@@ -35,7 +39,7 @@ export type SendRegistry = Readonly<Record<string, readonly PendingSendOperation
 
 export interface ConversationSendContextValue {
   operations: SendRegistry;
-  sendMessage: (conversationId: string, body: string) => SendStart;
+  sendMessage: (conversationId: string, payload: ConversationMessagePayload) => SendStart;
   retry: (conversationId: string, operationId: string) => Promise<SendResult>;
   subscribeToResults: (listener: (result: SendResult) => void) => () => void;
 }

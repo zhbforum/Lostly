@@ -27,12 +27,62 @@
 }
 .actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: 12px;
   margin-top: 6px;
   font-size: 0.75rem;
   color: var(--color-text-muted);
+}
+.actions .addPhotos {
+  margin-right: auto;
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+}
+.previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.previews:not(:empty) {
+  margin-bottom: 12px;
+}
+.preview {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 8px;
+  background: var(--color-surface-soft);
+}
+.preview img,
+.preview > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  font-size: 0.75rem;
+}
+.preview button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: rgb(0 0 0 / 75%);
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+.preview button:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 .actions button {
   min-height: 44px;

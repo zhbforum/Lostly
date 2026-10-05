@@ -66,7 +66,7 @@ it('keeps POST #53 separate from catch-up #50, merging incoming 51/52 and replay
   );
   await flush();
   await act(async () => {
-    const started = result.current.send.sendMessage('A', 'Hello');
+    const started = result.current.send.sendMessage('A', { body: 'Hello', images: [] });
     assert(started.accepted);
     await started.completion;
   });

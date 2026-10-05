@@ -9,6 +9,7 @@ import type {
   UnreadConversationsResponse,
 } from '../model/types';
 import { apiRequest } from '@/shared/api/client';
+import type { ConversationMessagePayload } from '../model/send-operations';
 
 const conversationPath = (id: string) => `/conversations/${encodeURIComponent(id)}`;
 
@@ -47,11 +48,23 @@ export function getConversationMessages(
 }
 
 // Sends belong to the session provider, so route cleanup must not cancel them.
-export function sendConversationMessage(id: string, body: string, operationId: string) {
+export function sendConversationMessage(
+  id: string,
+  payload: ConversationMessagePayload,
+  operationId: string,
+) {
+  let body: FormData | { body: string | null };
+  if (payload.images.length) {
+    body = new FormData();
+    if (payload.body !== null) body.append('body', payload.body);
+    for (const image of payload.images) body.append('images', image);
+  } else {
+    body = { body: payload.body };
+  }
   return apiRequest<ClaimMessageResponse>(`${conversationPath(id)}/messages`, {
     method: 'POST',
     headers: { 'Idempotency-Key': operationId },
-    body: { body },
+    body,
   });
 }
 
