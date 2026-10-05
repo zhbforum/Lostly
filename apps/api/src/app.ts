@@ -10,6 +10,7 @@ import { db } from '@/db';
 import { corsPlugin } from '@/http/cors';
 import { isCsrfProtectedRequest } from '@/http/csrf';
 import { errorHandler } from '@/http/errors';
+import { createImageUploadInfrastructure } from '@/image-upload/infrastructure';
 import { listingManagementRoutes } from '@/listings/management-routes';
 import { createListingRoutes } from '@/listings/routes';
 import { openApiPlugin } from '@/openapi';
@@ -33,8 +34,9 @@ const healthUnavailableResponseSchema = t.Object({
   database: t.Literal('unavailable'),
 });
 
-export const createApp = (storage: ObjectStorage = objectStorage) =>
-  new Elysia({
+export const createApp = (storage: ObjectStorage = objectStorage) => {
+  const imageUploads = createImageUploadInfrastructure();
+  return new Elysia({
     serve: { maxRequestBodySize: IMAGE_REQUEST_MAX_BYTES },
   })
     .use(corsPlugin)
@@ -102,10 +104,11 @@ export const createApp = (storage: ObjectStorage = objectStorage) =>
     .use(authRoutes)
     .use(createListingRoutes(storage))
     .use(listingManagementRoutes)
-    .use(createListingImageRoutes(storage))
+    .use(createListingImageRoutes(storage, imageUploads))
     .use(claimRoutes)
     .use(createActivityRoutes(storage))
     .use(createConversationRoutes(storage))
     .use(createAdminRoutes(storage));
+};
 
 export const app = createApp();

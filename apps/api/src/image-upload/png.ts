@@ -1,4 +1,4 @@
-import { ImageError } from './errors';
+import { InvalidImageError } from './errors';
 
 const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
@@ -10,11 +10,11 @@ export function assertStaticPng(source: Buffer) {
   while (offset + 12 <= source.length) {
     const size = source.readUInt32BE(offset);
     const end = offset + size + 12;
-    if (end > source.length) throw new ImageError('invalid-image');
+    if (end > source.length) throw new InvalidImageError();
     const type = source.toString('ascii', offset + 4, offset + 8);
-    if (type === 'acTL') throw new ImageError('invalid-image');
+    if (type === 'acTL') throw new InvalidImageError();
     if (type === 'IEND') return;
     offset = end;
   }
-  throw new ImageError('invalid-image');
+  throw new InvalidImageError();
 }

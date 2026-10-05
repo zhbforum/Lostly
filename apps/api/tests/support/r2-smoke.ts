@@ -1,5 +1,6 @@
 import { R2ObjectStorage, readR2Config } from '@/storage/r2-storage';
-import { prepareImage } from '@/listing-images/processing';
+import { LISTING_IMAGE_CONSTRAINTS } from '@lostly/contracts/listings';
+import { prepareImage, readImageSource } from '@/image-upload/processing';
 import { imageFixture } from './image-fixture';
 
 // Explicit, manual-only smoke test. Never invoked by the test runner or CI.
@@ -13,7 +14,12 @@ if (requestedKey && !/^_smoke\/listing-photos\/[0-9a-f-]{36}\.webp$/.test(reques
 const key = requestedKey ?? `_smoke/listing-photos/${crypto.randomUUID()}.webp`;
 let failed = false;
 try {
-  const prepared = await prepareImage(await imageFixture());
+  const source = await readImageSource(await imageFixture(), {
+    maxBytes: LISTING_IMAGE_CONSTRAINTS.maxSizeBytes,
+  });
+  const prepared = await prepareImage(source.bytes, {
+    maxOutputBytes: LISTING_IMAGE_CONSTRAINTS.maxSizeBytes,
+  });
   await storage.put(key, prepared.data, prepared.contentType);
   const { url } = storage.createReadUrl(key, 60);
   const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });

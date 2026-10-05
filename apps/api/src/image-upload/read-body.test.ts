@@ -1,9 +1,40 @@
 import { expect, test } from 'bun:test';
-import { readImageUploadBody } from './read-body';
+import { readBoundedRequestBody } from './read-body';
 
 function request(body: ReadableStream<Uint8Array>, signal?: AbortSignal) {
   return new Request('http://localhost/upload', { method: 'POST', body, signal });
 }
+
+test('reports a missing body without multipart or domain-specific semantics', async () => {
+  await expect(
+    readBoundedRequestBody(new Request('http://localhost/upload', { method: 'POST' }), {
+      maxBytes: 10,
+      timeoutMs: 1000,
+    }),
+  ).rejects.toMatchObject({ reason: 'missing-body' });
+});
+
+test('enforces the actual byte count despite a smaller declared length and cancels the stream', async () => {
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      controller.enqueue(new Uint8Array([1, 2, 3]));
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const upload = new Request('http://localhost/upload', {
+    method: 'POST',
+    body,
+    headers: { 'Content-Length': '1' },
+  });
+  await expect(
+    readBoundedRequestBody(upload, { maxBytes: 5, timeoutMs: 1000 }),
+  ).rejects.toMatchObject({ reason: 'body-too-large' });
+  expect(cancelled).toBe(true);
+  expect(body.locked).toBe(false);
+});
 
 test('cancels a stalled read at the deadline even when source cleanup never settles', async () => {
   let cancelled = false;
@@ -14,7 +45,7 @@ test('cancels a stalled read at the deadline even when source cleanup never sett
     },
   });
   await expect(
-    readImageUploadBody(request(body), { maxBytes: 1024, timeoutMs: 20 }),
+    readBoundedRequestBody(request(body), { maxBytes: 1024, timeoutMs: 20 }),
   ).rejects.toMatchObject({ reason: 'body-timeout' });
   expect(cancelled).toBe(true);
   expect(body.locked).toBe(false);
@@ -39,7 +70,7 @@ test('uses an absolute deadline, not an idle timeout reset by every chunk', asyn
   });
   try {
     await expect(
-      readImageUploadBody(request(body), { maxBytes: 1024 * 1024, timeoutMs: 30 }),
+      readBoundedRequestBody(request(body), { maxBytes: 1024 * 1024, timeoutMs: 30 }),
     ).rejects.toMatchObject({ reason: 'body-timeout' });
     expect(chunks).toBeGreaterThan(0);
     expect(cancelled).toBe(true);
@@ -59,7 +90,7 @@ test.each([false, true])(
       },
     });
     if (alreadyAborted) controller.abort();
-    const reading = readImageUploadBody(request(body, controller.signal), {
+    const reading = readBoundedRequestBody(request(body, controller.signal), {
       maxBytes: 1024,
       timeoutMs: 1000,
     });
@@ -78,7 +109,7 @@ test('cleans up the abort listener after a successful read', async () => {
       stream.close();
     },
   });
-  const result = await readImageUploadBody(request(body, controller.signal), {
+  const result = await readBoundedRequestBody(request(body, controller.signal), {
     maxBytes: 2,
     timeoutMs: 1000,
   });

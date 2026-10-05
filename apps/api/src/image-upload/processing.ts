@@ -1,21 +1,40 @@
 import sharp from 'sharp';
-import { LISTING_IMAGE_CONSTRAINTS } from '@lostly/contracts/listings';
-import { ImageError } from './errors';
+import { InvalidImageError } from './errors';
 import { assertStaticPng } from './png';
 
 export const IMAGE_PROCESSING_LIMITS = {
   maxInputPixels: 40_000_000,
   maxOutputDimension: 2048,
-  maxConcurrent: 2,
 } as const;
 
-export async function prepareImage(file: Blob) {
-  if (file.size === 0 || file.size > LISTING_IMAGE_CONSTRAINTS.maxSizeBytes) {
-    throw new ImageError('invalid-image');
+export interface ImageSource {
+  readonly bytes: Buffer;
+  readonly sourceHash: string;
+}
+
+export interface PreparedImage {
+  data: Blob;
+  contentType: 'image/webp';
+  width: number;
+  height: number;
+}
+
+export async function readImageSource(
+  file: Blob,
+  { maxBytes }: { maxBytes: number },
+): Promise<ImageSource> {
+  if (file.size === 0 || file.size > maxBytes) {
+    throw new InvalidImageError();
   }
-  const source = Buffer.from(await file.arrayBuffer());
+  const bytes = Buffer.from(await file.arrayBuffer());
+  return { bytes, sourceHash: new Bun.CryptoHasher('sha256').update(bytes).digest('hex') };
+}
+
+export async function prepareImage(
+  source: Buffer,
+  { maxOutputBytes }: { maxOutputBytes: number },
+): Promise<PreparedImage> {
   assertStaticPng(source);
-  const sourceHash = new Bun.CryptoHasher('sha256').update(source).digest('hex');
   try {
     const pipeline = sharp(source, {
       limitInputPixels: IMAGE_PROCESSING_LIMITS.maxInputPixels,
@@ -28,7 +47,7 @@ export async function prepareImage(file: Blob) {
       !['jpeg', 'png', 'webp'].includes(metadata.format) ||
       (metadata.pages ?? 1) !== 1
     )
-      throw new ImageError('invalid-image');
+      throw new InvalidImageError();
     // Re-encoding fully decodes the input and removes EXIF/XMP/IPTC. Rotate before stripping
     // EXIF orientation. The original is never stored; transparent input stays transparent.
     const { data, info } = await pipeline
@@ -42,17 +61,15 @@ export async function prepareImage(file: Blob) {
       .webp({ quality: 82 })
       .timeout({ seconds: 10 })
       .toBuffer({ resolveWithObject: true });
-    if (data.byteLength > LISTING_IMAGE_CONSTRAINTS.maxSizeBytes)
-      throw new ImageError('invalid-image');
+    if (data.byteLength > maxOutputBytes) throw new InvalidImageError();
     return {
       data: new Blob([new Uint8Array(data)], { type: 'image/webp' }),
-      sourceHash,
       contentType: 'image/webp' as const,
       width: info.width,
       height: info.height,
     };
   } catch (error) {
-    if (error instanceof ImageError) throw error;
-    throw new ImageError('invalid-image');
+    if (error instanceof InvalidImageError) throw error;
+    throw new InvalidImageError();
   }
 }

@@ -4,7 +4,7 @@ import { listingImages } from '@/db/listing-images';
 import { lockListing } from '@/listings/locking';
 import type { ObjectStorage } from '@/storage/object-storage';
 import { assertImageOwner, assertImagesEditable, type ImageOwnerInput } from './authorization';
-import { deleteImageObject } from './cleanup';
+import { deleteImageObject } from '@/image-upload/cleanup';
 import { ImageError } from './errors';
 import { findImages, toListingImage } from './queries';
 
