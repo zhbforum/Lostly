@@ -11,7 +11,10 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { CONVERSATION_CONSTRAINTS } from '@lostly/contracts/conversations';
+import {
+  CONVERSATION_CONSTRAINTS,
+  CONVERSATION_IMAGE_CONSTRAINTS,
+} from '@lostly/contracts/conversations';
 import { claims, users } from './schema';
 
 export const claimConversations = pgTable(
@@ -68,7 +71,7 @@ export const claimMessages = pgTable(
     sequence: integer('sequence').notNull(),
     senderUserId: uuid('sender_user_id').notNull(),
     clientOperationId: uuid('client_operation_id').notNull(),
-    body: text('body').notNull(),
+    body: text('body'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -86,7 +89,48 @@ export const claimMessages = pgTable(
     check('claim_messages_sequence_check', sql`${table.sequence} > 0`),
     check(
       'claim_messages_body_length_check',
-      sql`char_length(${table.body}) BETWEEN 1 AND ${sql.raw(String(CONVERSATION_CONSTRAINTS.messageMaxLength))}`,
+      sql`${table.body} IS NULL OR char_length(${table.body}) BETWEEN 1 AND ${sql.raw(String(CONVERSATION_CONSTRAINTS.messageMaxLength))}`,
+    ),
+  ],
+);
+
+// A message must have text or attachments. The send transaction enforces this cross-table invariant.
+export const claimMessageAttachments = pgTable(
+  'claim_message_attachments',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => claimMessages.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    objectKey: text('object_key').notNull(),
+    sourceHash: text('source_hash').notNull(),
+    contentType: text('content_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+  },
+  (table) => [
+    uniqueIndex('claim_message_attachments_position_unique').on(table.messageId, table.position),
+    uniqueIndex('claim_message_attachments_object_key_unique').on(table.objectKey),
+    check(
+      'claim_message_attachments_position_check',
+      sql`${table.position} >= 0 AND ${table.position} < ${sql.raw(String(CONVERSATION_IMAGE_CONSTRAINTS.maxCount))}`,
+    ),
+    check(
+      'claim_message_attachments_source_hash_check',
+      sql`${table.sourceHash} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check('claim_message_attachments_content_type_check', sql`${table.contentType} = 'image/webp'`),
+    check(
+      'claim_message_attachments_size_check',
+      sql`${table.sizeBytes} > 0 AND ${table.sizeBytes} <= ${sql.raw(String(CONVERSATION_IMAGE_CONSTRAINTS.maxSizeBytes))}`,
+    ),
+    check(
+      'claim_message_attachments_dimensions_check',
+      sql`${table.width} > 0 AND ${table.height} > 0`,
     ),
   ],
 );

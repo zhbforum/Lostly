@@ -372,7 +372,8 @@ test('covers use existing signed URLs and query counts stay constant across inbo
     expect(execute).toHaveBeenCalledTimes(1);
     execute.mockClear();
     await findConversationMessages(first.id, owner.id);
-    expect(execute).toHaveBeenCalledTimes(1);
+    // Reference/access, listing lock, and authorized empty page; no attachment query.
+    expect(execute).toHaveBeenCalledTimes(3);
   } finally {
     execute.mockRestore();
   }

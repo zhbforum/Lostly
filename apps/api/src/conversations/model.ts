@@ -1,6 +1,7 @@
 import { t, ValidationError } from 'elysia';
 import {
   CONVERSATION_CONSTRAINTS,
+  CONVERSATION_IMAGE_CONSTRAINTS,
   CONVERSATION_MESSAGE_PAGINATION,
 } from '@lostly/contracts/conversations';
 import { CLAIM_STATUSES } from '@lostly/contracts/claims';
@@ -23,10 +24,30 @@ const messagePreviewSchema = t.Object({
   id: idSchema,
   sequence: t.Integer({ minimum: 1 }),
   senderUserId: idSchema,
-  body: t.String(),
+  body: t.Nullable(t.String()),
+  attachmentCount: t.Integer({ minimum: 0, maximum: CONVERSATION_IMAGE_CONSTRAINTS.maxCount }),
   createdAt: t.Date(),
 });
-const messageSchema = t.Object({ ...messagePreviewSchema.properties, conversationId: idSchema });
+const messageAttachmentSchema = t.Object({
+  id: idSchema,
+  kind: t.Literal('image'),
+  position: t.Integer({ minimum: 0, maximum: CONVERSATION_IMAGE_CONSTRAINTS.maxCount - 1 }),
+  url: t.String(),
+  urlExpiresAt: t.String({ format: 'date-time' }),
+  width: t.Integer({ minimum: 1 }),
+  height: t.Integer({ minimum: 1 }),
+});
+const messageSchema = t.Object({
+  id: idSchema,
+  conversationId: idSchema,
+  sequence: t.Integer({ minimum: 1 }),
+  senderUserId: idSchema,
+  body: t.Nullable(t.String()),
+  attachments: t.Array(messageAttachmentSchema, {
+    maxItems: CONVERSATION_IMAGE_CONSTRAINTS.maxCount,
+  }),
+  createdAt: t.Date(),
+});
 
 export const conversationParamsSchema = t.Object({ conversationId: idSchema });
 export const conversationInboxResponseSchema = t.Object({

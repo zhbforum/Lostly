@@ -28,7 +28,11 @@ async function within<T>(promise: Promise<T>): Promise<T> {
   }
 }
 
-async function assertWaitingForListingLock(waiter: number, holder: number) {
+async function assertWaitingForListingLock(
+  waiter: number,
+  holder: number,
+  strength: 'update' | 'share',
+) {
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
     const rows = await db.execute<{ blocked: boolean; query: string }>(sql`
@@ -36,18 +40,16 @@ async function assertWaitingForListingLock(waiter: number, holder: number) {
       from pg_stat_activity where pid = ${waiter} and wait_event_type = 'Lock'
     `);
     if (rows[0]?.blocked) {
-      expect(rows[0].query.toLowerCase()).toContain('for update');
+      expect(rows[0].query.toLowerCase()).toContain(`for ${strength}`);
       expect(rows[0].query).toContain('listings');
       return;
     }
     await Bun.sleep(10);
   }
-  throw new Error(
-    'Second mutation did not demonstrably wait for the first listing FOR UPDATE lock',
-  );
+  throw new Error('Second operation did not demonstrably wait for the first listing lock');
 }
 
-// Only pause the real lock helper in tests. Both mutations still execute their
+// Only pause the real lock helper in tests. Both operations still execute their
 // production transactions and SQL. PostgreSQL itself proves who blocks whom.
 export async function runInListingLockOrder<A, B>(
   first: () => Promise<A>,
@@ -59,20 +61,26 @@ export async function runInListingLockOrder<A, B>(
   const release = deferred<void>();
   let calls = 0;
   let secondAcquired = false;
-  const spy = spyOn(locking, 'lockListing').mockImplementation(async (tx, id) => {
-    const order = calls++;
-    await tx.execute(sql`set local lock_timeout = '8s'`);
-    const rows = await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
-    if (order === 1) attempting.resolve(rows[0]!.pid);
-    const listing = await lockListing(tx, id);
-    if (order === 0) {
-      acquired.resolve(rows[0]!.pid);
-      await within(release.promise);
-    } else {
-      secondAcquired = true;
-    }
-    return listing;
-  });
+  let secondStrength: 'update' | 'share' = 'update';
+  const spy = spyOn(locking, 'lockListing').mockImplementation(
+    async (tx, id, strength = 'update') => {
+      const order = calls++;
+      await tx.execute(sql`set local lock_timeout = '8s'`);
+      const rows = await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
+      if (order === 1) {
+        secondStrength = strength;
+        attempting.resolve(rows[0]!.pid);
+      }
+      const listing = await lockListing(tx, id, strength);
+      if (order === 0) {
+        acquired.resolve(rows[0]!.pid);
+        await within(release.promise);
+      } else {
+        secondAcquired = true;
+      }
+      return listing;
+    },
+  );
   const firstRequest = first();
   let secondRequest: Promise<B> | undefined;
   try {
@@ -80,7 +88,7 @@ export async function runInListingLockOrder<A, B>(
     secondRequest = second();
     const waiter = await within(attempting.promise);
     expect(waiter).not.toBe(holder);
-    await assertWaitingForListingLock(waiter, holder);
+    await assertWaitingForListingLock(waiter, holder, secondStrength);
     expect(secondAcquired).toBe(false);
     const releasedAt = new Date();
     release.resolve();

@@ -111,8 +111,17 @@ test('history and inbox previews follow sequence, never timestamp, and exclude o
   for (const message of messages) {
     expect(message.conversationId).toBe(conversation.id);
     expect(Object.keys(message).sort()).toEqual(
-      ['id', 'conversationId', 'sequence', 'senderUserId', 'body', 'createdAt'].sort(),
+      [
+        'id',
+        'conversationId',
+        'sequence',
+        'senderUserId',
+        'body',
+        'attachments',
+        'createdAt',
+      ].sort(),
     );
+    expect(message.attachments).toEqual([]);
     expect(message.createdAt).toBeInstanceOf(Date);
   }
   const inbox = await listConversations(owner.id, {}, new MemoryObjectStorage());

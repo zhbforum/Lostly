@@ -5,10 +5,16 @@ import {
   type ConversationMessagesQuery,
 } from '@lostly/contracts/conversations';
 import { db } from '@/db';
-import { claimConversations, claimConversationMembers, claimMessages } from '@/db/conversations';
+import {
+  claimConversations,
+  claimConversationMembers,
+  claimMessages,
+  claimMessageAttachments,
+} from '@/db/conversations';
 import { claims, listings, users } from '@/db/schema';
 import { canSendConversationMessages } from '@/domain/conversation';
 import { findCovers } from '@/listing-images/queries';
+import { lockListing } from '@/listings/locking';
 import {
   cursorCondition,
   decodeCursor,
@@ -17,7 +23,8 @@ import {
 } from '@/pagination/cursor';
 import type { ObjectStorage } from '@/storage/object-storage';
 import { objectStorage } from '@/storage/r2-storage';
-import { conversationAccessPredicate } from './authorization';
+import { conversationAccessPredicate, findConversationForMember } from './authorization';
+import { hydrateMessages } from './attachments';
 import { messageSelection } from './selection';
 import { unreadMessageCount, unreadMessagePredicate } from './unread';
 
@@ -41,7 +48,11 @@ export async function listConversations(
   if (query.cursor && !cursor) return { ok: false, reason: 'invalid-cursor' } as const;
   const limit = query.limit ?? 20;
   const latest = db
-    .select(messageSelection)
+    .select({
+      ...messageSelection,
+      attachmentCount: sql<number>`(select count(*)::int from ${claimMessageAttachments}
+        where ${eq(claimMessageAttachments.messageId, claimMessages.id)})`.as('attachment_count'),
+    })
     .from(claimMessages)
     .where(eq(claimMessages.conversationId, claimConversations.id))
     .orderBy(desc(claimMessages.sequence))
@@ -63,6 +74,7 @@ export async function listConversations(
         sequence: latest.sequence,
         senderUserId: latest.senderUserId,
         body: latest.body,
+        attachmentCount: latest.attachmentCount,
         createdAt: latest.createdAt,
       },
       lastActivityAt: lastActivityAt.mapWith(claimConversations.createdAt),
@@ -179,6 +191,7 @@ export async function findConversationMessages(
   conversationId: string,
   userId: string,
   query: ConversationMessagesQuery = {},
+  storage: ObjectStorage = objectStorage,
 ) {
   const { before, after } = query;
   const limit = query.limit ?? CONVERSATION_MESSAGE_PAGINATION.defaultLimit;
@@ -191,51 +204,61 @@ export async function findConversationMessages(
     (after !== undefined && (!Number.isInteger(after) || after < 0 || after > 2147483647))
   )
     return { ok: false, reason: 'invalid-message-query' } as const;
-  const order = after !== undefined ? asc : desc;
-  const page = db
-    .select(messageSelection)
-    .from(claimMessages)
-    .where(
-      and(
-        eq(claimMessages.conversationId, claimConversations.id),
-        before !== undefined ? lt(claimMessages.sequence, before) : undefined,
-        after !== undefined ? gt(claimMessages.sequence, after) : undefined,
-      ),
-    )
-    .orderBy(order(claimMessages.sequence))
-    .limit(limit + 1)
-    .as('message_page');
-  const rows = await db
-    .select({
-      conversationId: claimConversations.id,
-      message: {
-        id: page.id,
-        conversationId: page.conversationId,
-        sequence: page.sequence,
-        senderUserId: page.senderUserId,
-        body: page.body,
-        createdAt: page.createdAt,
+  return db.transaction(async (tx) => {
+    const reference = await findConversationForMember(conversationId, userId, tx);
+    if (!reference) return { ok: false, reason: 'conversation-not-found' } as const;
+    const listing = await lockListing(tx, reference.listingId, 'share');
+    if (!listing || listing.isHidden)
+      return { ok: false, reason: 'conversation-not-found' } as const;
+
+    // Recheck access in the page query after acquiring the listing lock. Keep the lock until
+    // attachment URLs have been signed: hide either commits first or waits for issuance.
+    const order = after !== undefined ? asc : desc;
+    const page = tx
+      .select(messageSelection)
+      .from(claimMessages)
+      .where(
+        and(
+          eq(claimMessages.conversationId, claimConversations.id),
+          before !== undefined ? lt(claimMessages.sequence, before) : undefined,
+          after !== undefined ? gt(claimMessages.sequence, after) : undefined,
+        ),
+      )
+      .orderBy(order(claimMessages.sequence))
+      .limit(limit + 1)
+      .as('message_page');
+    const rows = await tx
+      .select({
+        conversationId: claimConversations.id,
+        message: {
+          id: page.id,
+          conversationId: page.conversationId,
+          sequence: page.sequence,
+          senderUserId: page.senderUserId,
+          body: page.body,
+          createdAt: page.createdAt,
+        },
+      })
+      .from(claimConversations)
+      .innerJoin(
+        claimConversationMembers,
+        eq(claimConversationMembers.conversationId, claimConversations.id),
+      )
+      .innerJoin(claims, eq(claims.id, claimConversations.claimId))
+      .innerJoin(listings, eq(listings.id, claims.listingId))
+      .leftJoinLateral(page, sql`true`)
+      .where(and(eq(claimConversations.id, conversationId), conversationAccessPredicate(userId)))
+      .orderBy(order(page.sequence));
+    if (!rows.length) return { ok: false, reason: 'conversation-not-found' } as const;
+    const messages = rows.flatMap((row) => (row.message ? [row.message] : []));
+    const selected = messages.slice(0, limit);
+    if (after === undefined) selected.reverse();
+    return {
+      ok: true,
+      value: {
+        messages: await hydrateMessages(selected, storage, tx),
+        pageInfo: { hasMore: messages.length > limit },
       },
-    })
-    .from(claimConversations)
-    .innerJoin(
-      claimConversationMembers,
-      eq(claimConversationMembers.conversationId, claimConversations.id),
-    )
-    .innerJoin(claims, eq(claims.id, claimConversations.claimId))
-    .innerJoin(listings, eq(listings.id, claims.listingId))
-    .leftJoinLateral(page, sql`true`)
-    .where(and(eq(claimConversations.id, conversationId), conversationAccessPredicate(userId)))
-    .orderBy(order(page.sequence));
-  if (!rows.length) return { ok: false, reason: 'conversation-not-found' } as const;
-  const messages = rows.flatMap((row) => (row.message ? [row.message] : []));
-  const selected = messages.slice(0, limit);
-  if (after === undefined) selected.reverse();
-  return {
-    ok: true,
-    value: {
-      messages: selected,
-      pageInfo: { hasMore: messages.length > limit },
-    },
-  } as const;
+    } as const;
+  });
 }

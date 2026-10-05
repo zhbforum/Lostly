@@ -101,7 +101,12 @@ export const createConversationRoutes = (storage: ObjectStorage) =>
     .get(
       '/conversations/:conversationId/messages',
       async ({ auth, params, query, status }) => {
-        const result = await findConversationMessages(params.conversationId, auth.user.id, query);
+        const result = await findConversationMessages(
+          params.conversationId,
+          auth.user.id,
+          query,
+          storage,
+        );
         if (!result.ok) {
           const { status: code, ...error } = CONVERSATION_ERRORS[result.reason];
           return status(code, { error });
@@ -141,7 +146,10 @@ export const createConversationRoutes = (storage: ObjectStorage) =>
           const { status: code, ...error } = CONVERSATION_ERRORS[result.reason];
           return status(code, { error });
         }
-        return status(result.value.created ? 201 : 200, { message: result.value.message });
+        // This endpoint still accepts only text; no attachment read is needed after commit.
+        return status(result.value.created ? 201 : 200, {
+          message: { ...result.value.message, attachments: [] },
+        });
       },
       {
         authenticated: true,

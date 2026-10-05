@@ -15,7 +15,7 @@ import {
   conversationDetail,
   historyPage,
   inboxPage,
-  message,
+  messagePreview,
 } from '@/test/fixtures/conversations';
 import { ConversationPage } from './ConversationPage';
 import { MessagesEmptyRoute } from './MessagesEmptyRoute';
@@ -88,7 +88,7 @@ it('loads the inbox with item/participant/preview/unread states and keeps it mou
     inboxPage([
       conversation('A', {
         unreadCount: 3,
-        lastMessage: message(1, { body: 'Can we meet tomorrow?' }),
+        lastMessage: messagePreview(1, { body: 'Can we meet tomorrow?' }),
       }),
       conversation('B', {
         listing: { ...conversation().listing, title: 'Blue backpack' },

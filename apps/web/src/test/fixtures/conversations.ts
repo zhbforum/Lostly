@@ -1,5 +1,6 @@
 import type {
   ClaimMessage,
+  ClaimMessagePreview,
   ConversationDetail,
   ConversationInboxResponse,
   ConversationMessagesResponse,
@@ -13,9 +14,18 @@ export function message(sequence: number, overrides: Partial<ClaimMessage> = {})
     sequence,
     senderUserId: 'other-user',
     body: `Message ${sequence}`,
+    attachments: [],
     createdAt: '2026-09-24T12:00:00.000Z',
     ...overrides,
   };
+}
+
+export function messagePreview(
+  sequence: number,
+  overrides: Partial<ClaimMessagePreview> = {},
+): ClaimMessagePreview {
+  const { id, senderUserId, body, createdAt } = message(sequence);
+  return { id, sequence, senderUserId, body, createdAt, attachmentCount: 0, ...overrides };
 }
 
 export function conversation(

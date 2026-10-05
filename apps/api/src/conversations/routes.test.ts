@@ -198,6 +198,7 @@ test('OpenAPI documents all conversation endpoints, security, pagination and ret
     }),
   );
   const body = send.requestBody!.content['application/json']!.schema;
+  expect(Object.keys(send.requestBody!.content)).toEqual(['application/json']);
   expect(Object.keys(body.properties)).toEqual(['body']);
   expect(body.additionalProperties).toBe(false);
   for (const code of ['201', '400', '403', '404', '409', '422', '429'])
@@ -217,4 +218,45 @@ test('OpenAPI documents all conversation endpoints, security, pagination and ret
   expect(spec.paths['/me/conversations']!.get!.description).toContain(
     'does not provide a cross-request snapshot',
   );
+});
+
+test('OpenAPI separates attachment history from count-only previews and the text-only request', async () => {
+  interface Schema {
+    properties: Record<string, Schema>;
+    items: Schema;
+    type: string | string[];
+    maxItems?: number;
+  }
+  const spec = (await (await request('/openapi/json')).json()) as {
+    paths: Record<
+      string,
+      Record<
+        string,
+        {
+          responses: Record<string, { content: Record<string, { schema: Schema }> }>;
+        }
+      >
+    >;
+  };
+  const responseSchema = (path: string, method = 'get') =>
+    spec.paths[path]![method]!.responses['200']!.content['application/json']!.schema;
+  const message = responseSchema('/conversations/{conversationId}/messages').properties.messages!
+    .items;
+  expect(Object.keys(message.properties).sort()).toEqual(
+    ['id', 'conversationId', 'sequence', 'senderUserId', 'body', 'attachments', 'createdAt'].sort(),
+  );
+  expect(message.properties.body!.type).toEqual(['string', 'null']);
+  expect(message.properties.attachments!.maxItems).toBe(4);
+  expect(Object.keys(message.properties.attachments!.items.properties).sort()).toEqual(
+    ['id', 'kind', 'position', 'url', 'urlExpiresAt', 'width', 'height'].sort(),
+  );
+  const preview =
+    responseSchema('/me/conversations').properties.conversations!.items.properties.lastMessage!;
+  expect(preview.type).toEqual(['object', 'null']);
+  expect(Object.keys(preview.properties).sort()).toEqual(
+    ['id', 'sequence', 'senderUserId', 'body', 'attachmentCount', 'createdAt'].sort(),
+  );
+  expect(
+    responseSchema('/conversations/{conversationId}/messages', 'post').properties.message,
+  ).toEqual(message);
 });

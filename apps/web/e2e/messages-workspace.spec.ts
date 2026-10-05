@@ -23,6 +23,7 @@ function conversation(index: number) {
         : {
             id: `message-${index}`,
             sequence: 1,
+            attachmentCount: 0,
             body:
               index === 0
                 ? 'Can we meet tomorrow at the station?'

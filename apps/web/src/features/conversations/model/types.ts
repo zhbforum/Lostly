@@ -1,9 +1,12 @@
 export {
   CONVERSATION_CONSTRAINTS,
+  CONVERSATION_IMAGE_CONSTRAINTS,
   CONVERSATION_MESSAGE_PAGINATION,
 } from '@lostly/contracts/conversations';
 export type {
   ClaimMessage,
+  ClaimMessageAttachment,
+  ClaimMessagePreview,
   ClaimMessageResponse,
   ConversationDetail,
   ConversationInboxQuery,

@@ -8,6 +8,7 @@ function message(sequence: number, conversationId = 'A', senderUserId = 'other')
     sequence,
     senderUserId,
     body: `Message ${sequence}: can we arrange collection at the station?`,
+    attachments: [],
     createdAt: '2026-09-25T10:00:00.000Z',
   };
 }
@@ -59,7 +60,18 @@ async function server(page: Page, count = 60) {
       coverImage: null,
     },
     otherParticipant: { id: 'other', displayName: id === 'A' ? 'Alex' : 'Maya' },
-    lastMessage: state.messages[id].at(-1) ?? null,
+    lastMessage: (() => {
+      const last = state.messages[id].at(-1);
+      if (!last) return null;
+      return {
+        id: last.id,
+        sequence: last.sequence,
+        senderUserId: last.senderUserId,
+        body: last.body,
+        attachmentCount: last.attachments.length,
+        createdAt: last.createdAt,
+      };
+    })(),
     lastActivityAt: '2026-09-25T10:00:00.000Z',
     unreadCount: unread(id),
     canSendMessages:
