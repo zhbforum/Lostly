@@ -17,7 +17,9 @@ import {
   historyPage,
   inboxPage,
   messagePreview,
+  message,
 } from '@/test/fixtures/conversations';
+import { attachment, renewed } from '@/test/fixtures/conversation-attachments';
 import { ConversationPage } from './ConversationPage';
 import { MessagesEmptyRoute } from './MessagesEmptyRoute';
 import { MessagesPage } from './MessagesPage';
@@ -121,6 +123,84 @@ it('loads the inbox with item/participant/preview/unread states and keeps it mou
   expect(await screen.findByText('This conversation is read-only.')).toBeInTheDocument();
   for (const request of [api.readConversation, api.sendConversationMessage])
     expect(request).not.toHaveBeenCalled();
+});
+
+it('renders latest, older and catch-up attachments without inbox refreshes or changing read/scroll state on URL renewal', async () => {
+  vi.useFakeTimers();
+  const images = [attachment()];
+  vi.mocked(api.getConversationInbox).mockResolvedValue(
+    inboxPage([
+      conversation('A', { lastMessage: messagePreview(50, { body: null, attachmentCount: 1 }) }),
+    ]),
+  );
+  vi.mocked(api.getConversationMessages).mockImplementation(async (_id, query) => {
+    if (query?.before) return historyPage([message(49, { body: null, attachments: images })]);
+    if (query?.after === 50)
+      return historyPage([message(51, { body: 'New caption', attachments: images })]);
+    if (query?.after) return historyPage([]);
+    return historyPage([message(50, { body: null, attachments: images })], true);
+  });
+  await act(async () => {
+    renderMessages('/messages/A', { probe: true });
+  });
+  const history = screen.getByRole('region', { name: 'Message history' });
+  expect(within(history).getAllByRole('img')).toHaveLength(1);
+  await act(async () =>
+    fireEvent.click(screen.getByRole('button', { name: 'Load earlier messages' })),
+  );
+  expect(within(history).getAllByRole('img')).toHaveLength(2);
+  await act(() => vi.advanceTimersByTimeAsync(4_000));
+  expect(within(history).getAllByRole('img')).toHaveLength(3);
+  expect(within(history).getByText('New caption')).toBeInTheDocument();
+  expect(api.refreshMessageAttachments).not.toHaveBeenCalled();
+  const before = history.querySelector('[data-message-id="message-50"]')!;
+  const getUnreadCalls = vi.mocked(api.getUnreadConversationCount).mock.calls.length;
+  const getInboxCalls = vi.mocked(api.getConversationInbox).mock.calls.length;
+  const scrollCalls = vi.mocked(history.scrollTo).mock.calls.length;
+  vi.mocked(api.refreshMessageAttachments).mockResolvedValueOnce({ attachments: renewed(images) });
+  await act(async () => fireEvent.error(before.querySelector('img')!));
+  expect(api.refreshMessageAttachments).toHaveBeenCalledExactlyOnceWith('A', 'message-50');
+  expect(history.querySelector('[data-message-id="message-50"]')).toBe(before);
+  expect(before.querySelector('img')).toHaveAttribute('src', `${images[0].url}-renewed`);
+  expect(vi.mocked(history.scrollTo).mock.calls.length).toBe(scrollCalls);
+  expect(api.readConversation).not.toHaveBeenCalled();
+  expect(api.getUnreadConversationCount).toHaveBeenCalledTimes(getUnreadCalls);
+  expect(api.getConversationInbox).toHaveBeenCalledTimes(getInboxCalls);
+});
+
+it('routes a refresh CONVERSATION_NOT_FOUND through the existing unavailable flow', async () => {
+  vi.useFakeTimers();
+  vi.mocked(api.getConversationInbox).mockResolvedValue(inboxPage([conversation('A')]));
+  vi.mocked(api.getConversationMessages).mockResolvedValue(
+    historyPage([message(1, { body: null, attachments: [attachment()] })]),
+  );
+  vi.mocked(api.refreshMessageAttachments).mockRejectedValueOnce(
+    new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Hidden'),
+  );
+  await act(async () => {
+    renderMessages('/messages/A', { probe: true });
+  });
+  const history = screen.getByRole('region', { name: 'Message history' });
+  await act(async () => fireEvent.error(within(history).getByRole('img')));
+  expect(
+    screen.getByRole('heading', { name: 'This conversation is no longer available.' }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Message history' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox', { name: 'Write a message' })).not.toBeInTheDocument();
+  await act(() => vi.advanceTimersByTimeAsync(60_000));
+  expect(api.refreshMessageAttachments).toHaveBeenCalledOnce();
+});
+
+it('does not fetch attachment URLs for image-only inbox previews', async () => {
+  vi.mocked(api.getConversationInbox).mockResolvedValue(
+    inboxPage([
+      conversation('A', { lastMessage: messagePreview(1, { body: null, attachmentCount: 4 }) }),
+    ]),
+  );
+  renderMessages('/messages', { probe: true });
+  expect(await screen.findByRole('link', { name: /4 photos/ })).toBeInTheDocument();
+  expect(api.refreshMessageAttachments).not.toHaveBeenCalled();
+  expect(api.getConversationMessages).not.toHaveBeenCalled();
 });
 
 it('shows initial loading, error/retry and the empty inbox', async () => {

@@ -18,6 +18,7 @@ export type {
   ConversationSummary,
   ReadConversationInput,
   ReadConversationResponse,
+  RefreshMessageAttachmentsResponse,
   SendClaimMessageInput,
   UnreadConversationsResponse,
 } from '@lostly/contracts/conversations';

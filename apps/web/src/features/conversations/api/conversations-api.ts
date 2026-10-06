@@ -6,6 +6,7 @@ import type {
   ConversationMessagesResponse,
   ConversationResponse,
   ReadConversationResponse,
+  RefreshMessageAttachmentsResponse,
   UnreadConversationsResponse,
 } from '../model/types';
 import { apiRequest } from '@/shared/api/client';
@@ -74,6 +75,13 @@ export function readConversation(id: string, messageId: string, signal?: AbortSi
     body: { messageId },
     signal,
   });
+}
+
+export function refreshMessageAttachments(conversationId: string, messageId: string) {
+  return apiRequest<RefreshMessageAttachmentsResponse>(
+    `${conversationPath(conversationId)}/messages/${encodeURIComponent(messageId)}/attachments/refresh`,
+    { method: 'POST' },
+  );
 }
 
 export function getUnreadConversationCount(signal?: AbortSignal) {

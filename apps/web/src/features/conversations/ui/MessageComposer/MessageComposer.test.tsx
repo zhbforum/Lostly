@@ -20,6 +20,10 @@ import {
 import { MessageBubble, PendingBubble } from '../MessageBubble/MessageBubble';
 import { MessageComposer } from './MessageComposer';
 import { SelectedImagePreviews } from './SelectedImagePreviews';
+import {
+  acceptMessageAttachments,
+  type MessageAttachmentResource,
+} from '../../model/attachment-resource';
 
 vi.mock('../../api/conversations-api');
 const auth = {
@@ -45,12 +49,15 @@ function Harness({ id = 'A' }: { id?: string }) {
     composer = current;
   });
   const { subscribeToResults } = useConversationSend();
-  const [sent, setSent] = useState<ClaimMessage | null>(null);
+  const [sent, setSent] = useState<{
+    message: ClaimMessage;
+    resource: MessageAttachmentResource;
+  } | null>(null);
   useEffect(
     () =>
       subscribeToResults((result) => {
         if (result.status === 'sent' && result.operation.conversationId === id)
-          setSent(result.message);
+          setSent({ message: result.message, resource: acceptMessageAttachments(result.message) });
       }),
     [id, subscribeToResults],
   );
@@ -67,7 +74,16 @@ function Harness({ id = 'A' }: { id?: string }) {
             onRetry={() => void current.retry(operation.operationId)}
           />
         ))}
-        {sent && <MessageBubble message={sent} own grouped={false} sender="User" />}
+        {sent && (
+          <MessageBubble
+            message={sent.message}
+            attachmentResource={sent.resource}
+            onUnavailable={() => {}}
+            own
+            grouped={false}
+            sender="User"
+          />
+        )}
       </ul>
     </>
   );
@@ -345,7 +361,7 @@ it('preserves IME protection and Cmd+Enter after composition, with neutral rate-
 });
 
 it.each([null, 'Caption'])(
-  'keeps pending → persisted attachments nonempty without remote images: %j',
+  'replaces pending photo text with persisted remote images: %j',
   async (body) => {
     const request = deferred<ClaimMessageResponse>();
     vi.mocked(sendConversationMessage).mockReturnValueOnce(request.promise);
@@ -354,7 +370,7 @@ it.each([null, 'Caption'])(
       kind: 'image' as const,
       position,
       url: `https://private.example/${position}`,
-      urlExpiresAt: '2026-10-05T00:00:00Z',
+      urlExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
       width: 30,
       height: 20,
     }));
@@ -366,10 +382,15 @@ it.each([null, 'Caption'])(
     expect(screen.getByText('2 photos')).toBeInTheDocument();
     expect(screen.getByText('Sending…')).toBeInTheDocument();
     await act(async () => request.resolve({ message: message(1, { body, attachments }) }));
-    expect(screen.getByText('2 photos')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '2 photos' })).toBeInTheDocument();
+    expect(screen.getAllByRole('img')).toHaveLength(2);
+    expect(screen.getByRole('img', { name: 'Attached image 1 of 2' })).toHaveAttribute(
+      'src',
+      attachments[0].url,
+    );
     if (body) expect(screen.getByText(body)).toBeInTheDocument();
     expect(screen.queryByText('Sending…')).not.toBeInTheDocument();
-    expect(previewUrls()).toEqual([]);
+    expect([...created.keys()].every((url) => revoked.has(url))).toBe(true);
     expect(composer.operations).toEqual([]);
   },
 );

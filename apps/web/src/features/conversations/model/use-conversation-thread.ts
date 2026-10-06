@@ -233,5 +233,7 @@ export function useConversationThread(
     applyRead,
     reconcileReadTarget,
     reportError,
+    attachmentResource: (messageId: string) =>
+      current.current!.history.attachmentResource(messageId),
   };
 }

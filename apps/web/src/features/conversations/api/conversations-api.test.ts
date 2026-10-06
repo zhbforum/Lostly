@@ -6,12 +6,29 @@ import {
   getConversationMessages,
   getUnreadConversationCount,
   readConversation,
+  refreshMessageAttachments,
   sendConversationMessage,
 } from './conversations-api';
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('conversation API', () => {
+  it('refreshes the encoded conversation/message pair without a body, with session credentials and CSRF', async () => {
+    const response = { attachments: [] };
+    const fetcher = vi.fn().mockResolvedValue(Response.json(response));
+    vi.stubGlobal('fetch', fetcher);
+    expect(await refreshMessageAttachments('a/b', 'message/1')).toEqual(response);
+    const [url, options] = fetcher.mock.calls[0];
+    expect(new URL(url).pathname).toBe(
+      '/conversations/a%2Fb/messages/message%2F1/attachments/refresh',
+    );
+    expect(options.method).toBe('POST');
+    expect(options.body).toBeUndefined();
+    expect(options.credentials).toBe('include');
+    expect(options.headers.get('X-CSRF-Protection')).toBe('1');
+    expect(options.headers.has('Content-Type')).toBe(false);
+    expect(options.headers.has('Idempotency-Key')).toBe(false);
+  });
   it('encodes IDs/cursors, preserves after=0, and forwards cancellation to GETs', async () => {
     const fetcher = vi
       .fn()

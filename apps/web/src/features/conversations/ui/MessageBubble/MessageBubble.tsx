@@ -2,6 +2,9 @@ import { messageTime } from '../../model/conversation-formatters';
 import { imageCountLabel } from '../../model/message-attachments';
 import type { ClaimMessage } from '../../model/types';
 import type { PendingSendOperation } from '../../model/send-operations';
+import type { MessageAttachmentResource } from '../../model/attachment-resource';
+import type { RefObject } from 'react';
+import { MessageAttachments } from '../MessageAttachments/MessageAttachments';
 import styles from './MessageBubble.module.css';
 
 export function MessageBubble({
@@ -9,11 +12,17 @@ export function MessageBubble({
   own,
   grouped,
   sender,
+  attachmentResource,
+  onUnavailable,
+  root,
 }: {
   message: ClaimMessage;
   own: boolean;
   grouped: boolean;
   sender: string;
+  attachmentResource: MessageAttachmentResource;
+  onUnavailable: (error: unknown) => void;
+  root?: RefObject<HTMLDivElement | null>;
 }) {
   return (
     <li className={styles.row} data-own={own} data-grouped={grouped} data-message-id={message.id}>
@@ -25,9 +34,11 @@ export function MessageBubble({
       <div className={styles.message}>
         <span className={styles.srOnly}>{own ? 'You' : sender}: </span>
         {message.body !== null && <p className={styles.bubble}>{message.body}</p>}
-        {message.attachments.length > 0 && (
-          <p className={styles.bubble}>{imageCountLabel(message.attachments.length)}</p>
-        )}
+        <MessageAttachments
+          resource={attachmentResource}
+          onUnavailable={onUnavailable}
+          root={root}
+        />
         <time dateTime={message.createdAt}>{messageTime(message.createdAt)}</time>
       </div>
     </li>

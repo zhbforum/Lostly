@@ -11,6 +11,7 @@ import { ConversationSendProvider } from './ConversationSendProvider';
 import { useConversationSend } from './conversation-send-context';
 import { useConversationThread } from './use-conversation-thread';
 import type { ConversationResponse, ConversationMessagesResponse } from './types';
+import { attachment, renewed } from '@/test/fixtures/conversation-attachments';
 
 vi.mock('../api/conversations-api');
 const unavailable = vi.fn(() => true);
@@ -45,6 +46,30 @@ afterEach(() => {
   advanceSessionGeneration();
 });
 const flush = () => act(async () => {});
+
+it('attachment refresh updates only capabilities, not sequence/read/unread/activity state', async () => {
+  const images = [attachment()];
+  const persisted = message(5, { body: null, attachments: images });
+  vi.mocked(api.getConversationMessages).mockResolvedValueOnce(historyPage([persisted]));
+  const { result } = renderHook(() => useConversationThread('A', unavailable, activity), {
+    wrapper: Wrapper,
+  });
+  await flush();
+  const before = result.current;
+  const replacement = renewed(images, 30 * 60_000);
+  vi.mocked(api.refreshMessageAttachments).mockResolvedValueOnce({ attachments: replacement });
+  await act(() => result.current.attachmentResource(persisted.id).recover(true));
+  expect(result.current.history).toEqual({
+    ...before.history,
+    messages: [{ ...persisted, attachments: replacement }],
+  });
+  expect(result.current.context).toBe(before.context);
+  expect(result.current.sentVersion).toBe(before.sentVersion);
+  expect(activity).not.toHaveBeenCalled();
+  expect(api.readConversation).not.toHaveBeenCalled();
+  expect(api.getUnreadConversationCount).not.toHaveBeenCalled();
+  expect(api.sendConversationMessage).not.toHaveBeenCalled();
+});
 
 it('keeps POST #53 separate from catch-up #50, merging incoming 51/52 and replay 53', async () => {
   vi.mocked(api.getConversationMessages).mockImplementation(async (_id, query) =>
