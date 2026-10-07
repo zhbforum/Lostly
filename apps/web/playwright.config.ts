@@ -9,7 +9,11 @@ if (!process.env.DATABASE_URL || new URL(process.env.DATABASE_URL).pathname !== 
 export default defineConfig({
   tsconfig: './tsconfig.node.json',
   testDir: './e2e',
-  testIgnore: ['**/messages-workspace.spec.ts', '**/conversation-thread.spec.ts'],
+  testIgnore: [
+    '**/messages-workspace.spec.ts',
+    '**/conversation-thread.spec.ts',
+    '**/conversation-attachments.spec.ts',
+  ],
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),

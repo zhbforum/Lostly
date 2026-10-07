@@ -5,7 +5,11 @@ import { deviceProfile } from './e2e/support/device-profile.ts';
 export default defineConfig({
   tsconfig: './tsconfig.node.json',
   testDir: './e2e',
-  testMatch: ['messages-workspace.spec.ts', 'conversation-thread.spec.ts'],
+  testMatch: [
+    'messages-workspace.spec.ts',
+    'conversation-thread.spec.ts',
+    'conversation-attachments.spec.ts',
+  ],
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
