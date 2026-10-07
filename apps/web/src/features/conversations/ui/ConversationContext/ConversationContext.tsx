@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import type { ConversationDetail } from '../../model/types';
 import styles from './ConversationContext.module.css';
@@ -15,6 +15,29 @@ export function ConversationContext({
   const { listing, claim, participantRole } = conversation;
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const title = useRef<HTMLHeadingElement>(null);
+  const [focusAfterDecision, setFocusAfterDecision] = useState<{
+    claimId: string;
+    status: 'approved' | 'rejected';
+  } | null>(null);
+  const focusedDecision = useRef<typeof focusAfterDecision>(null);
+  useEffect(() => {
+    if (
+      focusAfterDecision === focusedDecision.current ||
+      focusAfterDecision?.claimId !== claim.id ||
+      focusAfterDecision.status !== claim.status
+    )
+      return;
+    // Wait for the confirmed context render: the dialog and its focus scope are now gone.
+    // Consume this intent once; later polling must not move focus back from the composer.
+    focusedDecision.current = focusAfterDecision;
+    title.current?.focus();
+  }, [claim.id, claim.status, focusAfterDecision]);
+
+  const submitDecision: typeof decision.submit = async (id, input) => {
+    const saved = await decision.submit(id, input);
+    if (saved) setFocusAfterDecision({ claimId: id, status: input.decision });
+    return saved;
+  };
   return (
     <section className={styles.context} aria-label="Claim and item details">
       <div className={styles.item}>
@@ -78,8 +101,7 @@ export function ConversationContext({
           isUpdating={decision.pendingId === claim.id}
           error={decision.error}
           clearError={decision.clearError}
-          onDecision={decision.submit}
-          successFocus={title}
+          onDecision={submitDecision}
           onRefresh={decision.reconcile}
         />
       )}
