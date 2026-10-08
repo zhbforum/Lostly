@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { PendingSendOperation } from './send-operations';
 import type { ClaimMessage } from './types';
 import { anchoredScrollTop, isNearMessageBottom } from './message-scroll';
+import { imageCountLabel } from './message-attachments';
 
 function captureAnchor(element: HTMLDivElement, first: number) {
   const top = element.getBoundingClientRect().top;
@@ -99,9 +100,11 @@ export function useMessageScroll(
     } else if (newIncoming.length > 0 && nearBottom.current) bottom(true);
     if (newIncoming.length > 0) {
       if (!nearBottom.current && !ownSend) setHasNew(true);
+      const latest = newIncoming.at(-1)!;
+      const preview = latest.body ?? imageCountLabel(latest.attachments.length);
       setAnnouncement((value) => ({
         revision: value.revision + 1,
-        text: `${newIncoming.length} new ${newIncoming.length === 1 ? 'message' : 'messages'}. ${newIncoming.at(-1)!.body}`,
+        text: `${newIncoming.length} new ${newIncoming.length === 1 ? 'message' : 'messages'}. ${preview}`,
       }));
     }
     previous.current = {

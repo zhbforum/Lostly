@@ -168,6 +168,43 @@ it('renders latest, older and catch-up attachments without inbox refreshes or ch
   expect(api.getConversationInbox).toHaveBeenCalledTimes(getInboxCalls);
 });
 
+it.each([
+  { body: null, images: 1, incoming: 1, expected: '1 new message. Photo' },
+  { body: null, images: 4, incoming: 1, expected: '1 new message. 4 photos' },
+  { body: null, images: 2, incoming: 2, expected: '2 new messages. 2 photos' },
+  { body: 'New caption', images: 2, incoming: 1, expected: '1 new message. New caption' },
+  { body: 'Just text', images: 0, incoming: 1, expected: '1 new message. Just text' },
+])('announces incoming messages as "$expected" in the live region', async (entry) => {
+  vi.useFakeTimers();
+  vi.mocked(api.getConversationInbox).mockResolvedValue(inboxPage([conversation('A')]));
+  vi.mocked(api.getConversationMessages).mockImplementation(async (_id, query) => {
+    if (query?.after === 1)
+      return historyPage(
+        Array.from({ length: entry.incoming }, (_, index) =>
+          message(index + 2, {
+            body: entry.body,
+            attachments: Array.from({ length: entry.images }, (_, position) =>
+              attachment(position),
+            ),
+          }),
+        ),
+      );
+    if (query?.after) return historyPage([]);
+    return historyPage([message(1, { body: null, attachments: [attachment()] })]);
+  });
+  await act(async () => {
+    renderMessages('/messages/A', { probe: true });
+  });
+  const announcer = screen.getByTestId('message-announcer');
+  expect(announcer).toHaveAttribute('aria-live', 'polite');
+  expect(announcer.textContent).toBe('');
+  await act(() => vi.advanceTimersByTimeAsync(4_000));
+  expect(announcer.textContent).toBe(entry.expected);
+  const announced = announcer.firstChild;
+  await act(() => vi.advanceTimersByTimeAsync(4_000));
+  expect(announcer.firstChild).toBe(announced);
+});
+
 it('routes a refresh CONVERSATION_NOT_FOUND through the existing unavailable flow', async () => {
   vi.useFakeTimers();
   vi.mocked(api.getConversationInbox).mockResolvedValue(inboxPage([conversation('A')]));
