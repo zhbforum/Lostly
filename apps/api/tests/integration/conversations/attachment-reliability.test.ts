@@ -2,7 +2,7 @@ import { afterAll, beforeEach, expect, spyOn, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { claimConversations, claimMessages, claimMessageAttachments } from '@/db/conversations';
-import { listings } from '@/db/schema';
+import { claims, listings } from '@/db/schema';
 import * as imageProcessing from '@/image-upload/processing';
 import { StorageUnavailableError } from '@/storage/object-storage';
 import { MessageCommitUnknownError } from '@/conversations/send';
@@ -17,6 +17,32 @@ import { clearDatabase } from './fixtures';
 
 beforeEach(clearDatabase);
 afterAll(clearDatabase);
+
+test('closing a claim after preflight still denies the final insert and cleans uploaded objects', async () => {
+  const { send, input, claim, storage, quota } = await attachmentSendFixture();
+  input.images.push(input.images[0]!);
+  const originalPut = storage.put.bind(storage);
+  const keys: string[] = [];
+  const put = spyOn(storage, 'put').mockImplementation(async (...args) => {
+    await originalPut(...args);
+    keys.push(args[0]);
+    if (keys.length === input.images.length)
+      await db.update(claims).set({ status: 'rejected' }).where(eq(claims.id, claim.id));
+  });
+  const remove = spyOn(storage, 'delete');
+  try {
+    expect(await send(input)).toEqual({ ok: false, reason: 'conversation-read-only' });
+    expect(keys).toHaveLength(2);
+    expect(remove.mock.calls.map(([key]) => key)).toEqual(keys);
+    expect(storage.objects.size).toBe(0);
+    expect(quota).not.toHaveBeenCalled();
+    expect(await db.select().from(claimMessages)).toEqual([]);
+    expect(await db.select().from(claimMessageAttachments)).toEqual([]);
+  } finally {
+    put.mockRestore();
+    remove.mockRestore();
+  }
+});
 
 test.each([1, 2, 3])(
   'ambiguous PUT #%i keeps its candidate and cleans only previous successful keys',

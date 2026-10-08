@@ -76,6 +76,9 @@ export function createAttachmentSender(
           return { ok: false, reason: 'idempotency-conflict' };
         sent = { ok: true, value: { message: previous.message, created: false } } as const;
       } else {
+        // Persisted retries remain available after closure; new sends must not reach Sharp/R2.
+        // The transaction rechecks writability in case the claim closes during upload.
+        if (!access.canSendMessages) return { ok: false, reason: 'conversation-read-only' };
         const release = processing.tryAcquire();
         if (!release) throw new ConversationUploadError('busy');
         try {

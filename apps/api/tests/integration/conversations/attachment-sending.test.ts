@@ -187,6 +187,47 @@ test('rejected replay is readable, rejected new send consumes no quota, hidden r
   expect(await send(input)).toMatchObject({ ok: true, value: { created: false } });
 });
 
+test.each([false, true])(
+  'read-only preflight preserves replay/conflict priority and skips processing/storage (busy=%s)',
+  async (busy) => {
+    const { send, input, claim, storage, processing, quota } = await attachmentSendFixture();
+    const first = await send(input);
+    expect(first).toMatchObject({ ok: true, value: { created: true } });
+    await db.update(claims).set({ status: 'rejected' }).where(eq(claims.id, claim.id));
+    const capacity = spyOn(processing, 'tryAcquire');
+    if (busy) capacity.mockReturnValue(null);
+    const prepare = spyOn(imageProcessing, 'prepareImage');
+    const put = spyOn(storage, 'put');
+    const remove = spyOn(storage, 'delete');
+    try {
+      const replay = await send(input);
+      expect(replay).toMatchObject({ ok: true, value: { created: false } });
+      if (first.ok && replay.ok) expect(replay.value.message.id).toBe(first.value.message.id);
+      expect(await send({ ...input, body: 'Changed caption' })).toEqual({
+        ok: false,
+        reason: 'idempotency-conflict',
+      });
+      expect(await send({ ...input, clientOperationId: crypto.randomUUID() })).toEqual({
+        ok: false,
+        reason: 'conversation-read-only',
+      });
+      expect(capacity).not.toHaveBeenCalled();
+      expect(prepare).not.toHaveBeenCalled();
+      expect(put).not.toHaveBeenCalled();
+      expect(remove).not.toHaveBeenCalled();
+      expect(quota).toHaveBeenCalledTimes(1);
+      expect(storage.objects.size).toBe(1);
+      expect(await db.select().from(claimMessages)).toHaveLength(1);
+      expect(await db.select().from(claimMessageAttachments)).toHaveLength(1);
+    } finally {
+      capacity.mockRestore();
+      prepare.mockRestore();
+      put.mockRestore();
+      remove.mockRestore();
+    }
+  },
+);
+
 test('preflight denies stranger/admin before source reads; participant admin retains access', async () => {
   const { send, input } = await attachmentSendFixture();
   const outsider = await user('outsider');
