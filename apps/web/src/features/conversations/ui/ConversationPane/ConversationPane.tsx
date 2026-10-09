@@ -53,9 +53,15 @@ export function ConversationPane({ conversationId }: { conversationId: string })
               <section className={styles.readonly} aria-label="Read-only conversation">
                 <p role="status">
                   This conversation is read-only.
-                  {composer.draft && ' Your draft has been kept for this session.'}
+                  {composer.hasDraft && ' Your unsent draft has been kept for this session.'}
                 </p>
-                {composer.draft && (
+                {composer.draft.images.length > 0 && (
+                  <p>
+                    {composer.draft.images.length} unsent{' '}
+                    {composer.draft.images.length === 1 ? 'photo' : 'photos'} attached.
+                  </p>
+                )}
+                {composer.draft.text.length > 0 && (
                   <>
                     <label htmlFor="unsent-conversation-draft">Unsent draft</label>
                     <p id="unsent-draft-hint">
@@ -63,7 +69,7 @@ export function ConversationPane({ conversationId }: { conversationId: string })
                     </p>
                     <textarea
                       id="unsent-conversation-draft"
-                      value={composer.draft}
+                      value={composer.draft.text}
                       readOnly
                       rows={3}
                       aria-describedby="unsent-draft-hint"

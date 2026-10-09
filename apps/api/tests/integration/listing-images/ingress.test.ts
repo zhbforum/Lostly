@@ -2,6 +2,7 @@ import { afterAll, beforeEach, expect, test, spyOn } from 'bun:test';
 import { Elysia } from 'elysia';
 import { request as httpRequest } from 'node:http';
 import { createListingImageRoutes } from '@/listing-images/routes';
+import { createImageUploadInfrastructure } from '@/image-upload/infrastructure';
 import { errorHandler } from '@/http/errors';
 import { db } from '@/db';
 import { sessions } from '@/db/schema';
@@ -15,9 +16,10 @@ afterAll(clearDatabase);
 
 function setup(bodyReadTimeoutMs = 2000) {
   const storage = new MemoryObjectStorage();
+  const imageUploads = createImageUploadInfrastructure();
   const app = new Elysia()
     .use(errorHandler)
-    .use(createListingImageRoutes(storage, { bodyReadTimeoutMs }));
+    .use(createListingImageRoutes(storage, imageUploads, { bodyReadTimeoutMs }));
   return { app, storage };
 }
 function request(

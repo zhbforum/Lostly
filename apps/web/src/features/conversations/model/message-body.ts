@@ -1,16 +1,39 @@
 import { CONVERSATION_CONSTRAINTS } from './types';
 
-export function normalizeMessageBody(input: string): string | null {
+export type MessageBodyNormalization =
+  { status: 'text'; body: string } | { status: 'empty' } | { status: 'invalid' };
+
+export interface MessageBodyAnalysis {
+  normalization: MessageBodyNormalization;
+  // Capped at messageMaxLength + 1; the UI does not need an exact oversized count.
+  count: number;
+  overLimit: boolean;
+}
+
+export function analyzeMessageBody(input: string): MessageBodyAnalysis {
   const body = input.replace(/\r\n?/g, '\n').trim();
-  const length = Array.from(body).length;
-  // In Unicode mode this matches lone surrogates, but never a valid surrogate pair.
-  // Equivalent to !isWellFormed(), including browsers without that String method.
-  if (
-    /[\uD800-\uDFFF]/u.test(body) ||
-    body.includes('\0') ||
-    length < CONVERSATION_CONSTRAINTS.messageMinLength ||
-    length > CONVERSATION_CONSTRAINTS.messageMaxLength
-  )
-    return null;
-  return body;
+  let count = 0;
+  let invalid = false;
+  for (const character of body) {
+    count++;
+    const codePoint = character.codePointAt(0)!;
+    // for...of combines valid surrogate pairs, leaving only lone surrogates in this range.
+    if (codePoint === 0 || (codePoint >= 0xd800 && codePoint <= 0xdfff)) invalid = true;
+    if (count > CONVERSATION_CONSTRAINTS.messageMaxLength) {
+      return { normalization: { status: 'invalid' }, count, overLimit: true };
+    }
+  }
+  return {
+    normalization: invalid
+      ? { status: 'invalid' }
+      : count > 0
+        ? { status: 'text', body }
+        : { status: 'empty' },
+    count,
+    overLimit: false,
+  };
+}
+
+export function normalizeMessageBody(input: string): MessageBodyNormalization {
+  return analyzeMessageBody(input).normalization;
 }

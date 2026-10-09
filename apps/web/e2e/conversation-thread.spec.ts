@@ -8,10 +8,11 @@ function message(sequence: number, conversationId = 'A', senderUserId = 'other')
     sequence,
     senderUserId,
     body: `Message ${sequence}: can we arrange collection at the station?`,
+    attachments: [],
     createdAt: '2026-09-25T10:00:00.000Z',
   };
 }
-async function server(page: Page, count = 60) {
+async function server(page: Page, count = 60, useClock = true) {
   const state = {
     messages: {
       A: Array.from({ length: count }, (_, i) => message(i + 1)),
@@ -59,7 +60,18 @@ async function server(page: Page, count = 60) {
       coverImage: null,
     },
     otherParticipant: { id: 'other', displayName: id === 'A' ? 'Alex' : 'Maya' },
-    lastMessage: state.messages[id].at(-1) ?? null,
+    lastMessage: (() => {
+      const last = state.messages[id].at(-1);
+      if (!last) return null;
+      return {
+        id: last.id,
+        sequence: last.sequence,
+        senderUserId: last.senderUserId,
+        body: last.body,
+        attachmentCount: last.attachments.length,
+        createdAt: last.createdAt,
+      };
+    })(),
     lastActivityAt: '2026-09-25T10:00:00.000Z',
     unreadCount: unread(id),
     canSendMessages:
@@ -236,7 +248,7 @@ async function server(page: Page, count = 60) {
     await route.fulfill({ status, json, headers });
   });
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.clock.install();
+  if (useClock) await page.clock.install();
   return { state, errors };
 }
 
@@ -491,7 +503,7 @@ test('a definitive read-only retry restores the original body to the session dra
   await page.getByRole('button', { name: 'Retry to confirm' }).click();
   await expect(page.locator('[data-operation-id]')).toHaveCount(0);
   await expect(input).toHaveCount(0);
-  await expect(page.getByText(/Your draft has been kept for this session/)).toBeVisible();
+  await expect(page.getByText(/Your unsent draft has been kept for this session/)).toBeVisible();
   const recovery = page.getByRole('textbox', { name: 'Unsent draft', exact: true });
   await expect(recovery).toBeVisible();
   await expect(recovery).toHaveValue(body);
@@ -518,7 +530,7 @@ test('a definitive read-only retry restores the original body to the session dra
   await navigation.getByRole('link', { name: 'Activity' }).click();
   await navigation.getByRole('link', { name: /^Messages/ }).click();
   await page.locator('a[href="/messages/A"]').click();
-  await expect(page.getByText(/Your draft has been kept for this session/)).toBeVisible();
+  await expect(page.getByText(/Your unsent draft has been kept for this session/)).toBeVisible();
   await expect(recovery).toHaveValue(body);
   expect(state.sends).toHaveLength(2);
   expect(state.sends[1]).toEqual(state.sends[0]);
@@ -538,7 +550,7 @@ test('rate limit retains the operation and retries the same UUID after Retry-Aft
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   const retry = page.getByRole('button', { name: 'Retry', exact: true });
   await expect(retry).toBeDisabled();
-  await expect(page.getByText(/Too many messages/)).toBeVisible();
+  await expect(page.getByText('Temporarily rate-limited.', { exact: true })).toBeVisible();
   await expect(input).not.toBeEditable();
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
   await input.press('Control+Enter');
@@ -574,8 +586,11 @@ test('composer counts code points, keeps Enter multiline and guards IME submissi
   expect(state.sends).toHaveLength(0);
   await input.dispatchEvent('compositionend');
   await input.fill('😀'.repeat(2001));
-  await page.getByRole('button', { name: 'Send', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('1–2000');
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
+  await expect(page.getByText('2000+ / 2000', { exact: true })).toBeVisible();
+  // Commit 4 gates the button; keyboard submit must still validate independently.
+  await input.press('Control+Enter');
+  await expect(page.getByRole('alert')).toContainText('up to 2000 Unicode characters');
   expect(state.sends).toHaveLength(0);
   await input.fill('😀'.repeat(2000));
   await expect(page.getByText('2000 / 2000', { exact: true })).toBeVisible();
@@ -635,14 +650,15 @@ test('a read-only send refreshes context and retains the draft; conflicts never 
   state.readOnlySend = true;
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(input).toHaveCount(0);
-  await expect(page.getByText(/Your draft has been kept for this session/)).toBeVisible();
+  await expect(page.getByText(/Your unsent draft has been kept for this session/)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
 test('owner approval uses a focused dialog and reconciles sibling claims, handover and inbox', async ({
   page,
 }) => {
-  const { state, errors } = await server(page, 0);
+  // Use native browser frames for the modal's focus restoration; this flow needs no clock jumps.
+  const { state, errors } = await server(page, 0, false);
   state.participantRole = 'owner';
   state.sharedListing = true;
   await page.goto('/messages/A');

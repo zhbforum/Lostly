@@ -1,6 +1,7 @@
 import { LISTING_IMAGE_CONSTRAINTS } from '@lostly/contracts/listings';
 import { ImageError } from './errors';
-import { readImageUploadBody } from './read-body';
+import { ImageUploadBodyError } from '@/image-upload/errors';
+import { readBoundedRequestBody } from '@/image-upload/read-body';
 
 export const IMAGE_REQUEST_MAX_BYTES = LISTING_IMAGE_CONSTRAINTS.maxSizeBytes + 64 * 1024;
 export const IMAGE_BODY_READ_TIMEOUT_MS = 30_000;
@@ -12,7 +13,7 @@ export async function parseImageUpload(request: Request, timeoutMs = IMAGE_BODY_
   if (Number(request.headers.get('content-length')) > IMAGE_REQUEST_MAX_BYTES)
     throw new ImageError('body-too-large');
   try {
-    const body = await readImageUploadBody(request, {
+    const body = await readBoundedRequestBody(request, {
       maxBytes: IMAGE_REQUEST_MAX_BYTES,
       timeoutMs,
     });
@@ -24,6 +25,8 @@ export async function parseImageUpload(request: Request, timeoutMs = IMAGE_BODY_
     if (entries.length !== 1 || !(file instanceof File)) throw new ImageError('invalid-multipart');
     return { file };
   } catch (error) {
+    if (error instanceof ImageUploadBodyError)
+      throw new ImageError(error.reason === 'missing-body' ? 'invalid-multipart' : error.reason);
     if (error instanceof ImageError) throw error;
     throw new ImageError('invalid-multipart');
   }

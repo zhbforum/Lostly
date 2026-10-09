@@ -1,9 +1,14 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { useMessageComposer } from '../../model/use-message-composer';
+import { CONVERSATION_CONSTRAINTS, CONVERSATION_IMAGE_CONSTRAINTS } from '../../model/types';
+import { SelectedImagePreviews } from './SelectedImagePreviews';
 import styles from './MessageComposer.module.css';
 
 export function MessageComposer({ composer }: { composer: ReturnType<typeof useMessageComposer> }) {
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  const maxImages = CONVERSATION_IMAGE_CONSTRAINTS.maxCount;
+  const maxLength = CONVERSATION_CONSTRAINTS.messageMaxLength;
   const composing = useRef(false);
   useLayoutEffect(() => {
     const element = textarea.current;
@@ -11,7 +16,7 @@ export function MessageComposer({ composer }: { composer: ReturnType<typeof useM
       element.style.height = 'auto';
       element.style.height = `${Math.min(element.scrollHeight, 144)}px`;
     }
-  }, [composer.draft]);
+  }, [composer.draft.text]);
   return (
     <form
       className={styles.composer}
@@ -20,14 +25,19 @@ export function MessageComposer({ composer }: { composer: ReturnType<typeof useM
         if (!composing.current) void composer.submit();
       }}
     >
+      <SelectedImagePreviews
+        files={composer.draft.images}
+        disabled={composer.locked}
+        onRemove={composer.removeImage}
+      />
       <label className={styles.srOnly} htmlFor="conversation-draft">
         Write a message
       </label>
       <textarea
         id="conversation-draft"
         ref={textarea}
-        value={composer.draft}
-        readOnly={composer.hasUnresolvedOperation}
+        value={composer.draft.text}
+        readOnly={composer.locked}
         rows={1}
         placeholder="Write a message…"
         aria-describedby={
@@ -37,8 +47,8 @@ export function MessageComposer({ composer }: { composer: ReturnType<typeof useM
               ? 'message-count'
               : undefined
         }
-        aria-invalid={composer.count > 2000 || undefined}
-        onChange={(event) => composer.setDraft(event.target.value)}
+        aria-invalid={composer.invalidText || undefined}
+        onChange={(event) => composer.setText(event.target.value)}
         onCompositionStart={() => {
           composing.current = true;
         }}
@@ -62,13 +72,51 @@ export function MessageComposer({ composer }: { composer: ReturnType<typeof useM
           Resolve your previous message before writing another.
         </p>
       )}
+      <input
+        ref={picker}
+        className={styles.srOnly}
+        type="file"
+        multiple
+        accept={CONVERSATION_IMAGE_CONSTRAINTS.allowedContentTypes.join(',')}
+        aria-label="Choose images"
+        aria-describedby={composer.selectionError ? 'image-selection-error' : 'image-count'}
+        disabled={composer.locked || composer.draft.images.length >= maxImages}
+        onChange={(event) => {
+          const input = event.currentTarget;
+          try {
+            composer.addImages([...(input.files ?? [])]);
+          } finally {
+            input.value = '';
+          }
+        }}
+      />
+      {composer.selectionError && (
+        <p id="image-selection-error" role="alert" className={styles.invalid}>
+          {composer.selectionError}
+        </p>
+      )}
       <div className={styles.actions}>
+        <button
+          type="button"
+          className={styles.addPhotos}
+          disabled={composer.locked || composer.draft.images.length >= maxImages}
+          onClick={() => picker.current?.click()}
+        >
+          Add photos
+        </button>
+        <span
+          id="image-count"
+          role="status"
+          aria-label={`${composer.draft.images.length} of ${maxImages} images selected`}
+        >
+          {composer.draft.images.length}/{maxImages}
+        </span>
         {composer.count >= 1800 && (
-          <span id="message-count" className={composer.count > 2000 ? styles.invalid : undefined}>
-            {composer.count} / 2000
+          <span id="message-count" className={composer.overLimit ? styles.invalid : undefined}>
+            {composer.overLimit ? `${maxLength}+` : composer.count} / {maxLength}
           </span>
         )}
-        <button type="submit" disabled={composer.hasUnresolvedOperation || !composer.draft.trim()}>
+        <button type="submit" disabled={!composer.canSubmit}>
           Send <span aria-hidden="true">→</span>
         </button>
       </div>

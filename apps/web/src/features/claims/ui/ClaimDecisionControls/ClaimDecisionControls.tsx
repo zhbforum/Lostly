@@ -1,4 +1,4 @@
-import { useId, useState, type RefObject } from 'react';
+import { useId, useState } from 'react';
 import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
 import { useFormDraft } from '@/shared/model/use-form-draft';
 import { CLAIM_CONSTRAINTS, type DecideClaimInput } from '../../model/types';
@@ -11,7 +11,6 @@ interface Props {
   error: string | null;
   clearError: () => void;
   onDecision: (id: string, input: DecideClaimInput) => Promise<boolean>;
-  successFocus?: RefObject<HTMLElement | null>;
   onRefresh?: () => void;
 }
 
@@ -26,7 +25,6 @@ function DecisionForm({
   error,
   clearError,
   onDecision,
-  successFocus,
   onRefresh,
 }: Props) {
   const fieldId = useId();
@@ -56,8 +54,6 @@ function DecisionForm({
     if (await onDecision(claimId, input)) {
       discardDraft();
       setAction(null);
-      // A successful decision removes the trigger; focus a persistent context heading.
-      requestAnimationFrame(() => successFocus?.current?.focus());
     }
   }
   return (

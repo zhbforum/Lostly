@@ -75,14 +75,15 @@ test('HTTP claim → conversation → send/replay → unread/read → approval a
     senderUserId: claimant.id,
     sequence: 1,
     body: raw.trim().replaceAll('\r\n', '\n'),
+    attachments: [],
   });
   expect(typeof sent.message.createdAt).toBe('string');
   expect(Object.keys(sent.message).sort()).toEqual(
-    ['id', 'conversationId', 'sequence', 'senderUserId', 'body', 'createdAt'].sort(),
+    ['id', 'conversationId', 'sequence', 'senderUserId', 'body', 'attachments', 'createdAt'].sort(),
   );
   expect(
     await jsonOf<ClaimMessageResponse>(
-      send(claim.conversationId, claimant.cookie, sent.message.body, key),
+      send(claim.conversationId, claimant.cookie, sent.message.body!, key),
     ),
   ).toEqual(sent);
   expect(
@@ -96,7 +97,7 @@ test('HTTP claim → conversation → send/replay → unread/read → approval a
     );
     expect(inbox.conversations[0]).toMatchObject({
       unreadCount: unread,
-      lastMessage: { id: sent.message.id },
+      lastMessage: { id: sent.message.id, attachmentCount: 0 },
       lastActivityAt: sent.message.createdAt,
     });
     expect(

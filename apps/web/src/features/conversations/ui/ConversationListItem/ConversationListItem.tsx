@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { formatConversationActivity } from '../../model/conversation-formatters';
+import {
+  conversationMessagePreview,
+  formatConversationActivity,
+} from '../../model/conversation-formatters';
 import type { ConversationSummary } from '../../model/types';
 import styles from './ConversationListItem.module.css';
 
@@ -73,9 +76,7 @@ export function ConversationListItem({
               </span>
             )}
           </span>
-          <span className={styles.preview}>
-            {lastMessage?.body ?? 'Claim submitted · No messages yet'}
-          </span>
+          <span className={styles.preview}>{conversationMessagePreview(lastMessage)}</span>
           <span className={styles.status}>
             {!canSendMessages
               ? 'Read-only'

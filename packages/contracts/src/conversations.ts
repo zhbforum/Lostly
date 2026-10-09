@@ -7,6 +7,12 @@ export const CONVERSATION_CONSTRAINTS = {
   messageMaxLength: 2000,
 } as const;
 
+export const CONVERSATION_IMAGE_CONSTRAINTS = {
+  maxCount: 4,
+  maxSizeBytes: 5 * 1024 * 1024,
+  allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
+} as const;
+
 export const CONVERSATION_MESSAGE_PAGINATION = {
   defaultLimit: 50,
   maxLimit: 100,
@@ -32,7 +38,7 @@ export interface ConversationSummary {
     coverImage: ListingImage | null;
   };
   otherParticipant: ConversationParticipant;
-  lastMessage: Omit<ClaimMessage, 'conversationId'> | null;
+  lastMessage: ClaimMessagePreview | null;
   lastActivityAt: string;
   unreadCount: number;
   canSendMessages: boolean;
@@ -53,12 +59,32 @@ export interface ConversationDetail {
   canSendMessages: boolean;
 }
 
+export interface ClaimMessageAttachment {
+  id: string;
+  kind: 'image';
+  position: number;
+  url: string;
+  urlExpiresAt: string;
+  width: number;
+  height: number;
+}
+
+export interface ClaimMessagePreview {
+  id: string;
+  sequence: number;
+  senderUserId: string;
+  body: string | null;
+  attachmentCount: number;
+  createdAt: string;
+}
+
 export interface ClaimMessage {
   id: string;
   conversationId: string;
   sequence: number;
   senderUserId: string;
-  body: string;
+  body: string | null;
+  attachments: ClaimMessageAttachment[];
   createdAt: string;
 }
 
@@ -86,6 +112,10 @@ export interface ConversationMessagesResponse {
 
 export interface ClaimMessageResponse {
   message: ClaimMessage;
+}
+
+export interface RefreshMessageAttachmentsResponse {
+  attachments: ClaimMessageAttachment[];
 }
 
 export interface ReadConversationResponse {

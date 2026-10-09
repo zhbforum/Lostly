@@ -1,5 +1,7 @@
 import { getConversationMessages } from '../api/conversations-api';
 import { createRequestRevision } from './request-revision';
+import { reconcileAttachmentCapabilities } from './attachment-capabilities';
+import { acceptMessageAttachments, type MessageAttachmentResource } from './attachment-resource';
 import { CONVERSATION_MESSAGE_PAGINATION, type ClaimMessage } from './types';
 
 export interface MessageHistoryState {
@@ -23,7 +25,18 @@ export function mergeMessages(
   incoming: readonly ClaimMessage[],
 ): ClaimMessage[] {
   const byId = new Map(existing.map((message) => [message.id, message]));
-  for (const message of incoming) byId.set(message.id, message);
+  for (const message of incoming) {
+    const previous = byId.get(message.id);
+    byId.set(
+      message.id,
+      previous
+        ? {
+            ...message,
+            attachments: reconcileAttachmentCapabilities(previous.attachments, message.attachments),
+          }
+        : message,
+    );
+  }
   const bySequence = new Map<number, ClaimMessage>();
   for (const message of byId.values()) bySequence.set(message.sequence, message);
   return [...bySequence.values()].sort((a, b) => a.sequence - b.sequence);
@@ -37,6 +50,11 @@ export function createMessageHistory(conversationId: string) {
   const revision = createRequestRevision();
   const lifetime = revision.capture();
   const requests = new Map<string, Promise<void>>();
+  const attachments = new Map<
+    string,
+    { resource: MessageAttachmentResource; unsubscribe: () => void }
+  >();
+  let merging = false;
 
   function assertActive() {
     if (controller.signal.aborted || !revision.isCurrent(lifetime)) {
@@ -49,10 +67,38 @@ export function createMessageHistory(conversationId: string) {
     for (const listener of listeners) listener();
   }
   function merge(messages: readonly ClaimMessage[]) {
+    assertActive();
     if (messages.some((message) => message.conversationId !== conversationId)) {
       throw new Error('Messages belong to a different conversation');
     }
-    return mergeMessages(state.messages, messages);
+    merging = true;
+    try {
+      for (const message of messages) {
+        const resource = acceptMessageAttachments(message);
+        if (!attachments.has(message.id)) {
+          const unsubscribe = resource.subscribe(() => {
+            if (merging || !revision.isCurrent(lifetime)) return;
+            const current = state.messages.find((m) => m.id === message.id);
+            const next = resource.getSnapshot().attachments;
+            if (current && current.attachments !== next) {
+              update({
+                ...state,
+                messages: state.messages.map((m) =>
+                  m.id === message.id ? { ...m, attachments: next } : m,
+                ),
+              });
+            }
+          });
+          attachments.set(message.id, { resource, unsubscribe });
+        }
+      }
+      return mergeMessages(state.messages, messages).map((message) => {
+        const next = attachments.get(message.id)!.resource.getSnapshot().attachments;
+        return message.attachments === next ? message : { ...message, attachments: next };
+      });
+    } finally {
+      merging = false;
+    }
   }
   function request(kind: string, task: () => Promise<void>): Promise<void> {
     const existing = requests.get(kind);
@@ -71,6 +117,11 @@ export function createMessageHistory(conversationId: string) {
 
   return {
     getSnapshot: () => state,
+    attachmentResource(messageId: string) {
+      const entry = attachments.get(messageId);
+      if (!entry) throw new Error('Message has not been loaded');
+      return entry.resource;
+    },
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => {
@@ -157,6 +208,8 @@ export function createMessageHistory(conversationId: string) {
       revision.dispose();
       controller.abort();
       listeners.clear();
+      for (const entry of attachments.values()) entry.unsubscribe();
+      attachments.clear();
     },
   };
 }

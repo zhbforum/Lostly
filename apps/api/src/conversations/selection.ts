@@ -1,4 +1,3 @@
-import type { ClaimMessage } from '@lostly/contracts/conversations';
 import { claimMessages } from '@/db/conversations';
 
 export const messageSelection = {
@@ -10,7 +9,7 @@ export const messageSelection = {
   createdAt: claimMessages.createdAt,
 };
 
-export type MessageRecord = Omit<ClaimMessage, 'createdAt'> & { createdAt: Date };
+export type MessageRecord = Pick<typeof claimMessages.$inferSelect, keyof typeof messageSelection>;
 export type ConversationFailure =
   | 'conversation-not-found'
   | 'conversation-read-only'

@@ -7,6 +7,7 @@ import { moderationEvents, users } from '@/db/schema';
 import { listingImages } from '@/db/listing-images';
 import { setListingVisibility } from '@/admin/service';
 import { createImageUploader } from '@/listing-images/upload';
+import { createImageProcessingAdmission } from '@/image-upload/processing-admission';
 import { clearDatabase, report, user, claim } from './listings/management-fixtures';
 import { imageFixture } from '@tests/support/image-fixture';
 import { MemoryObjectStorage } from '@tests/support/memory-storage';
@@ -32,7 +33,7 @@ async function setup() {
     requestId: crypto.randomUUID(),
     file,
   };
-  const upload = createImageUploader(storage);
+  const upload = createImageUploader(storage, createImageProcessingAdmission());
   const image = (await upload(input)).image;
   function request(path: string, cookie?: string, body?: unknown, method = 'GET', headers = {}) {
     return app.handle(

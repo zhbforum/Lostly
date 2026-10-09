@@ -10,12 +10,19 @@ import { useAuth } from '@/features/auth/model/auth-context';
 import { ApiError } from '@/shared/api/client';
 import { getSessionGeneration, subscribeToSessionGeneration } from '@/shared/api/session-events';
 import { randomUuid } from '@/shared/lib/random-uuid';
-import { saveDraft } from '@/shared/model/form-drafts';
+import { saveConversationDraft } from './message-drafts';
+import { imageSelectionError } from './message-attachments';
 import { sendConversationMessage } from '../api/conversations-api';
 import { ConversationSendContext } from './conversation-send-context';
 import { isConversationUnavailable } from './conversation-errors';
 import { normalizeMessageBody } from './message-body';
-import type { PendingSendOperation, SendRegistry, SendResult, SendStart } from './send-operations';
+import type {
+  ConversationMessagePayload,
+  PendingSendOperation,
+  SendRegistry,
+  SendResult,
+  SendStart,
+} from './send-operations';
 
 const EMPTY: SendRegistry = {};
 
@@ -78,7 +85,7 @@ export function ConversationSendProvider({ children }: { children: ReactNode }) 
         try {
           const { message } = await sendConversationMessage(
             operation.conversationId,
-            operation.body,
+            { body: operation.body, images: operation.images },
             operation.operationId,
           );
           if (!isCurrent()) return { status: 'ignored' };
@@ -86,10 +93,11 @@ export function ConversationSendProvider({ children }: { children: ReactNode }) 
           registry.current.operations.delete(operation.operationId);
         } catch (error) {
           if (!isCurrent()) return { status: 'ignored' };
-          // Access is checked before idempotent replay. A hidden conversation cannot
-          // establish whether an earlier ambiguous attempt was already committed.
+          // Multipart may return 404 from post-commit hydration even on its first attempt.
+          // Hidden access also cannot settle an earlier ambiguous text send.
           const unresolvedUnavailable =
-            operation.mayBePersisted && isConversationUnavailable(error);
+            (operation.mayBePersisted || operation.images.length > 0) &&
+            isConversationUnavailable(error);
           if (error instanceof ApiError && error.status === 429) {
             const limited: PendingSendOperation = {
               ...operation,
@@ -108,8 +116,15 @@ export function ConversationSendProvider({ children }: { children: ReactNode }) 
             error.status !== 408 &&
             !unresolvedUnavailable
           ) {
-            // Preserve the body even if its composer has unmounted during the request.
-            saveDraft(`conversation:${operation.conversationId}`, operation.body);
+            // Restore the whole payload even when its composer is no longer mounted.
+            saveConversationDraft(
+              operation.conversationId,
+              {
+                text: operation.body ?? '',
+                images: [...operation.images],
+              },
+              operation.sessionGeneration,
+            );
             registry.current.operations.delete(operation.operationId);
             result = { status: 'rejected', operation, error };
           } else {
@@ -157,16 +172,22 @@ export function ConversationSendProvider({ children }: { children: ReactNode }) 
   );
 
   const sendMessage = useCallback(
-    (conversationId: string, input: string): SendStart => {
+    (conversationId: string, input: ConversationMessagePayload): SendStart => {
       if (!mounted.current || status !== 'authenticated' || generation !== getSessionGeneration()) {
         return { accepted: false, result: { status: 'ignored' } };
       }
-      const body = normalizeMessageBody(input);
-      if (body === null) return { accepted: false, result: { status: 'invalid' } };
+      const normalized = normalizeMessageBody(input.body ?? '');
+      if (
+        normalized.status === 'invalid' ||
+        (normalized.status === 'empty' && input.images.length === 0) ||
+        imageSelectionError(input.images)
+      )
+        return { accepted: false, result: { status: 'invalid' } };
       const operation: PendingSendOperation = {
         conversationId,
         operationId: randomUuid(),
-        body,
+        body: normalized.status === 'text' ? normalized.body : null,
+        images: Object.freeze([...input.images]),
         sessionGeneration: generation,
         createdAt: new Date().toISOString(),
         status: 'sending',

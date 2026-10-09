@@ -4,7 +4,8 @@ import { db } from '@/db';
 import { listings } from '@/db/schema';
 import { listingImages, listingImageUploads } from '@/db/listing-images';
 import { createImageUploader } from '@/listing-images/upload';
-import * as processing from '@/listing-images/processing';
+import * as processing from '@/image-upload/processing';
+import { createImageProcessingAdmission } from '@/image-upload/processing-admission';
 import * as queries from '@/listing-images/queries';
 import { resolveOwnedListing, archiveOwnedListing } from '@/listings/management';
 import { decideClaim } from '@/claims/decide';
@@ -31,7 +32,7 @@ test('serializes two uploads competing for the fifth slot and compensates the lo
   const owner = await user('photo-race');
   const listing = await report(owner.id);
   const storage = new MemoryObjectStorage();
-  const upload = createImageUploader(storage);
+  const upload = createImageUploader(storage, createImageProcessingAdmission());
   const input = { listingId: listing.id, ownerUserId: owner.id, file: await imageFixture() };
   for (let i = 0; i < 4; i++) await upload({ ...input, requestId: crypto.randomUUID() });
   const bothStored = deferred();
@@ -62,7 +63,7 @@ test('concurrent retries create one image and delete only the extra object', asy
   const owner = await user('photo-replay');
   const listing = await report(owner.id);
   const storage = new MemoryObjectStorage();
-  const upload = createImageUploader(storage);
+  const upload = createImageUploader(storage, createImageProcessingAdmission());
   const input = {
     listingId: listing.id,
     ownerUserId: owner.id,
@@ -95,7 +96,7 @@ test.each(['same file', 'different file'] as const)(
     const owner = await user('photo-preflight-replay');
     const listing = await report(owner.id);
     const storage = new MemoryObjectStorage();
-    const upload = createImageUploader(storage);
+    const upload = createImageUploader(storage, createImageProcessingAdmission());
     const input = {
       listingId: listing.id,
       ownerUserId: owner.id,
@@ -171,7 +172,7 @@ test.each(['resolve', 'archive', 'approve'] as const)(
     const claimant = await user('photo-claimant');
     const proof = await claim(listing.id, claimant.id);
     const storage = new MemoryObjectStorage();
-    const upload = createImageUploader(storage);
+    const upload = createImageUploader(storage, createImageProcessingAdmission());
     const stored = deferred();
     const release = deferred();
     const put = storage.put.bind(storage);
@@ -215,7 +216,7 @@ test('never removes a committed object when the COMMIT acknowledgement is lost',
   const owner = await user('photo-commit');
   const listing = await report(owner.id);
   const storage = new MemoryObjectStorage();
-  const upload = createImageUploader(storage);
+  const upload = createImageUploader(storage, createImageProcessingAdmission());
   const input = {
     listingId: listing.id,
     ownerUserId: owner.id,
@@ -246,13 +247,16 @@ test('compensates the stored object when PostgreSQL rejects the image insert', a
   const storage = new MemoryObjectStorage();
   const prepare = processing.prepareImage;
   // Simulate invalid processor metadata; the real DB CHECK rejects the insertion.
-  const spy = spyOn(processing, 'prepareImage').mockImplementation(async (file) => ({
-    ...(await prepare(file)),
+  const spy = spyOn(processing, 'prepareImage').mockImplementation(async (...args) => ({
+    ...(await prepare(...args)),
     width: 0,
   }));
   try {
     await expect(
-      createImageUploader(storage)({
+      createImageUploader(
+        storage,
+        createImageProcessingAdmission(),
+      )({
         listingId: listing.id,
         ownerUserId: owner.id,
         file: await imageFixture(),
@@ -271,7 +275,10 @@ test('enforces row constraints and cascades both metadata and retry records', as
   const owner = await user('photo-schema');
   const listing = await report(owner.id);
   const storage = new MemoryObjectStorage();
-  await createImageUploader(storage)({
+  await createImageUploader(
+    storage,
+    createImageProcessingAdmission(),
+  )({
     listingId: listing.id,
     ownerUserId: owner.id,
     file: await imageFixture(),

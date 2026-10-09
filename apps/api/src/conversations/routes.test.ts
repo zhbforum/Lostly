@@ -1,9 +1,16 @@
-import { expect, test } from 'bun:test';
+import { expect, spyOn, test } from 'bun:test';
 
 process.env.DATABASE_URL ??= 'postgresql://unused:unused@127.0.0.1:1/lostly_test';
 const { app } = await import('@/app');
+const authService = await import('@/auth/service');
 const id = '550e8400-e29b-41d4-a716-446655440001';
 const base = `/conversations/${id}`;
+function session() {
+  return spyOn(authService, 'getSession').mockResolvedValue({
+    session: { id, userId: id, expiresAt: new Date(Date.now() + 60_000) },
+    user: { id, email: 'test@example.com', displayName: 'Test', role: 'user' },
+  });
+}
 
 function request(path: string, body?: unknown, extra: Record<string, string> = {}) {
   return app.handle(
@@ -68,11 +75,16 @@ test.each(
     { body: 'private', participants: [id] },
   ].map((body, index) => [index, body] as const),
 )('rejects malformed send body and metadata case %i', async (_index, body) => {
-  const response = await request(base + '/messages', body);
-  expect(response.status).toBe(422);
-  expect(await response.json()).toEqual({
-    error: { code: 'VALIDATION_ERROR', message: 'Request fields are invalid' },
-  });
+  const auth = session();
+  try {
+    const response = await request(base + '/messages', body, { Cookie: 'lostly_session=test' });
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      error: { code: 'VALIDATION_ERROR', message: 'Request fields are invalid' },
+    });
+  } finally {
+    auth.mockRestore();
+  }
 });
 
 test.each(
@@ -118,21 +130,27 @@ test.each(['messages', 'read'])(
       expect(response.status).toBe(403);
       expect(await response.json()).toMatchObject({ error: { code: 'CSRF_VALIDATION_FAILED' } });
     }
-    const broken = await app.handle(
-      new Request('http://localhost' + base + '/' + suffix, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Protection': '1',
-          'Idempotency-Key': id,
-        },
-        body: '{"private-message":',
-      }),
-    );
-    expect(broken.status).toBe(400);
-    expect(await broken.json()).toEqual({
-      error: { code: 'INVALID_JSON', message: 'Request body could not be parsed' },
-    });
+    const auth = session();
+    try {
+      const broken = await app.handle(
+        new Request('http://localhost' + base + '/' + suffix, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Protection': '1',
+            'Idempotency-Key': id,
+            Cookie: 'lostly_session=test',
+          },
+          body: '{"private-message":',
+        }),
+      );
+      expect(broken.status).toBe(400);
+      expect(await broken.json()).toEqual({
+        error: { code: 'INVALID_JSON', message: 'Request body could not be parsed' },
+      });
+    } finally {
+      auth.mockRestore();
+    }
   },
 );
 
@@ -179,6 +197,7 @@ test('OpenAPI documents all conversation endpoints, security, pagination and ret
     ['/conversations/{conversationId}/messages', 'get'],
     ['/conversations/{conversationId}/messages', 'post'],
     ['/conversations/{conversationId}/read', 'post'],
+    ['/conversations/{conversationId}/messages/{messageId}/attachments/refresh', 'post'],
   ] as const) {
     const operation = spec.paths[path]![method]!;
     expect(operation.tags).toEqual(['Conversations']);
@@ -198,9 +217,19 @@ test('OpenAPI documents all conversation endpoints, security, pagination and ret
     }),
   );
   const body = send.requestBody!.content['application/json']!.schema;
+  expect(Object.keys(send.requestBody!.content)).toEqual([
+    'application/json',
+    'multipart/form-data',
+  ]);
+  expect(send.requestBody!.content['multipart/form-data']!.schema.properties.images).toMatchObject({
+    type: 'array',
+    minItems: 1,
+    maxItems: 4,
+    items: { type: 'string', format: 'binary' },
+  });
   expect(Object.keys(body.properties)).toEqual(['body']);
   expect(body.additionalProperties).toBe(false);
-  for (const code of ['201', '400', '403', '404', '409', '422', '429'])
+  for (const code of ['201', '400', '403', '404', '408', '409', '413', '415', '422', '429', '503'])
     expect(send.responses[code]).toBeDefined();
   expect(send.responses['429']!.headers!['Retry-After']!.schema.minimum).toBe(1);
   expect(send.responses['429']!.content!['application/json']).toBeDefined();
@@ -217,4 +246,45 @@ test('OpenAPI documents all conversation endpoints, security, pagination and ret
   expect(spec.paths['/me/conversations']!.get!.description).toContain(
     'does not provide a cross-request snapshot',
   );
+});
+
+test('OpenAPI separates attachment history from count-only previews and the text-only request', async () => {
+  interface Schema {
+    properties: Record<string, Schema>;
+    items: Schema;
+    type: string | string[];
+    maxItems?: number;
+  }
+  const spec = (await (await request('/openapi/json')).json()) as {
+    paths: Record<
+      string,
+      Record<
+        string,
+        {
+          responses: Record<string, { content: Record<string, { schema: Schema }> }>;
+        }
+      >
+    >;
+  };
+  const responseSchema = (path: string, method = 'get') =>
+    spec.paths[path]![method]!.responses['200']!.content['application/json']!.schema;
+  const message = responseSchema('/conversations/{conversationId}/messages').properties.messages!
+    .items;
+  expect(Object.keys(message.properties).sort()).toEqual(
+    ['id', 'conversationId', 'sequence', 'senderUserId', 'body', 'attachments', 'createdAt'].sort(),
+  );
+  expect(message.properties.body!.type).toEqual(['string', 'null']);
+  expect(message.properties.attachments!.maxItems).toBe(4);
+  expect(Object.keys(message.properties.attachments!.items.properties).sort()).toEqual(
+    ['id', 'kind', 'position', 'url', 'urlExpiresAt', 'width', 'height'].sort(),
+  );
+  const preview =
+    responseSchema('/me/conversations').properties.conversations!.items.properties.lastMessage!;
+  expect(preview.type).toEqual(['object', 'null']);
+  expect(Object.keys(preview.properties).sort()).toEqual(
+    ['id', 'sequence', 'senderUserId', 'body', 'attachmentCount', 'createdAt'].sort(),
+  );
+  expect(
+    responseSchema('/conversations/{conversationId}/messages', 'post').properties.message,
+  ).toEqual(message);
 });

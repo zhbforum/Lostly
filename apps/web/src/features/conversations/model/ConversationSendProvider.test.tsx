@@ -9,7 +9,8 @@ import {
   notifySessionExpiry,
 } from '@/shared/api/session-events';
 import { deferred } from '@/test/deferred';
-import { clearDrafts, readDraft, saveDraft } from '@/shared/model/form-drafts';
+import { clearDrafts } from '@/shared/model/form-drafts';
+import { readConversationDraft, saveConversationDraft } from './message-drafts';
 import { message } from '@/test/fixtures/conversations';
 import { sendConversationMessage } from '../api/conversations-api';
 import { ConversationSendProvider } from './ConversationSendProvider';
@@ -58,7 +59,7 @@ describe('session-owned send operations', () => {
     const { result } = renderHook(useConversationSend, { wrapper });
     let started!: SendStart;
     act(() => {
-      started = result.current.sendMessage('A', '  Hello\r\nAlex  ');
+      started = result.current.sendMessage('A', { body: '  Hello\r\nAlex  ', images: [] });
       assert(started.accepted);
       expect(sendConversationMessage).not.toHaveBeenCalled();
       expect(result.current.retry('A', started.operation.operationId)).toBe(started.completion);
@@ -75,7 +76,7 @@ describe('session-owned send operations', () => {
     });
     expect(sendConversationMessage).toHaveBeenCalledExactlyOnceWith(
       'A',
-      operation.body,
+      { body: operation.body, images: [] },
       operation.operationId,
     );
     expect(result.current.operations).toEqual({});
@@ -87,7 +88,9 @@ describe('session-owned send operations', () => {
       .mockResolvedValueOnce({ message: message(1) });
     const { result } = renderHook(useConversationSend, { wrapper });
     await act(async () => {
-      await acceptedCompletion(result.current.sendMessage('A', ' \r\nHello\r\nAlex  '));
+      await acceptedCompletion(
+        result.current.sendMessage('A', { body: ' \r\nHello\r\nAlex  ', images: [] }),
+      );
     });
     const operation = result.current.operations.A[0];
     expect(operation).toMatchObject({
@@ -105,8 +108,8 @@ describe('session-owned send operations', () => {
       });
     });
     expect(vi.mocked(sendConversationMessage).mock.calls).toEqual([
-      ['A', 'Hello\nAlex', operation.operationId],
-      ['A', 'Hello\nAlex', operation.operationId],
+      ['A', { body: 'Hello\nAlex', images: [] }, operation.operationId],
+      ['A', { body: 'Hello\nAlex', images: [] }, operation.operationId],
     ]);
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ status: 'sent' }));
     expect(result.current.operations).toEqual({});
@@ -120,8 +123,8 @@ describe('session-owned send operations', () => {
     let first!: Promise<SendResult>;
     let second!: Promise<SendResult>;
     act(() => {
-      first = acceptedCompletion(result.current.sendMessage('A', 'Hello'));
-      second = acceptedCompletion(result.current.sendMessage('A', 'Hello'));
+      first = acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
+      second = acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
     });
     const [a, b] = result.current.operations.A;
     expect(a.operationId).not.toBe(b.operationId);
@@ -144,7 +147,9 @@ describe('session-owned send operations', () => {
       .mockResolvedValueOnce({ message: message(7) });
     const { result } = renderHook(useConversationSend, { wrapper });
     await act(async () => {
-      await acceptedCompletion(result.current.sendMessage('A', ' \r\nHello\r\nAlex  '));
+      await acceptedCompletion(
+        result.current.sendMessage('A', { body: ' \r\nHello\r\nAlex  ', images: [] }),
+      );
     });
     const operation = result.current.operations.A[0];
     expect(operation).toMatchObject({
@@ -186,9 +191,9 @@ describe('session-owned send operations', () => {
       });
     });
     expect(vi.mocked(sendConversationMessage).mock.calls).toEqual([
-      ['A', 'Hello\nAlex', operation.operationId],
-      ['A', 'Hello\nAlex', operation.operationId],
-      ['A', 'Hello\nAlex', operation.operationId],
+      ['A', { body: 'Hello\nAlex', images: [] }, operation.operationId],
+      ['A', { body: 'Hello\nAlex', images: [] }, operation.operationId],
+      ['A', { body: 'Hello\nAlex', images: [] }, operation.operationId],
     ]);
     expect(result.current.operations).toEqual({});
   });
@@ -198,7 +203,9 @@ describe('session-owned send operations', () => {
     vi.mocked(sendConversationMessage).mockRejectedValueOnce(error);
     const { result } = renderHook(useConversationSend, { wrapper });
     await act(async () => {
-      expect(await acceptedCompletion(result.current.sendMessage('A', 'Hello'))).toMatchObject({
+      expect(
+        await acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] })),
+      ).toMatchObject({
         status: 'rejected',
         error,
         operation: { mayBePersisted: false },
@@ -225,7 +232,9 @@ describe('session-owned send operations', () => {
       result.current.subscribeToResults(nextListener);
       let outcome!: SendResult;
       await act(async () => {
-        outcome = await acceptedCompletion(result.current.sendMessage('A', 'Hello'));
+        outcome = await acceptedCompletion(
+          result.current.sendMessage('A', { body: 'Hello', images: [] }),
+        );
       });
       expect(outcome).toMatchObject({ status: 'sent', message: message(1) });
       expect(throwingListener).toHaveBeenCalledOnce();
@@ -248,7 +257,7 @@ describe('session-owned send operations', () => {
       .mockResolvedValueOnce({ message: message(1) });
     const { result } = renderHook(useConversationSend, { wrapper });
     await act(async () => {
-      await acceptedCompletion(result.current.sendMessage('A', 'Hello'));
+      await acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
     });
     const operation = result.current.operations.A[0];
     expect(operation).toMatchObject({
@@ -265,7 +274,7 @@ describe('session-owned send operations', () => {
     });
     expect(vi.mocked(sendConversationMessage).mock.calls[1]).toEqual([
       'A',
-      'Hello',
+      { body: 'Hello', images: [] },
       operation.operationId,
     ]);
     expect(result.current.operations).toEqual({});
@@ -282,7 +291,9 @@ describe('session-owned send operations', () => {
       const { result } = renderHook(useConversationSend, { wrapper });
       let outcome!: SendResult;
       await act(async () => {
-        outcome = await acceptedCompletion(result.current.sendMessage('A', 'Keep this body'));
+        outcome = await acceptedCompletion(
+          result.current.sendMessage('A', { body: 'Keep this body', images: [] }),
+        );
       });
       expect(outcome).toMatchObject({
         status: 'rejected',
@@ -302,7 +313,7 @@ describe('session-owned send operations', () => {
     vi.mocked(sendConversationMessage).mockRejectedValue(error);
     const { result } = renderHook(useConversationSend, { wrapper });
     await act(async () => {
-      await acceptedCompletion(result.current.sendMessage('A', 'Hello'));
+      await acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
     });
     expect(result.current.operations.A[0]).toMatchObject({
       status: 'uncertain',
@@ -324,13 +335,15 @@ describe('session-owned send operations', () => {
       oldMethods.subscribeToResults(oldListener);
       let oldSend!: Promise<SendResult>;
       act(() => {
-        oldSend = acceptedCompletion(result.current.sendMessage('A', 'Old session'));
+        oldSend = acceptedCompletion(
+          result.current.sendMessage('A', { body: 'Old session', images: [] }),
+        );
       });
       await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
       act(() => advanceSessionGeneration());
-      saveDraft('conversation:A', 'New session draft');
+      saveConversationDraft('A', { text: 'New session draft', images: [] }, getSessionGeneration());
       expect(result.current.operations).toEqual({});
-      expect(oldMethods.sendMessage('A', 'Stale handler')).toEqual({
+      expect(oldMethods.sendMessage('A', { body: 'Stale handler', images: [] })).toEqual({
         accepted: false,
         result: { status: 'ignored' },
       });
@@ -338,7 +351,9 @@ describe('session-owned send operations', () => {
       expect(sendConversationMessage).toHaveBeenCalledOnce();
       let newSend!: Promise<SendResult>;
       act(() => {
-        newSend = acceptedCompletion(result.current.sendMessage('A', 'New session'));
+        newSend = acceptedCompletion(
+          result.current.sendMessage('A', { body: 'New session', images: [] }),
+        );
       });
       await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledTimes(2));
       const current = result.current.operations.A[0];
@@ -350,7 +365,7 @@ describe('session-owned send operations', () => {
         expect(await oldSend).toEqual({ status: 'ignored' });
       });
       expect(oldListener).not.toHaveBeenCalled();
-      expect(readDraft('conversation:A')).toBe('New session draft');
+      expect(readConversationDraft('A').text).toBe('New session draft');
       expect(result.current.operations.A).toEqual([current]);
       await act(async () => {
         newRequest.resolve({ message: message(2) });
@@ -363,14 +378,14 @@ describe('session-owned send operations', () => {
   it('clears immediately on session expiry and never sends invalid text', async () => {
     vi.mocked(sendConversationMessage).mockRejectedValue(new Error('Offline'));
     const { result } = renderHook(useConversationSend, { wrapper });
-    expect(result.current.sendMessage('A', ' \n ')).toEqual({
+    expect(result.current.sendMessage('A', { body: ' \n ', images: [] })).toEqual({
       accepted: false,
       result: { status: 'invalid' },
     });
     expect(result.current.operations).toEqual({});
     expect(sendConversationMessage).not.toHaveBeenCalled();
     await act(async () => {
-      await acceptedCompletion(result.current.sendMessage('A', 'Hello'));
+      await acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
     });
     act(() => notifySessionExpiry(getSessionGeneration()));
     expect(result.current.operations).toEqual({});
@@ -384,7 +399,7 @@ describe('session-owned send operations', () => {
     result.current.subscribeToResults(listener);
     let pending!: Promise<SendResult>;
     act(() => {
-      pending = acceptedCompletion(result.current.sendMessage('A', 'Hello'));
+      pending = acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
     });
     await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
     unmount();
@@ -392,4 +407,142 @@ describe('session-owned send operations', () => {
     expect(await pending).toEqual({ status: 'ignored' });
     expect(listener).not.toHaveBeenCalled();
   });
+});
+
+describe('image operation ownership', () => {
+  const photo = (name: string) => new File([name], name, { type: 'image/jpeg' });
+
+  it('keeps the first post-commit 404 uncertain through 429 and restore, retrying the exact snapshot', async () => {
+    const a = photo('A');
+    const b = photo('B');
+    const images = [a, b, a];
+    vi.mocked(sendConversationMessage)
+      .mockRejectedValueOnce(new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Hidden after commit'))
+      .mockRejectedValueOnce(new ApiError(429, 'RATE_LIMITED', 'Capacity', 0))
+      .mockRejectedValueOnce(new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Still hidden'))
+      .mockResolvedValueOnce({ message: message(7, { body: null }) });
+    const { result } = renderHook(useConversationSend, { wrapper });
+    let started!: SendStart;
+    act(() => {
+      started = result.current.sendMessage('A', { body: ' \r\n ', images });
+    });
+    assert(started.accepted);
+    const original = started.operation;
+    const completion = started.completion;
+    expect(original.body).toBeNull();
+    expect(original.images).not.toBe(images);
+    expect(Object.isFrozen(original.images)).toBe(true);
+    images[0] = b;
+    images.pop();
+    await act(async () => {
+      await completion;
+    });
+    expect(result.current.operations.A[0]).toMatchObject({
+      status: 'uncertain',
+      mayBePersisted: true,
+    });
+    expect(readConversationDraft('A')).toEqual({ text: '', images: [] });
+    await act(() => result.current.retry('A', original.operationId));
+    expect(result.current.operations.A[0]).toMatchObject({
+      status: 'rate-limited',
+      mayBePersisted: true,
+    });
+    await act(() => result.current.retry('A', original.operationId));
+    expect(result.current.operations.A[0]).toMatchObject({
+      status: 'uncertain',
+      mayBePersisted: true,
+    });
+    await act(() => result.current.retry('A', original.operationId));
+    expect(result.current.operations).toEqual({});
+    for (const [id, payload, key] of vi.mocked(sendConversationMessage).mock.calls) {
+      expect(id).toBe('A');
+      expect(key).toBe(original.operationId);
+      expect(payload.body).toBeNull();
+      expect(payload.images).toBe(original.images);
+      [a, b, a].forEach((file, index) => expect(payload.images[index]).toBe(file));
+    }
+  });
+
+  it.each([
+    new TypeError('Network uncertain'),
+    new ApiError(408, 'IMAGE_UPLOAD_TIMEOUT', 'Timeout'),
+    new ApiError(503, 'IMAGE_STORAGE_UNAVAILABLE', 'Unavailable'),
+    new ApiError(429, 'RATE_LIMITED', 'Busy', 2),
+  ])('retains body/files and operation identity on %s', async (error) => {
+    const files = [photo('A'), photo('B')];
+    vi.mocked(sendConversationMessage).mockRejectedValueOnce(error);
+    const { result } = renderHook(useConversationSend, { wrapper });
+    let operation!: SendStart;
+    await act(async () => {
+      operation = result.current.sendMessage('A', { body: ' \r\nCaption\rText ', images: files });
+      await acceptedCompletion(operation);
+    });
+    assert(operation.accepted);
+    const pending = result.current.operations.A[0];
+    expect(pending.body).toBe('Caption\nText');
+    expect(pending.operationId).toBe(operation.operation.operationId);
+    expect(pending.images).toBe(operation.operation.images);
+    files.forEach((file, index) => expect(pending.images[index]).toBe(file));
+    expect(pending.status).toBe(
+      error instanceof ApiError && error.status === 429 ? 'rate-limited' : 'uncertain',
+    );
+  });
+
+  it.each([413, 415, 422, 409])(
+    'restores normalized payload on definitive HTTP %i, even without a composer',
+    async (status) => {
+      const files = [photo('A'), photo('B')];
+      vi.mocked(sendConversationMessage).mockRejectedValueOnce(
+        new ApiError(status, 'REJECTED', 'Rejected'),
+      );
+      const { result } = renderHook(useConversationSend, { wrapper });
+      await act(async () => {
+        await acceptedCompletion(
+          result.current.sendMessage('A', { body: ' Caption\r\n ', images: files }),
+        );
+      });
+      expect(result.current.operations).toEqual({});
+      const restored = readConversationDraft('A');
+      expect(restored.text).toBe('Caption');
+      files.forEach((file, index) => expect(restored.images[index]).toBe(file));
+    },
+  );
+
+  it.each(['success', 'rejection', 'uncertain'] as const)(
+    'ignores old-session image %s without resurrecting its files',
+    async (outcome) => {
+      const transport = deferred<ClaimMessageResponse>();
+      const file = photo('Old file');
+      vi.mocked(sendConversationMessage).mockReturnValueOnce(transport.promise);
+      const { result } = renderHook(useConversationSend, { wrapper });
+      const listener = vi.fn();
+      result.current.subscribeToResults(listener);
+      let completion!: Promise<SendResult>;
+      act(() => {
+        completion = acceptedCompletion(
+          result.current.sendMessage('A', { body: null, images: [file] }),
+        );
+      });
+      await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
+      act(() => advanceSessionGeneration());
+      const newFile = photo('New session');
+      act(() =>
+        saveConversationDraft('A', { text: 'New', images: [newFile] }, getSessionGeneration()),
+      );
+      await act(async () => {
+        if (outcome === 'success') transport.resolve({ message: message(1) });
+        else
+          transport.reject(
+            outcome === 'rejection'
+              ? new ApiError(422, 'VALIDATION_ERROR', 'Bad image')
+              : new Error('Offline'),
+          );
+        expect(await completion).toEqual({ status: 'ignored' });
+      });
+      expect(result.current.operations).toEqual({});
+      expect(listener).not.toHaveBeenCalled();
+      expect(readConversationDraft('A').images).toHaveLength(1);
+      expect(readConversationDraft('A').images[0]).toBe(newFile);
+    },
+  );
 });

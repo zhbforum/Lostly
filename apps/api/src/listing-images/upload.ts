@@ -11,10 +11,12 @@ import {
   findImageOwner,
   type ImageOwnerInput,
 } from './authorization';
-import { deleteImageObject, logImageCleanup } from './cleanup';
+import { deleteImageObject, logImageCleanup } from '@/image-upload/cleanup';
+import { InvalidImageError } from '@/image-upload/errors';
+import type { ImageProcessingAdmission } from '@/image-upload/processing-admission';
+import { readImageSource, prepareImage } from '@/image-upload/processing';
 import { ImageError } from './errors';
 import { findImages, findUpload, toListingImage } from './queries';
-import { IMAGE_PROCESSING_LIMITS, prepareImage } from './processing';
 
 async function findUploadReplay(
   input: { listingId: string; requestId: string },
@@ -29,23 +31,19 @@ async function findUploadReplay(
   return { image: toListingImage(image, storage), created: false } as const;
 }
 
-export function createImageUploader(storage: ObjectStorage) {
+export function createImageUploader(storage: ObjectStorage, processing: ImageProcessingAdmission) {
   const rateLimit = createRateLimiter(20, 60_000);
-  let running = 0;
 
   return async (input: ImageOwnerInput & { requestId: string; file: Blob }) => {
-    if (running >= IMAGE_PROCESSING_LIMITS.maxConcurrent || rateLimit(input.ownerUserId) !== null) {
-      throw new ImageError('busy');
-    }
-    running++;
+    const release = processing.tryAcquire();
+    if (!release) throw new ImageError('busy');
     try {
+      // Capacity rejection must not consume the listing-specific attempt quota.
+      if (rateLimit(input.ownerUserId) !== null) throw new ImageError('busy');
       const owner = await findImageOwner(input);
-      if (!input.file.size || input.file.size > LISTING_IMAGE_CONSTRAINTS.maxSizeBytes) {
-        throw new ImageError('invalid-image');
-      }
-      const sourceHash = new Bun.CryptoHasher('sha256')
-        .update(await input.file.arrayBuffer())
-        .digest('hex');
+      const { bytes, sourceHash } = await readImageSource(input.file, {
+        maxBytes: LISTING_IMAGE_CONSTRAINTS.maxSizeBytes,
+      });
       const previous = await findUploadReplay(input, sourceHash, storage);
       // A retry may acknowledge an earlier success after the listing was closed; it cannot mutate it.
       if (previous) return previous;
@@ -57,7 +55,9 @@ export function createImageUploader(storage: ObjectStorage) {
         if (replay) return replay;
         throw new ImageError('limit');
       }
-      const prepared = await prepareImage(input.file);
+      const prepared = await prepareImage(bytes, {
+        maxOutputBytes: LISTING_IMAGE_CONSTRAINTS.maxSizeBytes,
+      });
       const imageId = Bun.randomUUIDv7();
       const objectKey = `listings/${input.listingId}/${imageId}.webp`;
       try {
@@ -79,7 +79,7 @@ export function createImageUploader(storage: ObjectStorage) {
             );
             const previous = await findUpload(input.listingId, input.requestId, tx);
             if (previous) {
-              if (previous.sourceHash !== prepared.sourceHash || !previous.imageId)
+              if (previous.sourceHash !== sourceHash || !previous.imageId)
                 throw new ImageError('request-conflict');
               const [image] = await tx
                 .select()
@@ -108,7 +108,7 @@ export function createImageUploader(storage: ObjectStorage) {
             await tx.insert(listingImageUploads).values({
               listingId: input.listingId,
               requestId: input.requestId,
-              sourceHash: prepared.sourceHash,
+              sourceHash,
               imageId,
             });
             return { image, created: true };
@@ -126,8 +126,11 @@ export function createImageUploader(storage: ObjectStorage) {
       if (!result.created) await deleteImageObject(storage, objectKey);
       // URL generation/serialization is outside compensation: the DB commit already succeeded.
       return { image: toListingImage(result.image, storage), created: result.created };
+    } catch (error) {
+      if (error instanceof InvalidImageError) throw new ImageError('invalid-image');
+      throw error;
     } finally {
-      running--;
+      release();
     }
   };
 }

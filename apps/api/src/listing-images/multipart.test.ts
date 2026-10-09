@@ -56,3 +56,31 @@ test('rejects an oversized declared body and malformed multipart', async () => {
     ),
   ).rejects.toMatchObject({ reason: 'invalid-multipart' });
 });
+
+test('maps shared missing-body, timeout and abort failures back to listing errors', async () => {
+  const empty = new Request('http://localhost/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'multipart/form-data; boundary=test' },
+  });
+  await expect(parseImageUpload(empty)).rejects.toMatchObject({
+    name: 'ImageError',
+    reason: 'invalid-multipart',
+  });
+  const stalled = (signal?: AbortSignal) =>
+    new Request('http://localhost/upload', {
+      method: 'POST',
+      signal,
+      body: new ReadableStream<Uint8Array>(),
+      headers: { 'Content-Type': 'multipart/form-data; boundary=test' },
+    });
+  await expect(parseImageUpload(stalled(), 20)).rejects.toMatchObject({
+    name: 'ImageError',
+    reason: 'body-timeout',
+  });
+  const abort = new AbortController();
+  abort.abort();
+  await expect(parseImageUpload(stalled(abort.signal))).rejects.toMatchObject({
+    name: 'ImageError',
+    reason: 'upload-aborted',
+  });
+});

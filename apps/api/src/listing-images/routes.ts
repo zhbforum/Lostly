@@ -3,7 +3,8 @@ import { authenticationPlugin } from '@/auth/plugin';
 import { listingIdParamsSchema } from '@/listings/model';
 import { openApiMutationSecurity } from '@/openapi';
 import type { ObjectStorage } from '@/storage/object-storage';
-import { createImageUploadIngress } from './ingress';
+import type { ImageUploadInfrastructure } from '@/image-upload/infrastructure';
+import { ImageError } from './errors';
 import { deleteOwnedImage, orderOwnedImages } from './management';
 import {
   imageErrorSchema,
@@ -30,10 +31,11 @@ const errors = {
 
 export function createListingImageRoutes(
   storage: ObjectStorage,
+  imageUploads: ImageUploadInfrastructure,
   { bodyReadTimeoutMs }: { bodyReadTimeoutMs?: number } = {},
 ) {
-  const upload = createImageUploader(storage);
-  const ingress = createImageUploadIngress();
+  const upload = createImageUploader(storage, imageUploads.processing);
+  const { ingress } = imageUploads;
   return new Elysia({ prefix: '/listings', detail: { tags: ['Listing images'] } })
     .use(authenticationPlugin)
     .onRequest(async ({ request, server, status }) => {
@@ -42,7 +44,12 @@ export function createListingImageRoutes(
         !/\/listings\/[^/]+\/images\/?$/.test(new URL(request.url).pathname)
       )
         return;
-      if (!(await ingress.begin(request, server?.requestIP(request)?.address ?? 'unknown'))) {
+      const admission = await ingress.begin(
+        request,
+        server?.requestIP(request)?.address ?? 'unknown',
+      );
+      if (!admission.ok) {
+        if (admission.reason !== 'unauthenticated') throw new ImageError(admission.reason);
         return status(401, {
           error: { code: 'UNAUTHENTICATED', message: 'Authentication required' },
         });

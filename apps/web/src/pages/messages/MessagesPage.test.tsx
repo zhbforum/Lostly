@@ -9,14 +9,17 @@ import { ConversationSendProvider } from '@/features/conversations/model/Convers
 import * as api from '@/features/conversations/api/conversations-api';
 import type { ConversationInboxResponse } from '@/features/conversations/model/types';
 import { ApiError } from '@/shared/api/client';
+import { readConversationDraft } from '@/features/conversations/model/message-drafts';
 import { deferred } from '@/test/deferred';
 import {
   conversation,
   conversationDetail,
   historyPage,
   inboxPage,
+  messagePreview,
   message,
 } from '@/test/fixtures/conversations';
+import { attachment, renewed } from '@/test/fixtures/conversation-attachments';
 import { ConversationPage } from './ConversationPage';
 import { MessagesEmptyRoute } from './MessagesEmptyRoute';
 import { MessagesPage } from './MessagesPage';
@@ -88,7 +91,7 @@ it('loads the inbox with item/participant/preview/unread states and keeps it mou
     inboxPage([
       conversation('A', {
         unreadCount: 3,
-        lastMessage: message(1, { body: 'Can we meet tomorrow?' }),
+        lastMessage: messagePreview(1, { body: 'Can we meet tomorrow?' }),
       }),
       conversation('B', {
         listing: { ...conversation().listing, title: 'Blue backpack' },
@@ -120,6 +123,121 @@ it('loads the inbox with item/participant/preview/unread states and keeps it mou
   expect(await screen.findByText('This conversation is read-only.')).toBeInTheDocument();
   for (const request of [api.readConversation, api.sendConversationMessage])
     expect(request).not.toHaveBeenCalled();
+});
+
+it('renders latest, older and catch-up attachments without inbox refreshes or changing read/scroll state on URL renewal', async () => {
+  vi.useFakeTimers();
+  const images = [attachment()];
+  vi.mocked(api.getConversationInbox).mockResolvedValue(
+    inboxPage([
+      conversation('A', { lastMessage: messagePreview(50, { body: null, attachmentCount: 1 }) }),
+    ]),
+  );
+  vi.mocked(api.getConversationMessages).mockImplementation(async (_id, query) => {
+    if (query?.before) return historyPage([message(49, { body: null, attachments: images })]);
+    if (query?.after === 50)
+      return historyPage([message(51, { body: 'New caption', attachments: images })]);
+    if (query?.after) return historyPage([]);
+    return historyPage([message(50, { body: null, attachments: images })], true);
+  });
+  await act(async () => {
+    renderMessages('/messages/A', { probe: true });
+  });
+  const history = screen.getByRole('region', { name: 'Message history' });
+  expect(within(history).getAllByRole('img')).toHaveLength(1);
+  await act(async () =>
+    fireEvent.click(screen.getByRole('button', { name: 'Load earlier messages' })),
+  );
+  expect(within(history).getAllByRole('img')).toHaveLength(2);
+  await act(() => vi.advanceTimersByTimeAsync(4_000));
+  expect(within(history).getAllByRole('img')).toHaveLength(3);
+  expect(within(history).getByText('New caption')).toBeInTheDocument();
+  expect(api.refreshMessageAttachments).not.toHaveBeenCalled();
+  const before = history.querySelector('[data-message-id="message-50"]')!;
+  const getUnreadCalls = vi.mocked(api.getUnreadConversationCount).mock.calls.length;
+  const getInboxCalls = vi.mocked(api.getConversationInbox).mock.calls.length;
+  const scrollCalls = vi.mocked(history.scrollTo).mock.calls.length;
+  vi.mocked(api.refreshMessageAttachments).mockResolvedValueOnce({ attachments: renewed(images) });
+  await act(async () => fireEvent.error(before.querySelector('img')!));
+  expect(api.refreshMessageAttachments).toHaveBeenCalledExactlyOnceWith('A', 'message-50');
+  expect(history.querySelector('[data-message-id="message-50"]')).toBe(before);
+  expect(before.querySelector('img')).toHaveAttribute('src', `${images[0].url}-renewed`);
+  expect(vi.mocked(history.scrollTo).mock.calls.length).toBe(scrollCalls);
+  expect(api.readConversation).not.toHaveBeenCalled();
+  expect(api.getUnreadConversationCount).toHaveBeenCalledTimes(getUnreadCalls);
+  expect(api.getConversationInbox).toHaveBeenCalledTimes(getInboxCalls);
+});
+
+it.each([
+  { body: null, images: 1, incoming: 1, expected: '1 new message. Photo' },
+  { body: null, images: 4, incoming: 1, expected: '1 new message. 4 photos' },
+  { body: null, images: 2, incoming: 2, expected: '2 new messages. 2 photos' },
+  { body: 'New caption', images: 2, incoming: 1, expected: '1 new message. New caption' },
+  { body: 'Just text', images: 0, incoming: 1, expected: '1 new message. Just text' },
+])('announces incoming messages as "$expected" in the live region', async (entry) => {
+  vi.useFakeTimers();
+  vi.mocked(api.getConversationInbox).mockResolvedValue(inboxPage([conversation('A')]));
+  vi.mocked(api.getConversationMessages).mockImplementation(async (_id, query) => {
+    if (query?.after === 1)
+      return historyPage(
+        Array.from({ length: entry.incoming }, (_, index) =>
+          message(index + 2, {
+            body: entry.body,
+            attachments: Array.from({ length: entry.images }, (_, position) =>
+              attachment(position),
+            ),
+          }),
+        ),
+      );
+    if (query?.after) return historyPage([]);
+    return historyPage([message(1, { body: null, attachments: [attachment()] })]);
+  });
+  await act(async () => {
+    renderMessages('/messages/A', { probe: true });
+  });
+  const announcer = screen.getByTestId('message-announcer');
+  expect(announcer).toHaveAttribute('aria-live', 'polite');
+  expect(announcer.textContent).toBe('');
+  await act(() => vi.advanceTimersByTimeAsync(4_000));
+  expect(announcer.textContent).toBe(entry.expected);
+  const announced = announcer.firstChild;
+  await act(() => vi.advanceTimersByTimeAsync(4_000));
+  expect(announcer.firstChild).toBe(announced);
+});
+
+it('routes a refresh CONVERSATION_NOT_FOUND through the existing unavailable flow', async () => {
+  vi.useFakeTimers();
+  vi.mocked(api.getConversationInbox).mockResolvedValue(inboxPage([conversation('A')]));
+  vi.mocked(api.getConversationMessages).mockResolvedValue(
+    historyPage([message(1, { body: null, attachments: [attachment()] })]),
+  );
+  vi.mocked(api.refreshMessageAttachments).mockRejectedValueOnce(
+    new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Hidden'),
+  );
+  await act(async () => {
+    renderMessages('/messages/A', { probe: true });
+  });
+  const history = screen.getByRole('region', { name: 'Message history' });
+  await act(async () => fireEvent.error(within(history).getByRole('img')));
+  expect(
+    screen.getByRole('heading', { name: 'This conversation is no longer available.' }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Message history' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox', { name: 'Write a message' })).not.toBeInTheDocument();
+  await act(() => vi.advanceTimersByTimeAsync(60_000));
+  expect(api.refreshMessageAttachments).toHaveBeenCalledOnce();
+});
+
+it('does not fetch attachment URLs for image-only inbox previews', async () => {
+  vi.mocked(api.getConversationInbox).mockResolvedValue(
+    inboxPage([
+      conversation('A', { lastMessage: messagePreview(1, { body: null, attachmentCount: 4 }) }),
+    ]),
+  );
+  renderMessages('/messages', { probe: true });
+  expect(await screen.findByRole('link', { name: /4 photos/ })).toBeInTheDocument();
+  expect(api.refreshMessageAttachments).not.toHaveBeenCalled();
+  expect(api.getConversationMessages).not.toHaveBeenCalled();
 });
 
 it('shows initial loading, error/retry and the empty inbox', async () => {
@@ -274,4 +392,48 @@ it('keeps a failed cover decorative while retaining the accessible item title', 
   expect(inbox.querySelector('img')).toBeNull();
   expect(within(inbox).getByRole('link', { name: /AirPods Pro/ })).toBeInTheDocument();
   expect(within(inbox).queryByRole('img')).not.toBeInTheDocument();
+});
+
+it('shows restored unsent photos after a definitive read-only send rejection', async () => {
+  vi.mocked(api.getConversationInbox).mockResolvedValue(inboxPage([conversation('A')]));
+  vi.mocked(api.getConversation)
+    .mockResolvedValueOnce({ conversation: conversationDetail() })
+    .mockResolvedValue({
+      conversation: conversationDetail({
+        canSendMessages: false,
+        claim: { ...conversationDetail().claim, status: 'rejected' },
+      }),
+    });
+  vi.mocked(api.sendConversationMessage).mockRejectedValueOnce(
+    new ApiError(409, 'CONVERSATION_READ_ONLY', 'Read only'),
+  );
+  const createUrl = vi.fn(() => 'blob:unsent-photo');
+  const revokeUrl = vi.fn();
+  vi.stubGlobal(
+    'URL',
+    class extends URL {
+      static createObjectURL = createUrl;
+      static revokeObjectURL = revokeUrl;
+    },
+  );
+  try {
+    renderMessages('/messages/A', { probe: true });
+    const textarea = await screen.findByRole('textbox', { name: 'Write a message' });
+    const images = [
+      new File(['A'], 'A.jpg', { type: 'image/jpeg' }),
+      new File(['B'], 'B.png', { type: 'image/png' }),
+    ];
+    fireEvent.change(textarea, { target: { value: ' Caption\r\n ' } });
+    fireEvent.change(screen.getByLabelText('Choose images'), { target: { files: images } });
+    fireEvent.click(screen.getByRole('button', { name: /Send/ }));
+    const readonly = await screen.findByRole('region', { name: 'Read-only conversation' });
+    expect(readonly).toHaveTextContent('Your unsent draft has been kept');
+    expect(readonly).toHaveTextContent('2 unsent photos attached.');
+    expect(within(readonly).getByLabelText('Unsent draft')).toHaveValue('Caption');
+    images.forEach((image, index) => expect(readConversationDraft('A').images[index]).toBe(image));
+    expect(revokeUrl).toHaveBeenCalled();
+  } finally {
+    cleanup();
+    vi.unstubAllGlobals();
+  }
 });

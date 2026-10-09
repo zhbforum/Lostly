@@ -75,6 +75,9 @@ export function MessageList({
                 )}
                 <MessageBubble
                   message={message}
+                  attachmentResource={thread.attachmentResource(message.id)}
+                  onUnavailable={thread.reportError}
+                  root={historyRef}
                   own={message.senderUserId === userId}
                   sender={thread.context?.otherParticipant.displayName ?? 'Participant'}
                   grouped={Boolean(sameDay && previous.senderUserId === message.senderUserId)}
