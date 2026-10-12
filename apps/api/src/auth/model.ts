@@ -1,5 +1,6 @@
 import { t } from 'elysia';
 import { USER_ROLES } from '@/domain/user';
+import { profileAvatarSchema } from '@/profile/model';
 
 export const authUserSchema = t.Object({
   id: t.String({
@@ -7,7 +8,10 @@ export const authUserSchema = t.Object({
   }),
   email: t.String(),
   displayName: t.String(),
+  username: t.Optional(t.Nullable(t.String())),
   role: t.UnionEnum(USER_ROLES),
+  avatar: t.Optional(t.Nullable(profileAvatarSchema)),
+  profileVersion: t.Optional(t.Integer({ minimum: 1 })),
 });
 
 export const authResponseSchema = t.Object({
