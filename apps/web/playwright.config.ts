@@ -10,6 +10,8 @@ export default defineConfig({
   tsconfig: './tsconfig.node.json',
   testDir: './e2e',
   testIgnore: [
+    '**/account-menu.spec.ts',
+    '**/profile-ui.spec.ts',
     '**/messages-workspace.spec.ts',
     '**/conversation-thread.spec.ts',
     '**/conversation-attachments.spec.ts',

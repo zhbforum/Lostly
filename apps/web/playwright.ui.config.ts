@@ -6,6 +6,8 @@ export default defineConfig({
   tsconfig: './tsconfig.node.json',
   testDir: './e2e',
   testMatch: [
+    'profile-ui.spec.ts',
+    'account-menu.spec.ts',
     'messages-workspace.spec.ts',
     'conversation-thread.spec.ts',
     'conversation-attachments.spec.ts',
