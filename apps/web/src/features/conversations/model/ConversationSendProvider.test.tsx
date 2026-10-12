@@ -35,6 +35,7 @@ const auth = {
   login: async () => {},
   register: async () => {},
   logout: async () => {},
+  updateProfile: () => {},
 };
 function wrapper({ children }: { children: ReactNode }) {
   return (

@@ -1,0 +1,70 @@
+.page {
+  min-height: 100dvh;
+  background: var(--color-background);
+}
+.content {
+  width: min(100% - 32px, 680px);
+  margin: 0 auto;
+  padding: 48px 0 64px;
+}
+.heading {
+  margin-bottom: 28px;
+}
+.heading h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.125rem);
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+.heading p {
+  margin: 10px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+.loading {
+  padding: 32px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 20px;
+  color: var(--color-text-muted);
+}
+.profileLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-top: 4px;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.profileLink:hover {
+  text-decoration: underline;
+}
+.profileLink:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.loading button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.loading button:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .content {
+    padding-top: 28px;
+  }
+  .heading {
+    margin-bottom: 20px;
+  }
+}

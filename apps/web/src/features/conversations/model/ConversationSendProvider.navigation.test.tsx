@@ -42,6 +42,7 @@ const auth = {
   login: async () => {},
   register: async () => {},
   logout: async () => {},
+  updateProfile: () => {},
 };
 
 // Use the production composer so navigation exercises draft/operation ownership.

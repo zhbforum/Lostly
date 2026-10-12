@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 
 import type { AuthUser, LoginInput, RegisterInput } from '@/features/auth/model/types';
+import type { UserProfile } from '@lostly/contracts/profile';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'error';
 
@@ -11,6 +12,7 @@ export interface AuthContextValue {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (profile: UserProfile) => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

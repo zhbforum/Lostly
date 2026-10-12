@@ -1,0 +1,281 @@
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 20px;
+  box-shadow: 0 2px 6px rgb(16 24 40 / 3%);
+}
+.photoSection {
+  padding: 28px 32px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.photoRow {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.photoDetails {
+  min-width: 0;
+}
+.photoDetails h2 {
+  margin: 0 0 12px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+.photoActions,
+.footerActions,
+.dialogActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+.profileUrl {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.photoDetails .hint {
+  margin-top: 10px;
+}
+.primary,
+.secondary,
+.textButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 650;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+.primary {
+  color: white;
+  background: var(--color-primary);
+}
+.primary:hover:not(:disabled):not([data-pending]) {
+  background: var(--color-primary-hover);
+}
+.secondary {
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-color: var(--color-border-subtle);
+}
+.secondary:hover:not(:disabled) {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border);
+}
+.textButton {
+  padding: 0 8px;
+  color: var(--color-text-muted);
+  background: transparent;
+}
+.textButton:hover:not(:disabled) {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.primary:focus-visible,
+.secondary:focus-visible,
+.textButton:focus-visible,
+.primary[data-focus-visible],
+.secondary[data-focus-visible],
+.textButton[data-focus-visible] {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.primary:disabled,
+.secondary:disabled,
+.textButton:disabled,
+.primary[data-pending] {
+  opacity: 0.55;
+  cursor: default;
+}
+.primary[data-pending] {
+  cursor: wait;
+}
+.animationControl {
+  margin-top: 4px;
+  padding-left: 0;
+  font-size: 0.8125rem;
+  color: var(--color-primary);
+}
+.form {
+  display: grid;
+  gap: 28px;
+  padding: 28px 32px 24px;
+}
+.field {
+  display: grid;
+  gap: 8px;
+}
+.field label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+.optional {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.field input,
+.field textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.field textarea {
+  resize: vertical;
+  min-height: 112px;
+}
+.field textarea::placeholder {
+  color: var(--color-text-muted);
+}
+.field input:focus-visible,
+.field textarea:focus-visible {
+  outline: 3px solid var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+.field input[readonly] {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-muted);
+}
+.field [aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+.fieldMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.counter {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+}
+.joined {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.joined svg {
+  flex: none;
+}
+.error {
+  margin: 8px 0 0;
+  color: var(--color-error);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.saveStatus {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.footerActions {
+  flex: none;
+}
+.overlay {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgb(16 24 40 / 35%);
+}
+.modal {
+  width: min(100%, 400px);
+  padding: 28px;
+  background: var(--color-surface);
+  border-radius: 20px;
+  box-shadow: var(--shadow-card);
+}
+.dialog {
+  outline: none;
+}
+.dialogTitle {
+  margin: 0 0 20px;
+  font-size: 1.25rem;
+  letter-spacing: -0.025em;
+}
+.preview {
+  display: block;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-primary-soft);
+}
+.dialogHint {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.dialogActions {
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animationControl {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .photoSection {
+    padding: 24px 20px;
+  }
+  .photoRow {
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .photoActions {
+    gap: 4px;
+  }
+  .form {
+    padding: 24px 20px 20px;
+    gap: 24px;
+  }
+  .footer {
+    flex-wrap: wrap;
+  }
+  .footerActions {
+    margin-left: auto;
+  }
+}

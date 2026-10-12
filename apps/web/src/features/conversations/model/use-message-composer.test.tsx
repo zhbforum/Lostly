@@ -20,6 +20,7 @@ const auth = {
   login: async () => {},
   register: async () => {},
   logout: async () => {},
+  updateProfile: () => {},
 };
 function Wrapper({ children }: { children: ReactNode }) {
   return (
