@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -56,13 +57,37 @@ export const users = pgTable(
     email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     displayName: varchar('display_name', { length: 80 }).notNull(),
+    username: varchar('username', { length: 30 }),
+    usernameChangedAt: timestamp('username_changed_at', { withTimezone: true }),
+    bio: varchar('bio', { length: 160 }).notNull().default(''),
+    displayNameChangedAt: timestamp('display_name_changed_at', { withTimezone: true }),
+    profileVersion: integer('profile_version').notNull().default(1),
+    avatarId: uuid('avatar_id'),
+    avatarAnimated: boolean('avatar_animated').notNull().default(false),
 
     role: userRoleEnum('role').notNull().default('user'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex('users_email_lower_unique').on(sql`lower(${table.email})`)],
+  (table) => [
+    uniqueIndex('users_email_lower_unique').on(sql`lower(${table.email})`),
+    uniqueIndex('users_username_unique').on(table.username),
+    check('users_username_format', sql`${table.username} ~ '^[a-z0-9][a-z0-9_]{1,28}[a-z0-9]$'`),
+  ],
+);
+
+export const profileUsernames = pgTable(
+  'profile_usernames',
+  {
+    username: varchar('username', { length: 30 }).primaryKey(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('profile_usernames_user_idx').on(table.userId),
+    check('profile_usernames_format', sql`${table.username} ~ '^[a-z0-9][a-z0-9_]{1,28}[a-z0-9]$'`),
+  ],
 );
 
 export const sessions = pgTable(
