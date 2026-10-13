@@ -45,3 +45,13 @@ it('explains the password-first path for an existing account', () => {
   render(<GoogleAuth />);
   expect(screen.getByRole('alert')).toHaveTextContent('Use your password');
 });
+
+it.each(['__proto__', 'constructor', 'toString', 'unknown'])(
+  'ignores unrecognized callback result %s',
+  async (result) => {
+    window.history.replaceState(null, '', '/login?google=' + result);
+    render(<GoogleAuth />);
+    expect(await screen.findByRole('button', { name: 'Continue with Google' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  },
+);

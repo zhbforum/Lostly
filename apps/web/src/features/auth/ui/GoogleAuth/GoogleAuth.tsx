@@ -26,6 +26,7 @@ export function GoogleAuth({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const result = new URLSearchParams(window.location.search).get('google');
+  const message = result && Object.hasOwn(RESULTS, result) ? RESULTS[result] : null;
   useEffect(() => {
     const controller = new AbortController();
     void getAuthProviders(controller.signal)
@@ -54,7 +55,7 @@ export function GoogleAuth({
 
   return (
     <div className={styles.container}>
-      {(error || (result && RESULTS[result])) && <AuthAlert>{error || RESULTS[result!]}</AuthAlert>}
+      {(error || message) && <AuthAlert>{error || message}</AuthAlert>}
       {mode === 'link' && provider?.linked ? (
         <p role="status" className={styles.connected}>
           Google connected
