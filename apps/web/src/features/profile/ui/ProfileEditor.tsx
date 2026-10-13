@@ -19,15 +19,18 @@ interface ProfileDraft {
   username: string | null;
   bio: string;
   version: number;
+  base?: Pick<UserProfile, 'displayName' | 'username' | 'bio'>;
 }
 
 export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile }) {
   const { user, updateProfile } = useAuth();
   const draftKey = `profile:${initialProfile.id}`;
-  const [draft] = useState(() => {
+  const [draft] = useState<ProfileDraft>(() => {
     const saved = readDraft<ProfileDraft>(draftKey);
-    return saved?.version === initialProfile.version ? saved : initialProfile;
+    return saved ?? initialProfile;
   });
+  const [draftVersion, setDraftVersion] = useState(draft.version);
+  const [draftBase, setDraftBase] = useState(draft.base ?? initialProfile);
   const [profile, setProfile] = useState(initialProfile);
   const [displayName, setDisplayName] = useState(draft.displayName);
   const [username, setUsername] = useState(draft.username ?? '');
@@ -41,6 +44,7 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
   const [now, setNow] = useState(Date.now);
   const nameInput = useRef<HTMLInputElement>(null);
   const usernameInput = useRef<HTMLInputElement>(null);
+  const focusUsername = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   const nameLocked = Boolean(
@@ -54,6 +58,14 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
   const dirty =
     displayName.trim() !== profile.displayName || bio.trim() !== profile.bio || usernameChanged;
   const busy = saving || avatarBusy;
+  const draftConflict = dirty && draftVersion !== profile.version;
+
+  useEffect(() => {
+    if (!busy && focusUsername.current) {
+      focusUsername.current = false;
+      usernameInput.current?.focus();
+    }
+  }, [busy, usernameError]);
 
   useEffect(() => {
     updateProfile(initialProfile);
@@ -85,9 +97,20 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
     profile.nextUsernameChangeAt,
   ]);
   useEffect(() => {
-    if (dirty) saveDraft(draftKey, { displayName, username, bio, version: profile.version });
+    if (dirty)
+      saveDraft(draftKey, {
+        displayName,
+        username,
+        bio,
+        version: draftVersion,
+        base: {
+          displayName: draftBase.displayName,
+          username: draftBase.username,
+          bio: draftBase.bio,
+        },
+      });
     else discardDraft(draftKey);
-  }, [draftKey, displayName, username, bio, profile.version, dirty]);
+  }, [draftKey, displayName, username, bio, draftVersion, draftBase, dirty]);
   useEffect(() => {
     if (!dirty && !busy) return;
     const warn = (event: BeforeUnloadEvent) => {
@@ -97,9 +120,13 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty, busy]);
 
-  function acceptProfile(next: UserProfile, message: string) {
+  function acceptProfile(next: UserProfile, message: string, keepDraftVersion = false) {
     if (!mounted.current) return;
     setProfile(next);
+    if (!keepDraftVersion) {
+      setDraftVersion(next.version);
+      setDraftBase(next);
+    }
     updateProfile(next);
     setNotice(message);
     setNow(Date.now());
@@ -109,7 +136,8 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
     try {
       const response = await getProfile();
       if (!mounted.current) return;
-      acceptProfile(response.profile, '');
+      acceptProfile(response.profile, '', draftConflict);
+      if (draftConflict) return;
       if (response.profile.displayName !== profile.displayName) {
         setDisplayName(response.profile.displayName);
         setNameError(null);
@@ -118,9 +146,7 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
         setUsername(response.profile.username ?? '');
         setUsernameError(null);
       }
-      if (response.profile.bio !== profile.bio) {
-        setBio(response.profile.bio);
-      }
+      if (response.profile.bio !== profile.bio) setBio(response.profile.bio);
     } catch {
       return;
     }
@@ -128,7 +154,7 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (busy || !dirty) return;
+    if (busy || !dirty || draftConflict) return;
     const validation = getDisplayNameError(displayName);
     const usernameValidation = getUsernameError(normalizedUsername, profile.username);
     setNameError(validation);
@@ -181,10 +207,8 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
         cause instanceof ApiError &&
         ['USERNAME_TAKEN', 'USERNAME_RESERVED', 'INVALID_USERNAME'].includes(cause.code)
       ) {
+        focusUsername.current = true;
         setUsernameError(cause.message);
-        requestAnimationFrame(() => {
-          if (mounted.current && !request.signal.aborted) usernameInput.current?.focus();
-        });
       } else setError('We could not save your changes. Please try again.');
     } finally {
       if (!request.signal.aborted) setSaving(false);
@@ -199,7 +223,10 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
         new Date(profile.nextDisplayNameChangeAt),
       )
     : '';
-  const avatar = user?.avatar?.id === profile.avatar?.id ? (user?.avatar ?? null) : profile.avatar;
+  const avatar =
+    user?.id === profile.id && (user.profileVersion ?? 0) >= profile.version
+      ? (user.avatar ?? null)
+      : profile.avatar;
 
   return (
     <div className={styles.card}>
@@ -208,7 +235,7 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
         avatar={avatar}
         disabled={saving}
         onBusy={setAvatarBusy}
-        onSaved={acceptProfile}
+        onSaved={(next, message) => acceptProfile(next, message, draftConflict)}
         onConflict={refreshAfterConflict}
       />
       <form
@@ -217,6 +244,39 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
         onSubmit={(event) => void submit(event)}
         aria-busy={saving}
       >
+        {draftConflict && (
+          <div role="status" aria-label="Profile conflict">
+            <p>Your profile changed elsewhere. Your unsaved changes are still here.</p>
+            <dl>
+              <dt>Current name</dt>
+              <dd>{profile.displayName}</dd>
+              <dt>Current username</dt>
+              <dd>{profile.username ? `@${profile.username}` : 'Not set'}</dd>
+              <dt>Current bio</dt>
+              <dd>{profile.bio || 'Not set'}</dd>
+            </dl>
+            <p>
+              Review the current details before continuing. Locked names and usernames will be kept.
+            </p>
+            <button
+              type="button"
+              className={styles.secondary}
+              disabled={busy}
+              onClick={() => {
+                if (nameLocked || displayName === draftBase.displayName)
+                  setDisplayName(profile.displayName);
+                if (usernameLocked || normalizedUsername === (draftBase.username ?? ''))
+                  setUsername(profile.username ?? '');
+                if (bio === draftBase.bio) setBio(profile.bio);
+                setDraftVersion(profile.version);
+                setDraftBase(profile);
+                setError(null);
+              }}
+            >
+              Keep editable changes
+            </button>
+          </div>
+        )}
         <div className={styles.field}>
           <label htmlFor="profile-name">Display name</label>
           <input
@@ -329,12 +389,18 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
                   setUsernameError(null);
                   setError(null);
                   setNotice('');
+                  setDraftVersion(profile.version);
+                  setDraftBase(profile);
                 }}
               >
                 Cancel
               </button>
             )}
-            <button type="submit" className={styles.primary} disabled={busy || !dirty}>
+            <button
+              type="submit"
+              className={styles.primary}
+              disabled={busy || !dirty || draftConflict}
+            >
               {saving ? 'Saving…' : 'Save changes'}
             </button>
           </div>
