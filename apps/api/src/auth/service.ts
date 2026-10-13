@@ -92,7 +92,7 @@ export async function login(input: LoginInput): Promise<LoginResult> {
   const passwordHash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
   const passwordValid = await verifyPassword(input.password, passwordHash);
 
-  if (!user || !passwordValid) {
+  if (!user || !user.passwordHash || !passwordValid) {
     return {
       ok: false,
       reason: 'invalid_credentials',

@@ -1,6 +1,8 @@
 import { Link, useLocation } from 'react-router';
 
 import { RegisterForm } from '@/features/auth/ui/AuthForm/RegisterForm';
+import { GoogleAuth } from '@/features/auth/ui/GoogleAuth/GoogleAuth';
+import { safeReturnTo } from '@/shared/navigation/return-to';
 import { AuthPageLayout } from '@/features/auth/ui/AuthPageLayout/AuthPageLayout';
 
 export function RegisterPage() {
@@ -20,6 +22,7 @@ export function RegisterPage() {
       }
     >
       <RegisterForm />
+      <GoogleAuth returnTo={safeReturnTo(location.state?.returnTo)} />
     </AuthPageLayout>
   );
 }

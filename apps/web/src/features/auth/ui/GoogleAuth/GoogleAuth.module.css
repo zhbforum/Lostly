@@ -1,0 +1,50 @@
+.container {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.container:empty {
+  display: none;
+}
+
+.button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  color: #1f1f1f;
+  background: #fff;
+  border: 1px solid #747775;
+  border-radius: 4px;
+  font:
+    500 14px Arial,
+    sans-serif;
+  cursor: pointer;
+}
+
+.button svg {
+  flex-shrink: 0;
+}
+
+.button:hover:not(:disabled) {
+  background: #f2f2f2;
+}
+
+.button:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.connected {
+  margin: 0;
+  color: var(--color-text-muted);
+}

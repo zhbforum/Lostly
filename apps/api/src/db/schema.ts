@@ -55,7 +55,7 @@ export const users = pgTable(
       .primaryKey(),
 
     email: text('email').notNull(),
-    passwordHash: text('password_hash').notNull(),
+    passwordHash: text('password_hash'),
     displayName: varchar('display_name', { length: 80 }).notNull(),
     username: varchar('username', { length: 30 }),
     usernameChangedAt: timestamp('username_changed_at', { withTimezone: true }),
@@ -111,6 +111,36 @@ export const sessions = pgTable(
     index('sessions_user_id_idx').on(table.userId),
     index('sessions_expiration_idx').on(table.expiresAt, table.id),
   ],
+);
+
+export const authIdentities = pgTable(
+  'auth_identities',
+  {
+    provider: text('provider').notNull(),
+    subject: text('subject').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('auth_identities_provider_subject_unique').on(table.provider, table.subject),
+    uniqueIndex('auth_identities_user_provider_unique').on(table.userId, table.provider),
+  ],
+);
+
+export const oauthStates = pgTable(
+  'oauth_states',
+  {
+    stateHash: text('state_hash').primaryKey(),
+    browserHash: text('browser_hash').notNull(),
+    verifier: text('verifier').notNull(),
+    nonce: text('nonce').notNull(),
+    returnTo: text('return_to').notNull(),
+    linkSessionId: uuid('link_session_id').references(() => sessions.id, { onDelete: 'cascade' }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [index('oauth_states_expiration_idx').on(table.expiresAt)],
 );
 
 export const listings = pgTable(

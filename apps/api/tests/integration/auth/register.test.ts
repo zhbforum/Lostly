@@ -40,7 +40,7 @@ describe('register', () => {
     expect(storedUser).toBeDefined();
     expect(storedUser?.email).toBe('user@example.com');
     expect(storedUser?.passwordHash).not.toBe('correct horse battery staple');
-    expect(await verifyPassword('correct horse battery staple', storedUser!.passwordHash)).toBe(
+    expect(await verifyPassword('correct horse battery staple', storedUser!.passwordHash!)).toBe(
       true,
     );
 

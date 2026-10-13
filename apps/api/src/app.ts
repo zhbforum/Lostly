@@ -4,6 +4,7 @@ import { Elysia, t } from 'elysia';
 import { createAdminRoutes } from '@/admin/routes';
 import { createActivityRoutes } from '@/activity/routes';
 import { createAuthRoutes } from '@/auth/routes';
+import { createGoogleAuthRoutes } from '@/auth/google-routes';
 import { createProfileRoutes } from '@/profile/routes';
 import { createPublicProfileRoutes } from '@/profile/public-routes';
 import { createAuthRateLimit } from '@/auth/rate-limit';
@@ -112,6 +113,7 @@ export const createApp = (
       },
     )
     .use(createAuthRoutes(storage))
+    .use(createGoogleAuthRoutes())
     .use(createProfileRoutes(storage, imageUploads))
     .use(createPublicProfileRoutes(storage))
     .use(createListingRoutes(storage))
