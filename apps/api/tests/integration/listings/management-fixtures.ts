@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import type { UpdateListingInput } from '@lostly/contracts/listings';
-import { claims, listings, sessions, users } from '@/db/schema';
+import { claims, listings, sessions, users, profileUsernames } from '@/db/schema';
 import { claimConversations, claimConversationMembers } from '@/db/conversations';
 import { app } from '@/app';
 import { generateSessionToken, getSessionExpiresAt, hashSessionToken } from '@/auth/session';
@@ -13,6 +13,7 @@ export async function clearDatabase() {
   await db.delete(claims);
   await db.delete(listings);
   await db.delete(users);
+  await db.delete(profileUsernames);
 }
 
 export async function user(name: string) {

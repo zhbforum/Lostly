@@ -45,3 +45,15 @@ export async function imageFixture(format: 'jpeg' | 'png' | 'webp' = 'png', colo
     type: 'image/' + format,
   });
 }
+
+export async function gifFixture() {
+  const frames = await Promise.all(
+    ['#3155d9', '#f97316'].map(async (color) =>
+      Buffer.from(await (await imageFixture('png', color)).arrayBuffer()),
+    ),
+  );
+  const bytes = await sharp(frames, { join: { animated: true } })
+    .gif({ loop: 0, delay: [180, 240] })
+    .toBuffer();
+  return new File([new Uint8Array(bytes)], 'avatar.gif', { type: 'image/gif' });
+}

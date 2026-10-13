@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { Navigate, Route, Routes, useLocation, matchPath } from 'react-router';
 
 import styles from '@/app/router/AppRouter.module.css';
 import { useAuth } from '@/features/auth/model/auth-context';
@@ -9,6 +9,7 @@ import { HomePage } from '@/pages/home/HomePage';
 import { ConversationPage } from '@/pages/messages/ConversationPage';
 import { MessagesEmptyRoute } from '@/pages/messages/MessagesEmptyRoute';
 import { safeReturnTo } from '@/shared/navigation/return-to';
+import { profilePath } from '@/shared/navigation/profile-path';
 
 const CreateListingPage = lazy(async () => {
   const module = await import('@/pages/listings/CreateListingPage');
@@ -46,6 +47,14 @@ const MessagesPage = lazy(async () => ({
   default: (await import('@/pages/messages/MessagesPage')).MessagesPage,
 }));
 
+const ProfilePage = lazy(async () => ({
+  default: (await import('@/pages/profile/ProfilePage')).ProfilePage,
+}));
+
+const PublicProfilePage = lazy(async () => ({
+  default: (await import('@/pages/profile/PublicProfilePage')).PublicProfilePage,
+}));
+
 interface ListingPageFallbackProps {
   title: string;
   description: string;
@@ -65,8 +74,27 @@ function ListingPageFallback({ title, description }: ListingPageFallbackProps) {
 }
 
 export function AppRouter() {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
   const location = useLocation();
+
+  const publicRoute = matchPath('/u/:username', location.pathname) ? '/u/:username' : '/users/:id';
+  if (matchPath(publicRoute, location.pathname))
+    return (
+      <Routes>
+        <Route
+          path={publicRoute}
+          element={
+            <Suspense
+              fallback={
+                <ListingPageFallback title="Profile" description="Loading this member’s profile…" />
+              }
+            >
+              <PublicProfilePage />
+            </Suspense>
+          }
+        />
+      </Routes>
+    );
 
   if (status === 'loading') {
     return (
@@ -140,6 +168,19 @@ export function AppRouter() {
           }
         />
         <Route path="/" element={<HomePage />} />
+        <Route path="/profile" element={<Navigate to={profilePath(user!)} replace />} />
+        <Route
+          path="/profile/edit"
+          element={
+            <Suspense
+              fallback={
+                <ListingPageFallback title="Your profile" description="Loading your details…" />
+              }
+            >
+              <ProfilePage />
+            </Suspense>
+          }
+        />
         <Route
           path="/messages"
           element={

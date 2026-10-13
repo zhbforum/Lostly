@@ -1,0 +1,22 @@
+.avatar {
+  display: inline-grid;
+  flex: none;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  overflow: hidden;
+  place-items: center;
+  color: var(--color-primary-hover);
+  background: var(--color-primary-soft);
+  border: 1px solid rgb(49 85 217 / 12%);
+  border-radius: 50%;
+  font-size: calc(var(--avatar-size) * 0.36);
+  font-weight: 750;
+  line-height: 1;
+}
+.avatar picture,
+.avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

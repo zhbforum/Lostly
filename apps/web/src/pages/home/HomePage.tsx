@@ -1,4 +1,3 @@
-import { SessionPanel } from '@/features/auth/ui/SessionPanel/SessionPanel';
 import { ListingIntentActions } from '@/features/listings/ui/ListingIntentActions/ListingIntentActions';
 import styles from '@/pages/home/HomePage.module.css';
 import { AppNavigation } from '@/app/navigation/AppNavigation';
@@ -27,8 +26,6 @@ export function HomePage() {
         <Link className={styles.browseAction} to="/activity">
           My reports and claims
         </Link>
-
-        <SessionPanel />
       </div>
     </main>
   );

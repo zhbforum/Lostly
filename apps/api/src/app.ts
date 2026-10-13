@@ -3,7 +3,9 @@ import { Elysia, t } from 'elysia';
 
 import { createAdminRoutes } from '@/admin/routes';
 import { createActivityRoutes } from '@/activity/routes';
-import { authRoutes } from '@/auth/routes';
+import { createAuthRoutes } from '@/auth/routes';
+import { createProfileRoutes } from '@/profile/routes';
+import { createPublicProfileRoutes } from '@/profile/public-routes';
 import { createAuthRateLimit } from '@/auth/rate-limit';
 import { claimRoutes } from '@/claims/routes';
 import { createConversationRoutes } from '@/conversations/routes';
@@ -109,7 +111,9 @@ export const createApp = (
         },
       },
     )
-    .use(authRoutes)
+    .use(createAuthRoutes(storage))
+    .use(createProfileRoutes(storage, imageUploads))
+    .use(createPublicProfileRoutes(storage))
     .use(createListingRoutes(storage))
     .use(listingManagementRoutes)
     .use(createListingImageRoutes(storage, imageUploads))

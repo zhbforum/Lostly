@@ -1,5 +1,6 @@
 import { type MouseEvent, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
+import { ProfileLink } from '@/features/profile/ui/ProfileLink';
 import type { ConversationDetail } from '../../model/types';
 import styles from './ConversationHeader.module.css';
 
@@ -28,9 +29,16 @@ export function ConversationHeader({
         <span aria-hidden="true">←</span> Messages
       </Link>
       <h2 tabIndex={-1} ref={heading}>
-        {unavailable
-          ? 'Conversation unavailable'
-          : (context?.otherParticipant.displayName ?? 'Conversation')}
+        {unavailable ? (
+          'Conversation unavailable'
+        ) : context ? (
+          <ProfileLink
+            id={context.otherParticipant.id}
+            name={context.otherParticipant.displayName}
+          />
+        ) : (
+          'Conversation'
+        )}
       </h2>
       {context && !unavailable && (
         <p>{context.participantRole === 'owner' ? 'Claimant' : 'Finder'}</p>

@@ -27,6 +27,8 @@ function hasUploadReader(request: Request) {
   return (
     isConversationMultipart(request) ||
     (request.method === 'POST' &&
+      /^\/me\/profile\/avatar\/?$/.test(new URL(request.url).pathname)) ||
+    (request.method === 'POST' &&
       /^\/listings\/[^/]+\/images\/?$/.test(new URL(request.url).pathname))
   );
 }

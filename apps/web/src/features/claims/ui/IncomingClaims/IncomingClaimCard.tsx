@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { ProfileLink } from '@/features/profile/ui/ProfileLink';
 import { ClaimDecisionControls } from '../ClaimDecisionControls/ClaimDecisionControls';
 import { type DecideClaimInput, type IncomingClaim } from '@/features/claims/model/types';
 import styles from './IncomingClaims.module.css';
@@ -18,7 +19,9 @@ export function IncomingClaimCard({ claim, ...decision }: Props) {
     <li className={styles.claim}>
       <div className={styles.claimHeader}>
         <div>
-          <h3>{claim.claimant.displayName}</h3>
+          <h3>
+            <ProfileLink id={claim.claimant.id} name={claim.claimant.displayName} />
+          </h3>
           <p>
             Submitted{' '}
             {new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(

@@ -232,6 +232,10 @@ test('a cold detail absent from loaded rows returns focus to the inbox heading',
   await page.goto('/activity');
   await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
   await expect(page.getByText('No reports on this page.', { exact: true })).toBeVisible();
+  const unreadNavigation = page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'Messages, 1 unread conversation', exact: true });
+  await expect(unreadNavigation).toBeVisible();
   await page.goto('/messages/not-loaded');
   const detail = page.getByRole('region', { name: 'Conversation', exact: true });
   await expect(detail.getByRole('textbox', { name: 'Write a message' })).toBeVisible();
@@ -240,8 +244,13 @@ test('a cold detail absent from loaded rows returns focus to the inbox heading',
   await expect(page.getByRole('heading', { name: 'Messages', exact: true })).toBeFocused();
   await page.goBack();
   await expect(page).toHaveURL(/\/activity$/);
+  await expect(page.getByText('No reports on this page.', { exact: true })).toBeVisible();
+  await expect(unreadNavigation).toBeVisible();
   await page.goForward();
   await expect(page).toHaveURL(/\/messages$/);
+  await expect(
+    page.getByRole('region', { name: 'Messages', exact: true }).getByRole('link'),
+  ).toHaveCount(20);
   expect(errors).toEqual([]);
 });
 

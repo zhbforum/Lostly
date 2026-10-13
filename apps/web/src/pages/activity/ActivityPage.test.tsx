@@ -6,6 +6,9 @@ import { getActivity } from '@/features/activity/api/activity-api';
 import { ActivityPage } from './ActivityPage';
 
 vi.mock('@/features/activity/api/activity-api');
+vi.mock('@/features/auth/model/auth-context', () => ({
+  useAuth: () => ({ user: null }),
+}));
 vi.mock('@/features/conversations/model/use-conversation-unread', () => ({
   useConversationUnread: () => ({ unreadConversationCount: 0, refreshUnread: () => {} }),
 }));

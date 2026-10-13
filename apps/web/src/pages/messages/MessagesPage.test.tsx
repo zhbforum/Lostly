@@ -64,6 +64,7 @@ function renderMessages(
           login: async () => {},
           register: async () => {},
           logout: async () => {},
+          updateProfile: () => {},
         }}
       >
         <ConversationSendProvider>

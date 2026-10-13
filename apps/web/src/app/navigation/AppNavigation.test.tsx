@@ -1,8 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { ConversationUnreadContext } from '@/features/conversations/model/use-conversation-unread';
 import { AppNavigation } from './AppNavigation';
+
+vi.mock('@/features/auth/model/auth-context', () => ({
+  useAuth: () => ({ user: null }),
+}));
 
 it('shows the conversation count, caps the visual badge and selects nested message routes', () => {
   render(

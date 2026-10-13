@@ -27,6 +27,11 @@ export const openApiPlugin = openapi({
     },
     tags: [
       {
+        name: 'Profile',
+        description:
+          'Public member profiles, owner-only editing, weekly display name changes and private avatar storage.',
+      },
+      {
         name: 'Listing images',
         description: 'Report photos, private storage and owner photo management.',
       },
