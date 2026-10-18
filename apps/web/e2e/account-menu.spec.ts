@@ -19,6 +19,18 @@ async function mockAccount(page: Page, user = account) {
 
     const path = new URL(request.url()).pathname;
     if (path === '/auth/me') return route.fulfill({ json: { user }, headers });
+
+    if (path === '/auth/providers')
+      return route.fulfill({
+        json: {
+          google: {
+            enabled: false,
+            linked: false,
+          },
+        },
+        headers,
+      });
+
     if (path === '/me/conversations/unread-count')
       return route.fulfill({ json: { unreadConversationCount: 2 }, headers });
     if (path === '/listings' || path === '/me/listings')

@@ -70,6 +70,18 @@ async function mockProfile(page: Page, profile = initial, guest = false) {
           },
         },
       });
+
+    if (path === '/auth/providers')
+      return route.fulfill({
+        headers,
+        json: {
+          google: {
+            enabled: false,
+            linked: false,
+          },
+        },
+      });
+
     if (path === '/me/conversations/unread-count')
       return route.fulfill({ headers, json: { unreadConversationCount: 2 } });
     if (path.startsWith('/me/profile/username/')) {
