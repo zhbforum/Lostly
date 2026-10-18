@@ -2,6 +2,8 @@ import { Link, useLocation } from 'react-router';
 import { useAuth } from '@/features/auth/model/auth-context';
 
 import { LoginForm } from '@/features/auth/ui/AuthForm/LoginForm';
+import { GoogleAuth } from '@/features/auth/ui/GoogleAuth/GoogleAuth';
+import { safeReturnTo } from '@/shared/navigation/return-to';
 import { AuthPageLayout } from '@/features/auth/ui/AuthPageLayout/AuthPageLayout';
 
 export function LoginPage() {
@@ -28,6 +30,7 @@ export function LoginPage() {
         </p>
       )}
       <LoginForm />
+      <GoogleAuth returnTo={safeReturnTo(location.state?.returnTo)} />
     </AuthPageLayout>
   );
 }

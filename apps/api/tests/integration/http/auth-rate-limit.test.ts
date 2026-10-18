@@ -28,6 +28,7 @@ function streamedRequest(path: string, csrf = true) {
 test.each([
   ['/auth/login', 20],
   ['/auth/register', 5],
+  ['/auth/google/start', 10],
 ] as const)(
   'production %s limiter rejects before any body read, after CSRF',
   async (path, limit) => {
@@ -112,4 +113,15 @@ test('listening production server rejects an unfinished chunked auth body withou
     read.mockRestore();
     await api.stop(true);
   }
+});
+
+test('Google callback admission rejects repeated requests before OAuth work', async () => {
+  const api = createApp(new MemoryObjectStorage(), { authRateLimit: true });
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const response = await api.handle(new Request('http://localhost/auth/google/callback'));
+    expect(response.status).toBe(303);
+  }
+  const blocked = await api.handle(new Request('http://localhost/auth/google/callback'));
+  expect(blocked.status).toBe(429);
+  expect(Number(blocked.headers.get('Retry-After'))).toBeGreaterThan(0);
 });

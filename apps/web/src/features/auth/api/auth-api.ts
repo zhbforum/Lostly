@@ -24,3 +24,16 @@ export function logout(): Promise<void> {
     method: 'POST',
   });
 }
+
+export function getAuthProviders(signal?: AbortSignal) {
+  return apiRequest<{ google: { enabled: boolean; linked: boolean } }>('/auth/providers', {
+    signal,
+  });
+}
+
+export function startGoogleAuth(mode: 'login' | 'link', returnTo: string) {
+  return apiRequest<{ url: string }>('/auth/google/start', {
+    method: 'POST',
+    body: { mode, returnTo },
+  });
+}

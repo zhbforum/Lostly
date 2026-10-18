@@ -1,6 +1,7 @@
 import { AppNavigation } from '@/app/navigation/AppNavigation';
 import { Link } from 'react-router';
 import { useAuth } from '@/features/auth/model/auth-context';
+import { GoogleAuth } from '@/features/auth/ui/GoogleAuth/GoogleAuth';
 import { getProfile } from '@/features/profile/api/profile-api';
 import { ProfileEditor } from '@/features/profile/ui/ProfileEditor';
 import { useApiResource } from '@/shared/model/use-api-resource';
@@ -37,6 +38,7 @@ export function ProfilePage() {
         {state.status === 'success' && (
           <ProfileEditor key={state.data.profile.id} initialProfile={state.data.profile} />
         )}
+        <GoogleAuth mode="link" returnTo="/profile" />
       </div>
     </main>
   );
