@@ -63,7 +63,32 @@ it('switches gallery photos and hides management controls for a viewer', async (
   render(<ListingPhotos listingId={reportId} images={images} canManage={false} />);
   await userEvent.setup().click(screen.getByRole('button', { name: 'Show photo 2' }));
   expect(screen.getByAltText('Report photo 2')).toHaveAttribute('src', images[1].url);
+  expect(screen.getByRole('button', { name: 'Next photo' })).toBeDisabled();
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Previous photo' }));
+  expect(screen.getByAltText('Report photo 1')).toHaveAttribute('src', images[0].url);
+  expect(screen.getByRole('button', { name: 'Previous photo' })).toBeDisabled();
   expect(screen.queryByRole('region', { name: 'Manage photos' })).not.toBeInTheDocument();
+});
+
+it('moves the cover later and reflects the authoritative new order', async () => {
+  const images = [photo(0), photo(1)];
+  vi.mocked(orderListingImages).mockResolvedValue({
+    images: [
+      { ...images[1], position: 0 },
+      { ...images[0], position: 1 },
+    ],
+  });
+  render(<ListingPhotos listingId={reportId} images={images} canManage />);
+  const actor = userEvent.setup();
+  await actor.click(screen.getByText('Manage photos', { selector: 'summary span' }));
+  await actor.click(screen.getByRole('button', { name: 'Move photo 1 right' }));
+  expect(orderListingImages).toHaveBeenCalledExactlyOnceWith(
+    reportId,
+    [images[1].id, images[0].id],
+    expect.any(AbortSignal),
+  );
+  expect(screen.getByAltText('Photo 1, cover')).toHaveAttribute('src', images[1].url);
+  expect(screen.getByRole('button', { name: 'Move photo 2 right' })).toBeDisabled();
 });
 
 it('reorders and deletes saved photos, updating the cover and gallery', async () => {
