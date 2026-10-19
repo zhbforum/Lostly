@@ -32,12 +32,12 @@ export default defineConfig({
     },
     {
       name: 'mobile-chrome',
-      testMatch: 'conversations.spec.ts',
+      testMatch: ['conversations.spec.ts', 'auth.spec.ts'],
       use: deviceProfile('Pixel 7'),
     },
     {
       name: 'mobile-webkit',
-      testMatch: 'conversations.spec.ts',
+      testMatch: ['conversations.spec.ts', 'auth.spec.ts'],
       use: deviceProfile('iPhone 13'),
     },
   ],
