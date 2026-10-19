@@ -1,10 +1,6 @@
 import { test, expect, type BrowserContext } from '@playwright/test';
-import {
-  barrier,
-  chooseImages,
-  expectDecoded,
-  multipartPayload,
-} from './support/conversation-images.ts';
+import { barrier } from './support/barrier.ts';
+import { chooseImages, expectDecoded, multipartPayload } from './support/conversation-images.ts';
 
 const api = 'http://localhost:3000';
 const headers = { 'X-CSRF-Protection': '1' };
