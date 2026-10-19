@@ -4,6 +4,7 @@ import type { UserProfile } from '@lostly/contracts/profile';
 import { AuthProvider } from './AuthProvider';
 import { useAuth } from './auth-context';
 import { readDraft, saveDraft } from '@/shared/model/form-drafts';
+import { deferred } from '@/test/deferred';
 
 const user = {
   id: 'user-1',
@@ -39,7 +40,45 @@ function avatar(expiresIn: number, url = 'https://images.example.com/old.webp') 
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it('renews an expiring avatar on return to a visible tab without overlapping requests', async () => {
+  vi.useFakeTimers();
+  const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+  const oldAvatar = avatar(90_000);
+  const freshAvatar = avatar(3_600_000, 'https://images.example.com/visible.webp');
+  const pending = deferred<Response>();
+  const fetcher = vi
+    .fn()
+    .mockResolvedValueOnce(Response.json({ user: { ...user, avatar: oldAvatar } }))
+    .mockReturnValueOnce(pending.promise);
+  vi.stubGlobal('fetch', fetcher);
+  const { result, unmount } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+  await act(async () => {});
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  expect(fetcher).toHaveBeenCalledOnce();
+  // A suspended tab may resume after expiry without having run its scheduled timer.
+  vi.setSystemTime(Date.now() + 90_000);
+  hidden.mockReturnValue(true);
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  expect(fetcher).toHaveBeenCalledOnce();
+  hidden.mockReturnValue(false);
+  act(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(result.current.user?.avatar).toEqual(oldAvatar);
+  await act(async () => pending.resolve(Response.json({ user: { ...user, avatar: freshAvatar } })));
+  expect(result.current.user?.avatar).toEqual(freshAvatar);
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  unmount();
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  await vi.advanceTimersByTimeAsync(3_600_000);
+  expect(fetcher).toHaveBeenCalledTimes(2);
 });
 
 it('updates the current profile without clearing drafts and ignores older or unrelated identities', async () => {
