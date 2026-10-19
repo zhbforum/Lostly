@@ -104,3 +104,31 @@ it('stops after confirmed unavailable and retries temporary errors only on reque
   expect(readConversation).toHaveBeenCalledTimes(2);
   controller.dispose();
 });
+
+it('does not loop when a read response fails to advance and resumes only after explicit retry', async () => {
+  const retried = deferred<ReadConversationResponse>();
+  vi.mocked(readConversation)
+    .mockResolvedValueOnce({ lastReadSequence: 4, unreadCount: 2 })
+    .mockReturnValueOnce(retried.promise);
+  const { controller, onRead } = setup();
+  try {
+    controller.observe([message(5)]);
+    await tick();
+    expect(onRead).toHaveBeenCalledExactlyOnceWith({ lastReadSequence: 4, unreadCount: 2 });
+    controller.observe([message(6)]);
+    await tick();
+    expect(readConversation).toHaveBeenCalledOnce();
+    controller.retry();
+    await tick();
+    expect(readConversation).toHaveBeenCalledTimes(2);
+    expect(readConversation).toHaveBeenLastCalledWith('A', 'message-6', expect.any(AbortSignal));
+    retried.resolve({ lastReadSequence: 6, unreadCount: 0 });
+    await tick();
+    controller.observe([message(6)]);
+    await tick();
+    expect(readConversation).toHaveBeenCalledTimes(2);
+    expect(onRead).toHaveBeenLastCalledWith({ lastReadSequence: 6, unreadCount: 0 });
+  } finally {
+    controller.dispose();
+  }
+});
