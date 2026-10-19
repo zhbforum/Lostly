@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => ({
     tsconfigPaths: true,
   },
   test: {
+    maxWorkers: 4,
     include: ['src/**/*.test.{ts,tsx}'],
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
