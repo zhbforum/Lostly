@@ -45,9 +45,10 @@ export function LoginForm() {
     setErrorMessage(null);
 
     if (errors.email) {
+      const emailError = getEmailError(value, event.currentTarget.validity.typeMismatch);
       setErrors((current) => ({
         ...current,
-        email: getEmailError(value, event.currentTarget.validity.typeMismatch),
+        email: emailError,
       }));
     }
   }
