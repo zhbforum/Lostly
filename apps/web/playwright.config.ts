@@ -10,6 +10,7 @@ export default defineConfig({
   tsconfig: './tsconfig.node.json',
   testDir: './e2e',
   testIgnore: [
+    '**/google-auth.spec.ts',
     '**/account-menu.spec.ts',
     '**/profile-ui.spec.ts',
     '**/messages-workspace.spec.ts',
@@ -32,12 +33,12 @@ export default defineConfig({
     },
     {
       name: 'mobile-chrome',
-      testMatch: 'conversations.spec.ts',
+      testMatch: ['conversations.spec.ts', 'auth.spec.ts'],
       use: deviceProfile('Pixel 7'),
     },
     {
       name: 'mobile-webkit',
-      testMatch: 'conversations.spec.ts',
+      testMatch: ['conversations.spec.ts', 'auth.spec.ts'],
       use: deviceProfile('iPhone 13'),
     },
   ],

@@ -217,3 +217,78 @@ it('loads older history with retry and trusts canSendMessages for approved archi
   expect(result.current.history.caughtUpThroughSequence).toBe(50);
   expect(result.current.context?.canSendMessages).toBe(true);
 });
+
+it.each([false, true])(
+  'ignores obsolete history requests after read-target reconciliation (rejected: %s)',
+  async (rejected) => {
+    vi.mocked(api.getConversationMessages).mockResolvedValue(historyPage([message(5)], true));
+    const { result } = renderHook(() => useConversationThread('A', unavailable, activity), {
+      wrapper: Wrapper,
+    });
+    await flush();
+    const older = deferred<ConversationMessagesResponse>();
+    const catchUp = deferred<ConversationMessagesResponse>();
+    vi.mocked(api.getConversationMessages).mockImplementation((_id, query) =>
+      query?.before ? older.promise : catchUp.promise,
+    );
+    let loadingOlder!: Promise<boolean>;
+    act(() => {
+      loadingOlder = result.current.loadOlder();
+    });
+    await flush();
+    const olderSignal = vi.mocked(api.getConversationMessages).mock.calls.at(-1)![2]!;
+    await act(() => vi.advanceTimersByTimeAsync(4000));
+    const catchUpSignal = vi.mocked(api.getConversationMessages).mock.calls.at(-1)![2]!;
+    expect(api.getConversationMessages).toHaveBeenLastCalledWith(
+      'A',
+      { after: 5, limit: 100 },
+      expect.any(AbortSignal),
+    );
+    vi.mocked(api.getConversationMessages).mockResolvedValue(historyPage([message(6)]));
+    await act(() => result.current.reconcileReadTarget());
+    expect(olderSignal.aborted).toBe(true);
+    expect(catchUpSignal.aborted).toBe(true);
+    expect(result.current.history.messages.map((item) => item.sequence)).toEqual([6]);
+    expect(result.current.loadingOlder).toBe(false);
+    await act(async () => {
+      if (rejected) {
+        older.reject(new TypeError('Old page failed'));
+        catchUp.reject(new TypeError('Old poll failed'));
+      } else {
+        older.resolve(historyPage([message(4)]));
+        catchUp.resolve(historyPage([message(7)]));
+      }
+      expect(await loadingOlder).toBe(false);
+    });
+    expect(result.current.history.messages.map((item) => item.sequence)).toEqual([6]);
+    expect(result.current.history.caughtUpThroughSequence).toBe(6);
+    expect(result.current.historyError).toBeNull();
+    expect(result.current.olderError).toBeNull();
+    expect(result.current.unavailable).toBe(false);
+    expect(unavailable).not.toHaveBeenCalled();
+  },
+);
+
+it('can retry a failed replacement history after a missing read target', async () => {
+  vi.mocked(api.getConversationMessages).mockResolvedValue(historyPage([message(5)]));
+  const { result } = renderHook(() => useConversationThread('A', unavailable, activity), {
+    wrapper: Wrapper,
+  });
+  await flush();
+  vi.mocked(api.getConversationMessages)
+    .mockRejectedValueOnce(new TypeError('offline'))
+    .mockResolvedValue(historyPage([message(6)]));
+  await act(() => result.current.reconcileReadTarget());
+  expect(result.current.history.messages).toEqual([]);
+  expect(result.current.historyError).toBe('Could not load message history.');
+  expect(result.current.unavailable).toBe(false);
+  act(() => result.current.refreshMessages());
+  await flush();
+  expect(result.current.history.messages.map((item) => item.sequence)).toEqual([6]);
+  expect(result.current.historyError).toBeNull();
+  expect(api.getConversationMessages).toHaveBeenLastCalledWith(
+    'A',
+    { limit: 50 },
+    expect.any(AbortSignal),
+  );
+});

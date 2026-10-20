@@ -148,6 +148,36 @@ describe('EditListingForm', () => {
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
   });
 
+  it.each([403, 404])(
+    'preserves edits but disables saving when access is lost (%s)',
+    async (status) => {
+      update.mockRejectedValue(
+        new ApiError(status, 'LISTING_UNAVAILABLE', 'Private server details'),
+      );
+      const user = userEvent.setup();
+      const onSaved = vi.fn();
+      render(<EditListingForm listing={listing} onSaved={onSaved} />);
+      const title = screen.getByLabelText('Title');
+      await user.clear(title);
+      await user.type(title, 'My unsaved title');
+      await user.click(screen.getByRole('button', { name: 'Save changes' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'This report is no longer available for editing.',
+      );
+      expect(screen.queryByText('Private server details')).not.toBeInTheDocument();
+      expect(title).toHaveValue('My unsaved title');
+      expect(title).toBeDisabled();
+      const submit = screen.getByRole('button', { name: 'Save changes' });
+      expect(submit).toBeDisabled();
+      await user.click(submit);
+      expect(update).toHaveBeenCalledOnce();
+      expect(onSaved).not.toHaveBeenCalled();
+      expect(readDraft(`listing:edit:${listing.id}:${listing.version}`)).toMatchObject({
+        title: 'My unsaved title',
+      });
+    },
+  );
+
   it('preserves every field and the draft on version conflict without retrying or navigating', async () => {
     update.mockRejectedValue(new ApiError(409, 'LISTING_VERSION_CONFLICT', 'Version conflict'));
     const user = userEvent.setup();

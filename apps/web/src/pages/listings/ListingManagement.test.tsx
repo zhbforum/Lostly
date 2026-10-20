@@ -158,6 +158,33 @@ describe('listing owner management', () => {
     expect(details).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['resolve', 'archive'] as const)(
+    'refreshes server state after an uncertain %s without repeating the mutation',
+    async (action) => {
+      const mutation = action === 'resolve' ? resolve : archive;
+      const status = action === 'resolve' ? 'resolved' : 'archived';
+      const label = action === 'resolve' ? 'Mark as resolved' : 'Archive report';
+      details.mockResolvedValueOnce(ownerReport()).mockResolvedValue(ownerReport(status));
+      mutation.mockRejectedValue(new TypeError('Response lost'));
+      const user = userEvent.setup();
+      renderPage();
+      await user.click(await screen.findByRole('button', { name: label }));
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: label }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('We could not confirm the change');
+      await user.click(screen.getByRole('button', { name: 'Refresh report' }));
+      expect(
+        await screen.findByText(action === 'resolve' ? 'Resolved' : 'Archived', { exact: true }),
+      ).toBeVisible();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('Report status refreshed.');
+      expect(screen.queryByRole('link', { name: 'Edit report' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Mark as resolved' })).not.toBeInTheDocument();
+      expect(details).toHaveBeenCalledTimes(2);
+      expect(mutation).toHaveBeenCalledExactlyOnceWith(reportId);
+      expect(action === 'resolve' ? archive : resolve).not.toHaveBeenCalled();
+    },
+  );
+
   it('blocks duplicate actions while the request is pending', async () => {
     details.mockResolvedValueOnce(ownerReport()).mockResolvedValue(ownerReport('resolved'));
     let finish!: (value: { listing: ReturnType<typeof ownerReport>['listing'] }) => void;

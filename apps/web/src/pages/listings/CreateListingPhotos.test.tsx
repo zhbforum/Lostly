@@ -104,7 +104,37 @@ it('creates the report once and retries only failed photos with the same operati
   expect(calls[1][1]).toBe(files[1]);
   expect(calls[2][1]).toBe(files[1]);
   expect(calls[1][2]).toBe(calls[2][2]);
+  await actor.click(screen.getByRole('button', { name: 'Create another report' }));
+  expect(screen.getByLabelText('Title')).toHaveValue('');
+  expect(screen.getByLabelText('Description')).toHaveValue('');
+  expect(screen.getByLabelText('Location')).toHaveValue('');
+  expect(screen.queryByText('2 of 2 photos uploaded.')).not.toBeInTheDocument();
+  expect(screen.queryByAltText(/Selected photo/)).not.toBeInTheDocument();
+  await actor.upload(
+    screen.getByLabelText('Add photos'),
+    new File(['new'], 'new.png', { type: 'image/png' }),
+  );
+  expect(screen.getAllByAltText(/Selected photo/)).toHaveLength(1);
+  expect(createListing).toHaveBeenCalledOnce();
+  expect(uploadListingImage).toHaveBeenCalledTimes(3);
 });
+
+it.each(['/listings/new', '/listings/new?kind=unknown'])(
+  'requires choosing a kind when opening %s',
+  async (path) => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <CreateListingPage />
+      </MemoryRouter>,
+    );
+    for (const radio of screen.getAllByRole('radio')) expect(radio).not.toBeChecked();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Create report' }));
+    expect(
+      screen.getByRole('link', { name: 'Choose whether you lost or found the item.' }),
+    ).toBeVisible();
+    expect(createListing).not.toHaveBeenCalled();
+  },
+);
 
 it('shows completed-file progress and offers View report only after uploading settles', async () => {
   vi.stubGlobal(

@@ -6,6 +6,7 @@ export default defineConfig({
   tsconfig: './tsconfig.node.json',
   testDir: './e2e',
   testMatch: [
+    'google-auth.spec.ts',
     'profile-ui.spec.ts',
     'account-menu.spec.ts',
     'messages-workspace.spec.ts',

@@ -43,14 +43,6 @@ export async function expectDecoded(images: Locator, count: number) {
   }
 }
 
-export function barrier() {
-  let release!: () => void;
-  const promise = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return { promise, release };
-}
-
 export async function multipartPayload(request: Request) {
   const contentType = request.headers()['content-type'];
   expect(contentType).toMatch(/^multipart\/form-data;\s*boundary=/);

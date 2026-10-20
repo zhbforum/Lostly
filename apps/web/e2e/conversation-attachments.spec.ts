@@ -5,7 +5,8 @@ import {
   browserTime,
   historyMessage,
 } from './support/conversation-attachment-server.ts';
-import { barrier, chooseImages, expectDecoded, pngImage } from './support/conversation-images.ts';
+import { barrier } from './support/barrier.ts';
+import { chooseImages, expectDecoded, pngImage } from './support/conversation-images.ts';
 
 test('committed image 404 survives unavailable and SPA return, then 429 and same-operation replay', async ({
   page,

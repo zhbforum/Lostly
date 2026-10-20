@@ -4,6 +4,7 @@ import type { PublicProfileResponse } from '@lostly/contracts/profile';
 import { ApiError } from '@/shared/api/client';
 import { getPublicProfile } from '../api/profile-api';
 import { usePublicProfile } from './use-public-profile';
+import { deferred } from '@/test/deferred';
 
 vi.mock('../api/profile-api');
 const profile = {
@@ -17,6 +18,52 @@ const profile = {
 afterEach(() => {
   vi.useRealTimers();
   vi.resetAllMocks();
+  vi.restoreAllMocks();
+});
+
+it('refreshes an expiring public avatar on visibility without hiding the profile or duplicating requests', async () => {
+  vi.useFakeTimers();
+  const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+  const avatar = {
+    id: 'avatar',
+    url: 'old',
+    staticUrl: 'old-still',
+    animated: false,
+    urlExpiresAt: new Date(Date.now() + 90_000).toISOString(),
+  };
+  const fresh = {
+    ...avatar,
+    url: 'fresh',
+    staticUrl: 'fresh-still',
+    urlExpiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+  };
+  const pending = deferred<PublicProfileResponse>();
+  vi.mocked(getPublicProfile)
+    .mockResolvedValueOnce({ profile: { ...profile, avatar } })
+    .mockReturnValueOnce(pending.promise);
+  const { result, unmount } = renderHook(() => usePublicProfile('alex'));
+  await act(async () => {});
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  expect(getPublicProfile).toHaveBeenCalledOnce();
+  vi.setSystemTime(Date.now() + 90_000);
+  hidden.mockReturnValue(true);
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  expect(getPublicProfile).toHaveBeenCalledOnce();
+  hidden.mockReturnValue(false);
+  act(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  expect(getPublicProfile).toHaveBeenCalledTimes(2);
+  expect(result.current.state).toMatchObject({ status: 'success', profile: { avatar } });
+  await act(async () => pending.resolve({ profile: { ...profile, avatar: fresh } }));
+  expect(result.current.state).toMatchObject({ status: 'success', profile: { avatar: fresh } });
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  expect(getPublicProfile).toHaveBeenCalledTimes(2);
+  unmount();
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  await vi.advanceTimersByTimeAsync(3_600_000);
+  expect(getPublicProfile).toHaveBeenCalledTimes(2);
 });
 
 it('aborts a previous member request and never displays its late response for a different member', async () => {
