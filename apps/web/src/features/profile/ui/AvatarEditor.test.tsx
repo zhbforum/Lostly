@@ -77,7 +77,7 @@ it.each([
     expect(openFilePicker).toHaveBeenCalledOnce();
     await select();
     expect(await screen.findByRole('dialog', { name: 'Update profile photo' })).toBeVisible();
-    expect(screen.getByRole('img', { name: 'Preview of your new profile photo' })).toHaveAttribute(
+    expect(screen.getByRole('img', { name: 'New profile preview' })).toHaveAttribute(
       'src',
       preview,
     );
@@ -169,7 +169,7 @@ it.each([
   await select();
   await actor.click(await screen.findByRole('button', { name: 'Save photo' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(feedback);
-  expect(screen.getByRole('img', { name: 'Preview of your new profile photo' })).toBeVisible();
+  expect(screen.getByRole('img', { name: 'New profile preview' })).toBeVisible();
   expect(onSaved).not.toHaveBeenCalled();
   await actor.click(screen.getByRole('button', { name: 'Save photo' }));
   await waitFor(() => expect(onSaved).toHaveBeenCalledWith(updated, 'Profile photo updated.'));

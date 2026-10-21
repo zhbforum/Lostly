@@ -1,4 +1,11 @@
-import { type ReactNode, useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { useAuth } from '@/features/auth/model/auth-context';
 import { getSessionGeneration, subscribeToSessionGeneration } from '@/shared/api/session-events';
 import { useVisiblePolling } from '@/shared/model/use-visible-polling';
@@ -36,14 +43,20 @@ export function ConversationUnreadProvider({ children }: { children: ReactNode }
     revision.current.invalidate();
     poll();
   }, [poll]);
+
+  const unreadConversationCount =
+    status === 'authenticated' && snapshot.generation === generation ? snapshot.count : 0;
+
+  const value = useMemo(
+    () => ({
+      unreadConversationCount,
+      refreshUnread,
+    }),
+    [refreshUnread, unreadConversationCount],
+  );
+
   return (
-    <ConversationUnreadContext.Provider
-      value={{
-        unreadConversationCount:
-          status === 'authenticated' && snapshot.generation === generation ? snapshot.count : 0,
-        refreshUnread,
-      }}
-    >
+    <ConversationUnreadContext.Provider value={value}>
       {children}
     </ConversationUnreadContext.Provider>
   );

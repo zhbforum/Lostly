@@ -109,12 +109,12 @@ it('creates the report once and retries only failed photos with the same operati
   expect(screen.getByLabelText('Description')).toHaveValue('');
   expect(screen.getByLabelText('Location')).toHaveValue('');
   expect(screen.queryByText('2 of 2 photos uploaded.')).not.toBeInTheDocument();
-  expect(screen.queryByAltText(/Selected photo/)).not.toBeInTheDocument();
+  expect(screen.queryByAltText(/Selected attachment/)).not.toBeInTheDocument();
   await actor.upload(
     screen.getByLabelText('Add photos'),
     new File(['new'], 'new.png', { type: 'image/png' }),
   );
-  expect(screen.getAllByAltText(/Selected photo/)).toHaveLength(1);
+  expect(screen.getAllByAltText(/Selected attachment/)).toHaveLength(1);
   expect(createListing).toHaveBeenCalledOnce();
   expect(uploadListingImage).toHaveBeenCalledTimes(3);
 });

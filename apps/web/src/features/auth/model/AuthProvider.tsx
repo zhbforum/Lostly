@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { UserProfile } from '@lostly/contracts/profile';
 import {
   getCurrentUser,
@@ -85,14 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [avatarExpiry, userId]);
 
-  function authenticate(nextUser: AuthUser) {
+  const authenticate = useCallback((nextUser: AuthUser) => {
     advanceSessionGeneration();
     selectDraftOwner(nextUser.id);
     authenticated.current = true;
     setUser(nextUser);
     setStatus('authenticated');
     setSessionExpired(false);
-  }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeToSessionExpiry(() => {
@@ -119,23 +119,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       operation.current += 1;
       unsubscribe();
     };
-  }, []);
+  }, [authenticate]);
 
-  async function signIn(request: () => Promise<{ user: AuthUser }>) {
-    const version = ++operation.current;
-    advanceSessionGeneration();
-    const response = await request();
-    if (version === operation.current) authenticate(response.user);
-  }
+  const signIn = useCallback(
+    async (request: () => Promise<{ user: AuthUser }>) => {
+      const version = ++operation.current;
+      advanceSessionGeneration();
+      const response = await request();
+      if (version === operation.current) authenticate(response.user);
+    },
+    [authenticate],
+  );
 
-  function login(input: LoginInput) {
-    return signIn(() => loginRequest(input));
-  }
-  function register(input: RegisterInput) {
-    return signIn(() => registerRequest(input));
-  }
+  const login = useCallback((input: LoginInput) => signIn(() => loginRequest(input)), [signIn]);
 
-  async function logout() {
+  const register = useCallback(
+    (input: RegisterInput) => signIn(() => registerRequest(input)),
+    [signIn],
+  );
+
+  const logout = useCallback(async () => {
     const version = ++operation.current;
     advanceSessionGeneration();
     clearDrafts();
@@ -146,13 +149,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setStatus('unauthenticated');
     setSessionExpired(false);
-  }
+  }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{ user, status, sessionExpired, login, register, logout, updateProfile }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      status,
+      sessionExpired,
+      login,
+      register,
+      logout,
+      updateProfile,
+    }),
+    [user, status, sessionExpired, login, register, logout, updateProfile],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

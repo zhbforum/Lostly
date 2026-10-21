@@ -183,8 +183,8 @@ export function ListingDetailsPage() {
             <ListingOwnerControls
               listingId={state.listing.listing.id}
               capabilities={state.listing.capabilities}
-              onChanged={(message) => {
-                setNotice({ id, message });
+              onChanged={(noticeMessage) => {
+                setNotice({ id, message: noticeMessage });
                 retry();
               }}
             />

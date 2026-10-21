@@ -132,15 +132,15 @@ function createAttachmentResource(conversationId: string, messageId: string, for
     ingest: (attachments: readonly ClaimMessageAttachment[]) => install(attachments),
     recover,
     isCurrent: (version: number) => active() && version === state.version,
-    loaded(version: number, id: string) {
+    loaded(version: number, attachmentId: string) {
       if (
         !active() ||
         version !== state.version ||
-        state.failed.includes(id) ||
-        !state.attachments.some((a) => a.id === id)
+        state.failed.includes(attachmentId) ||
+        !state.attachments.some((a) => a.id === attachmentId)
       )
         return;
-      loaded.add(id);
+      loaded.add(attachmentId);
       if (
         consumedAtVersion !== null &&
         state.version > consumedAtVersion &&
@@ -151,11 +151,16 @@ function createAttachmentResource(conversationId: string, messageId: string, for
         publish({ automaticAvailable: true, retryable: false });
       }
     },
-    failed(version: number, id: string) {
-      if (!active() || version !== state.version || !state.attachments.some((a) => a.id === id))
+    failed(version: number, attachmentId: string) {
+      if (
+        !active() ||
+        version !== state.version ||
+        !state.attachments.some((a) => a.id === attachmentId)
+      )
         return;
-      loaded.delete(id);
-      if (!state.failed.includes(id)) publish({ failed: [...state.failed, id] });
+      loaded.delete(attachmentId);
+      if (!state.failed.includes(attachmentId))
+        publish({ failed: [...state.failed, attachmentId] });
     },
     dispose() {
       disposed = true;

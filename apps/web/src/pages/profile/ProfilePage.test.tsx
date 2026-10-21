@@ -72,9 +72,9 @@ it('retries a failed profile load and cancels the current request on unmount', a
   expect(await screen.findByRole('alert')).toHaveTextContent('We could not load your profile.');
   await actor.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByLabelText('Display name')).toHaveValue('Alex Morgan');
-  const [, options] = fetcher.mock.calls
-    .filter(([url]) => new URL(String(url)).pathname === '/me/profile')
-    .at(-1)!;
+  const [, options] = fetcher.mock.calls.findLast(
+    ([url]) => new URL(String(url)).pathname === '/me/profile',
+  )!;
   view.unmount();
   expect(options!.signal!.aborted).toBe(true);
 });

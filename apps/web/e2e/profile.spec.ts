@@ -46,7 +46,7 @@ test('profile persists a weekly name change, bio and GIF avatar through the real
     await chooser
   ).setFiles({ name: gif.name, mimeType: gif.type, buffer: Buffer.from(await gif.arrayBuffer()) });
   const dialog = page.getByRole('dialog', { name: 'Update profile photo' });
-  await expect(dialog.getByAltText('Preview of your new profile photo')).toBeVisible();
+  await expect(dialog.getByAltText('New profile preview')).toBeVisible();
   await dialog.getByRole('button', { name: 'Save photo', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(

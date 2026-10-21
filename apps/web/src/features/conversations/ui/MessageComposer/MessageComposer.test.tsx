@@ -199,7 +199,7 @@ it('keeps an empty-MIME file sendable even when its local preview cannot decode'
   render(<Harness />, { wrapper: Wrapper });
   const unknown = new File(['Server must inspect bytes'], 'private');
   select([unknown]);
-  fireEvent.error(screen.getByRole('img', { name: 'Selected image 1' }));
+  fireEvent.error(screen.getByRole('img', { name: 'Selected attachment 1' }));
   expect(screen.getByText('Preview unavailable')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /Send/ })).toBeEnabled();
   expect(composer.draft.images[0]).toBe(unknown);

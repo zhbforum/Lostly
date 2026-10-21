@@ -250,8 +250,8 @@ describe('listing owner management', () => {
     details.mockResolvedValue(report);
     let finish!: (value: { listing: typeof report.listing }) => void;
     vi.mocked(updateListing).mockReturnValue(
-      new Promise((resolve) => {
-        finish = resolve;
+      new Promise((complete) => {
+        finish = complete;
       }),
     );
     const user = userEvent.setup();

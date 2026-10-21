@@ -45,7 +45,7 @@ it('uploads to an existing report and starts a fresh queue after delete and repl
   const fileB = new File(['b'], 'b.png', { type: 'image/png' });
 
   await actor.upload(input, fileA);
-  expect(screen.getByAltText('Selected photo 1')).toBeInTheDocument();
+  expect(screen.getByAltText('Selected attachment 1')).toBeInTheDocument();
   await actor.click(screen.getByRole('button', { name: 'Upload photos' }));
   await waitFor(() => expect(screen.getByAltText('Photo 2')).toHaveAttribute('src', first.url));
   expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();

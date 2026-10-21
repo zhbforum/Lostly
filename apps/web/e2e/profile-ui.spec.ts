@@ -278,7 +278,7 @@ test('GIF preview is keyboard accessible, saves to the header and respects reduc
   ).setFiles({ name: gif.name, mimeType: gif.type, buffer: Buffer.from(await gif.arrayBuffer()) });
   const dialog = page.getByRole('dialog', { name: 'Update profile photo' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByAltText('Preview of your new profile photo')).toBeVisible();
+  await expect(dialog.getByAltText('New profile preview')).toBeVisible();
   await dialog.getByRole('button', { name: 'Save photo', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Change photo', exact: true })).toBeFocused();
@@ -301,9 +301,9 @@ test('GIF preview is keyboard accessible, saves to the header and respects reduc
 
 async function choosePngWithoutMime(page: Page) {
   const bytes = Array.from(pngImage(32, 32, 105));
-  await page.locator('input[type=file]').evaluate((element, bytes) => {
+  await page.locator('input[type=file]').evaluate((element, fileBytes) => {
     const transfer = new DataTransfer();
-    const file = new File([new Uint8Array(bytes)], 'photo.png');
+    const file = new File([new Uint8Array(fileBytes)], 'photo.png');
     if (file.type !== '') throw new Error('The regression requires an empty MIME type');
     transfer.items.add(file);
     (element as HTMLInputElement).files = transfer.files;
@@ -317,7 +317,7 @@ test('a valid PNG with an empty File.type reaches preview and upload', async ({ 
   await expect(page.getByLabel('Display name', { exact: true })).toBeVisible();
   await choosePngWithoutMime(page);
   const dialog = page.getByRole('dialog', { name: 'Update profile photo' });
-  await expect(dialog.getByAltText('Preview of your new profile photo')).toBeVisible();
+  await expect(dialog.getByAltText('New profile preview')).toBeVisible();
   await dialog.getByRole('button', { name: 'Save photo', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(

@@ -1,6 +1,7 @@
 import {
   type ReactNode,
   useCallback,
+  useMemo,
   useEffect,
   useRef,
   useState,
@@ -235,16 +236,19 @@ export function ConversationSendProvider({ children }: { children: ReactNode }) 
     [generation],
   );
 
+  const operations = snapshot.generation === generation ? snapshot.operations : EMPTY;
+
+  const value = useMemo(
+    () => ({
+      operations,
+      sendMessage,
+      retry,
+      subscribeToResults,
+    }),
+    [operations, retry, sendMessage, subscribeToResults],
+  );
+
   return (
-    <ConversationSendContext.Provider
-      value={{
-        operations: snapshot.generation === generation ? snapshot.operations : EMPTY,
-        sendMessage,
-        retry,
-        subscribeToResults,
-      }}
-    >
-      {children}
-    </ConversationSendContext.Provider>
+    <ConversationSendContext.Provider value={value}>{children}</ConversationSendContext.Provider>
   );
 }

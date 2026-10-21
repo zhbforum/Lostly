@@ -160,7 +160,9 @@ describe('message history consistency', () => {
       await Promise.resolve();
       const signal = vi.mocked(getConversationMessages).mock.calls.at(-1)![2];
       const before = a.getSnapshot();
-      const ignored = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+      const ignored = (async () => {
+        await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+      })();
       a.dispose();
       expect(signal?.aborted).toBe(true);
       const b = createMessageHistory('B');

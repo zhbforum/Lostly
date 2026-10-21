@@ -184,7 +184,7 @@ it.each([
         Array.from({ length: entry.incoming }, (_, index) =>
           message(index + 2, {
             body: entry.body,
-            attachments: Array.from({ length: entry.images }, (_, position) =>
+            attachments: Array.from({ length: entry.images }, (_image, position) =>
               attachment(position),
             ),
           }),
