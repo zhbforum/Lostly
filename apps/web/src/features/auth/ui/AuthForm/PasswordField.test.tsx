@@ -6,6 +6,7 @@ import { PasswordField } from './PasswordField';
 
 it('toggles password visibility without changing its value or submitting the form', async () => {
   const submit = vi.fn((event) => event.preventDefault());
+
   function Form() {
     const [value, setValue] = useState('a private password');
     return (
@@ -19,18 +20,26 @@ it('toggles password visibility without changing its value or submitting the for
       </form>
     );
   }
+
   const actor = userEvent.setup();
+
   render(<Form />);
+
   const input = screen.getByLabelText('Password');
+
   expect(input).toHaveAttribute('type', 'password');
+
   await actor.click(screen.getByRole('button', { name: 'Show password' }));
+
   expect(input).toHaveAttribute('type', 'text');
   expect(input).toHaveValue('a private password');
   expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
+
   await actor.click(screen.getByRole('button', { name: 'Hide password' }));
+
   expect(input).toHaveAttribute('type', 'password');
   expect(submit).not.toHaveBeenCalled();
 });
@@ -51,6 +60,7 @@ it.each([
       maxLength={128}
     />,
   );
+
   expect(screen.getByLabelText('Password')).toHaveValue('x'.repeat(length));
   expect(screen.getByLabelText('Password')).not.toHaveAttribute('maxlength');
   expect(screen.getByText(feedback)).toHaveAttribute('aria-live', 'polite');
@@ -71,6 +81,7 @@ it('disables the reveal control with the field and associates its error and hint
       hint="Pasting is supported."
     />,
   );
+
   expect(screen.getByLabelText('Password')).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Show password' })).toBeDisabled();
   expect(screen.getByLabelText('Password')).toBeInvalid();

@@ -11,21 +11,25 @@ describe('message normalization matches the server contract', () => {
       body: 'Hello  \n  Alex\nBye',
     });
   });
+
   it.each(['', ' \r\n\t '])('distinguishes empty text: %j', (body) => {
     expect(normalizeMessageBody(body)).toEqual({ status: 'empty' });
   });
+
   it.each(['\0', 'hello\0world', '\ud800', '\udfff', 'a\ud800b', '\udfff\ud800'])(
     'rejects invalid Unicode: %j',
     (body) => {
       expect(normalizeMessageBody(body)).toEqual({ status: 'invalid' });
     },
   );
+
   it.each(['😀'.repeat(2000), 'e\u0301'.repeat(1000), 'a'.repeat(2000), '\uFFFD'])(
     'accepts valid scalars up to 2000 code points',
     (body) => {
       expect(normalizeMessageBody(body)).toEqual({ status: 'text', body });
     },
   );
+
   it.each(['😀'.repeat(2001), 'e\u0301'.repeat(1001), 'a'.repeat(2001)])(
     'rejects oversized text',
     (body) => {
@@ -47,6 +51,7 @@ describe('message body analysis', () => {
     'accepts exactly the code-point limit with an exact count: %s',
     (character) => {
       const body = character.repeat(maxLength);
+
       expect(analyzeMessageBody(body)).toEqual({
         normalization: { status: 'text', body },
         count: maxLength,
@@ -65,6 +70,7 @@ describe('message body analysis', () => {
 
   it('counts emoji and combining characters by code point, not UTF-16 unit or grapheme', () => {
     const body = '😀e\u0301';
+
     expect(analyzeMessageBody(body)).toEqual({
       normalization: { status: 'text', body },
       count: 3,

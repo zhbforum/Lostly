@@ -34,12 +34,14 @@ const listing = {
 };
 const unauthorized = () =>
   Response.json({ error: { code: 'UNAUTHENTICATED', message: 'Sign in' } }, { status: 401 });
+
 function Position() {
   const location = useLocation();
   return (
     <output aria-label="Current URL">{location.pathname + location.search + location.hash}</output>
   );
 }
+
 function renderApp(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -50,6 +52,7 @@ function renderApp(path: string) {
     </MemoryRouter>,
   );
 }
+
 async function login() {
   const actor = userEvent.setup();
   await actor.type(await screen.findByLabelText('Email'), user.email);
@@ -57,6 +60,7 @@ async function login() {
   await actor.click(screen.getByRole('button', { name: 'Sign in' }));
   return actor;
 }
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe('authentication and report flow', () => {
@@ -108,8 +112,12 @@ describe('authentication and report flow', () => {
       );
 
       const destination = `/listings/${report.listing.id}/edit?source=activity#form`;
+
+      // GIVEN: the editor contains unsaved fields based on the original server version.
       renderApp(destination);
+
       await screen.findByLabelText('Title', {}, { timeout: 5000 });
+
       for (const [label, value] of Object.entries({
         Title: edited.title,
         Description: edited.description,
@@ -118,14 +126,21 @@ describe('authentication and report flow', () => {
       })) {
         fireEvent.change(screen.getByLabelText(label), { target: { value } });
       }
+
       const actor = userEvent.setup();
+
+      // WHEN: saving encounters session expiry and sends the user back to sign-in.
       await actor.click(screen.getByRole('button', { name: 'Save changes' }));
+
       await screen.findByText(/Your session expired/);
       expect(screen.getByLabelText('Current URL')).toHaveTextContent('/login');
       expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
+
       await login();
 
       const expected = serverChanged ? fresh : edited;
+
+      // THEN: only a version-compatible draft is restored; PATCH is never replayed.
       expect(await screen.findByLabelText('Title')).toHaveValue(expected.title);
       expect(screen.getByLabelText('Description')).toHaveValue(expected.description);
       expect(screen.getByLabelText('Location')).toHaveValue(expected.location);
@@ -162,11 +177,15 @@ describe('authentication and report flow', () => {
       }),
     );
     const destination = '/listings/' + listing.id + '?source=shared#claims';
+
     renderApp(destination);
+
     const actor = userEvent.setup();
+
     await actor.click(await screen.findByRole('link', { name: 'Create an account' }));
     await actor.click(screen.getByRole('link', { name: 'Sign in' }));
     await login();
+
     // The first lazy details import includes the real accessible dialog library.
     await screen.findByRole('heading', { name: listing.title }, { timeout: 5000 });
     expect(screen.getByLabelText('Current URL')).toHaveTextContent(destination);
@@ -205,6 +224,8 @@ describe('authentication and report flow', () => {
         throw new Error('Unexpected request');
       }),
     );
+
+    // GIVEN: a new report has not been saved when its first submission gets a 401.
     renderApp('/listings/new?kind=found');
     fireEvent.change(await screen.findByLabelText('Title'), { target: { value: listing.title } });
     fireEvent.change(screen.getByLabelText('Description'), {
@@ -212,16 +233,24 @@ describe('authentication and report flow', () => {
     });
     fireEvent.change(screen.getByLabelText('Location'), { target: { value: listing.location } });
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: listing.occurredOn } });
+
     const actor = userEvent.setup();
+
     await actor.click(screen.getByRole('button', { name: 'Create report' }));
+
     await screen.findByText(/Your session expired/);
+
     await login();
+
     expect(await screen.findByLabelText('Title')).toHaveValue(listing.title);
     expect(screen.getByLabelText('Description')).toHaveValue(listing.description);
     expect(screen.getByLabelText('Date')).toHaveValue(listing.occurredOn);
     expect(creates).toBe(1); // Never silently replay a mutation on reauthentication.
+
+    // WHEN: the user explicitly submits the restored draft, creation can proceed.
     await actor.click(screen.getByRole('button', { name: 'Create report' }));
     await actor.click(await screen.findByRole('link', { name: 'View report' }));
+
     await screen.findByRole('heading', { name: listing.title });
     await waitFor(() => expect(creates).toBe(2));
   });

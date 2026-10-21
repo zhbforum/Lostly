@@ -9,9 +9,11 @@ it.each(['image/jpeg', 'image/png', 'image/webp', ''])(
   'allows advisory MIME %j, duplicates and exactly four files',
   (type) => {
     const file = image(type, CONVERSATION_IMAGE_CONSTRAINTS.maxSizeBytes);
+
     expect(imageSelectionError([file, file, file, file])).toBeNull();
   },
 );
+
 it.each([
   [() => image('image/jpeg', 0), 'This image is empty.'],
   [
@@ -23,6 +25,7 @@ it.each([
 ] as const)('rejects the whole mixed batch: %s', (makeInvalid, error) => {
   expect(imageSelectionError([image(), makeInvalid(), image()])).toBe(error);
 });
+
 it('rejects overflow including previously selected files', () => {
   expect(imageSelectionError([image(), image(), image()], 2)).toBe(
     'You can attach up to 4 images.',

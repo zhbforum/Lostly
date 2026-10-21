@@ -8,10 +8,12 @@ import { readDraft, saveDraft } from '@/shared/model/form-drafts';
 const user = { id: 'user-1', email: 'alex@example.com', displayName: 'Alex', role: 'user' };
 const unauthorized = () =>
   Response.json({ error: { code: 'UNAUTHENTICATED', message: 'Sign in' } }, { status: 401 });
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe('AuthProvider', () => {
   it('expires the session on a later 401 and retains drafts only for the same account', async () => {
+    // GIVEN: the session expires between bootstrap and a later API request.
     vi.stubGlobal(
       'fetch',
       vi
@@ -22,17 +24,26 @@ describe('AuthProvider', () => {
         .mockResolvedValueOnce(Response.json({ user: { ...user, id: 'different-user' } })),
     );
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
+
     saveDraft('proof', 'private proof');
     await act(async () => {
       await apiRequest('/listings').catch(() => {});
     });
+
     expect(result.current.status).toBe('unauthenticated');
     expect(result.current.user).toBeNull();
     expect(result.current.sessionExpired).toBe(true);
+
+    // WHEN: the original account signs back in, its draft can be restored.
     await act(() => result.current.login({ email: user.email, password: 'unused' }));
+
     expect(readDraft('proof')).toBe('private proof');
+
+    // WHEN: another account signs in, private drafts must not cross the boundary.
     await act(() => result.current.login({ email: 'different@example.com', password: 'unused' }));
+
     expect(readDraft('proof')).toBeUndefined();
   });
 
@@ -45,14 +56,18 @@ describe('AuthProvider', () => {
         .mockResolvedValueOnce(new Response(null, { status: 204 })),
     );
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
+
     saveDraft('proof', 'private');
     await act(() => result.current.logout());
+
     expect(result.current.status).toBe('unauthenticated');
     expect(readDraft('proof')).toBeUndefined();
   });
 
   it('does not allow a late bootstrap response to overwrite a newer login', async () => {
+    // GIVEN: bootstrap remains pending while a newer login can complete.
     let resolve!: (value: Response) => void;
     vi.stubGlobal(
       'fetch',
@@ -67,10 +82,13 @@ describe('AuthProvider', () => {
         .mockResolvedValueOnce(Response.json({ user: { ...user, id: 'new-user' } })),
     );
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
     await act(() => result.current.login({ email: user.email, password: 'unused' }));
+    // WHEN: bootstrap eventually returns the old identity.
     await act(async () => {
       resolve(Response.json({ user }));
     });
+
     expect(result.current.user?.id).toBe('new-user');
   });
 
@@ -78,8 +96,11 @@ describe('AuthProvider', () => {
     const fetcher = vi.fn().mockRejectedValueOnce(new Error('offline'));
     vi.stubGlobal('fetch', fetcher);
     const { result, unmount } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
     await waitFor(() => expect(result.current.status).toBe('error'));
+
     unmount();
+
     expect((fetcher.mock.calls[0]![1].signal as AbortSignal).aborted).toBe(true);
   });
 });

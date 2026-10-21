@@ -19,7 +19,9 @@ import type { SendResult, SendStart } from './send-operations';
 import type { ClaimMessageResponse } from './types';
 
 vi.mock('../api/conversations-api');
+
 beforeEach(() => vi.resetAllMocks());
+
 afterEach(() => {
   cleanup();
   clearDrafts();
@@ -37,6 +39,7 @@ const auth = {
   logout: async () => {},
   updateProfile: () => {},
 };
+
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <StrictMode>
@@ -55,10 +58,13 @@ function acceptedCompletion(start: SendStart): Promise<SendResult> {
 describe('session-owned send operations', () => {
   it('registers synchronously and sends without crypto.randomUUID', async () => {
     vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+
     expect(crypto.randomUUID).toBeUndefined();
+
     vi.mocked(sendConversationMessage).mockResolvedValueOnce({ message: message(1) });
     const { result } = renderHook(useConversationSend, { wrapper });
     let started!: SendStart;
+
     act(() => {
       started = result.current.sendMessage('A', { body: '  Hello\r\nAlex  ', images: [] });
       assert(started.accepted);
@@ -66,15 +72,19 @@ describe('session-owned send operations', () => {
       expect(result.current.retry('A', started.operation.operationId)).toBe(started.completion);
     });
     assert(started.accepted);
+
     expect(result.current.operations.A).toEqual([started.operation]);
     expect(started.operation).toMatchObject({ body: 'Hello\nAlex', status: 'sending' });
     expect(started.operation.operationId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
+
     const { operation, completion } = started;
+
     await act(async () => {
       expect(await completion).toMatchObject({ status: 'sent', operation });
     });
+
     expect(sendConversationMessage).toHaveBeenCalledExactlyOnceWith(
       'A',
       { body: operation.body, images: [] },
@@ -88,32 +98,39 @@ describe('session-owned send operations', () => {
       .mockRejectedValueOnce(new TypeError('Response lost after commit'))
       .mockResolvedValueOnce({ message: message(1) });
     const { result } = renderHook(useConversationSend, { wrapper });
+
     await act(async () => {
       await acceptedCompletion(
         result.current.sendMessage('A', { body: ' \r\nHello\r\nAlex  ', images: [] }),
       );
     });
+
     const operation = result.current.operations.A[0];
+
     expect(operation).toMatchObject({
       body: 'Hello\nAlex',
       status: 'uncertain',
       sessionGeneration: getSessionGeneration(),
     });
     expect(operation.operationId).toMatch(/^[0-9a-f-]{36}$/);
+
     const listener = vi.fn();
     const unsubscribe = result.current.subscribeToResults(listener);
+
     await act(async () => {
       expect(await result.current.retry('A', operation.operationId)).toMatchObject({
         status: 'sent',
         message: message(1),
       });
     });
+
     expect(vi.mocked(sendConversationMessage).mock.calls).toEqual([
       ['A', { body: 'Hello\nAlex', images: [] }, operation.operationId],
       ['A', { body: 'Hello\nAlex', images: [] }, operation.operationId],
     ]);
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ status: 'sent' }));
     expect(result.current.operations).toEqual({});
+
     unsubscribe();
   });
 
@@ -123,23 +140,29 @@ describe('session-owned send operations', () => {
     const { result } = renderHook(useConversationSend, { wrapper });
     let first!: Promise<SendResult>;
     let second!: Promise<SendResult>;
+
     act(() => {
       first = acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
       second = acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
     });
+
     const [a, b] = result.current.operations.A;
+
     expect(a.operationId).not.toBe(b.operationId);
     expect(result.current.retry('A', a.operationId)).toBe(first);
     expect(await result.current.retry('B', a.operationId)).toEqual({ status: 'ignored' });
     await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledTimes(2));
+
     await act(async () => {
       transport.resolve({ message: message(1) });
       await Promise.all([first, second]);
     });
+
     expect(result.current.operations).toEqual({});
   });
 
   it('retains a possibly committed key through an unavailable retry and resolves it after restore', async () => {
+    // GIVEN: the original send may be committed, but both its response and a later retry fail.
     const unavailableResponse = deferred<ClaimMessageResponse>();
     const unavailable = new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Unavailable');
     vi.mocked(sendConversationMessage)
@@ -147,28 +170,37 @@ describe('session-owned send operations', () => {
       .mockReturnValueOnce(unavailableResponse.promise)
       .mockResolvedValueOnce({ message: message(7) });
     const { result } = renderHook(useConversationSend, { wrapper });
+
     await act(async () => {
       await acceptedCompletion(
         result.current.sendMessage('A', { body: ' \r\nHello\r\nAlex  ', images: [] }),
       );
     });
+
     const operation = result.current.operations.A[0];
+
     expect(operation).toMatchObject({
       status: 'uncertain',
       mayBePersisted: true,
       body: 'Hello\nAlex',
     });
+
     const listener = vi.fn();
+
     result.current.subscribeToResults(listener);
+
     let retry!: Promise<SendResult>;
+
     act(() => {
       retry = result.current.retry('A', operation.operationId);
     });
+
     expect(result.current.operations.A[0]).toMatchObject({
       status: 'sending',
       mayBePersisted: true,
       operationId: operation.operationId,
     });
+
     await act(async () => {
       unavailableResponse.reject(unavailable);
       expect(await retry).toMatchObject({
@@ -177,6 +209,7 @@ describe('session-owned send operations', () => {
         operation: { operationId: operation.operationId, mayBePersisted: true },
       });
     });
+
     expect(result.current.operations.A).toEqual([{ ...operation, status: 'uncertain' }]);
     // The thread still receives the disappearance signal independently of delivery uncertainty.
     expect(listener).toHaveBeenCalledWith(
@@ -185,12 +218,16 @@ describe('session-owned send operations', () => {
         error: unavailable,
       }),
     );
+
+    // WHEN: the conversation becomes available again, retry the retained operation.
     await act(async () => {
       expect(await result.current.retry('A', operation.operationId)).toMatchObject({
         status: 'sent',
         message: message(7),
       });
     });
+
+    // THEN: every attempt uses the original key and normalized payload.
     expect(vi.mocked(sendConversationMessage).mock.calls).toEqual([
       ['A', { body: 'Hello\nAlex', images: [] }, operation.operationId],
       ['A', { body: 'Hello\nAlex', images: [] }, operation.operationId],
@@ -203,6 +240,7 @@ describe('session-owned send operations', () => {
     const error = new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Unavailable');
     vi.mocked(sendConversationMessage).mockRejectedValueOnce(error);
     const { result } = renderHook(useConversationSend, { wrapper });
+
     await act(async () => {
       expect(
         await acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] })),
@@ -212,6 +250,7 @@ describe('session-owned send operations', () => {
         operation: { mayBePersisted: false },
       });
     });
+
     expect(result.current.operations).toEqual({});
     expect(sendConversationMessage).toHaveBeenCalledOnce();
   });
@@ -229,18 +268,23 @@ describe('session-owned send operations', () => {
         throw failure;
       });
       const nextListener = vi.fn();
+
       result.current.subscribeToResults(throwingListener);
       result.current.subscribeToResults(nextListener);
+
       let outcome!: SendResult;
+
       await act(async () => {
         outcome = await acceptedCompletion(
           result.current.sendMessage('A', { body: 'Hello', images: [] }),
         );
       });
+
       expect(outcome).toMatchObject({ status: 'sent', message: message(1) });
       expect(throwingListener).toHaveBeenCalledOnce();
       expect(nextListener).toHaveBeenCalledExactlyOnceWith(outcome);
       expect(result.current.operations).toEqual({});
+
       if (hasReportError) {
         expect(report).toHaveBeenCalledExactlyOnceWith(failure);
         expect(consoleError).not.toHaveBeenCalled();
@@ -257,10 +301,13 @@ describe('session-owned send operations', () => {
       .mockRejectedValueOnce(new ApiError(429, 'RATE_LIMITED', 'Wait', 42))
       .mockResolvedValueOnce({ message: message(1) });
     const { result } = renderHook(useConversationSend, { wrapper });
+
     await act(async () => {
       await acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
     });
+
     const operation = result.current.operations.A[0];
+
     expect(operation).toMatchObject({
       status: 'rate-limited',
       retryAfterUntil: Date.now() + 42_000,
@@ -269,10 +316,13 @@ describe('session-owned send operations', () => {
       status: 'rate-limited',
     });
     expect(sendConversationMessage).toHaveBeenCalledOnce();
+
     vi.setSystemTime(Date.now() + 42_000);
+
     await act(async () => {
       await result.current.retry('A', operation.operationId);
     });
+
     expect(vi.mocked(sendConversationMessage).mock.calls[1]).toEqual([
       'A',
       { body: 'Hello', images: [] },
@@ -291,11 +341,13 @@ describe('session-owned send operations', () => {
       vi.mocked(sendConversationMessage).mockRejectedValue(error);
       const { result } = renderHook(useConversationSend, { wrapper });
       let outcome!: SendResult;
+
       await act(async () => {
         outcome = await acceptedCompletion(
           result.current.sendMessage('A', { body: 'Keep this body', images: [] }),
         );
       });
+
       expect(outcome).toMatchObject({
         status: 'rejected',
         operation: { body: 'Keep this body' },
@@ -313,9 +365,11 @@ describe('session-owned send operations', () => {
   ])('treats ambiguous transport/server failures as uncertain: %s', async (error) => {
     vi.mocked(sendConversationMessage).mockRejectedValue(error);
     const { result } = renderHook(useConversationSend, { wrapper });
+
     await act(async () => {
       await acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
     });
+
     expect(result.current.operations.A[0]).toMatchObject({
       status: 'uncertain',
       mayBePersisted: true,
@@ -333,16 +387,23 @@ describe('session-owned send operations', () => {
       const { result } = renderHook(useConversationSend, { wrapper });
       const oldMethods = result.current;
       const oldListener = vi.fn();
+
       oldMethods.subscribeToResults(oldListener);
+
       let oldSend!: Promise<SendResult>;
+
       act(() => {
         oldSend = acceptedCompletion(
           result.current.sendMessage('A', { body: 'Old session', images: [] }),
         );
       });
+
       await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
+
+      // WHEN: a new session starts while the old transport is still pending.
       act(() => advanceSessionGeneration());
       saveConversationDraft('A', { text: 'New session draft', images: [] }, getSessionGeneration());
+
       expect(result.current.operations).toEqual({});
       expect(oldMethods.sendMessage('A', { body: 'Stale handler', images: [] })).toEqual({
         accepted: false,
@@ -350,14 +411,20 @@ describe('session-owned send operations', () => {
       });
       expect(result.current.operations).toEqual({});
       expect(sendConversationMessage).toHaveBeenCalledOnce();
+
       let newSend!: Promise<SendResult>;
+
       act(() => {
         newSend = acceptedCompletion(
           result.current.sendMessage('A', { body: 'New session', images: [] }),
         );
       });
+
       await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledTimes(2));
+
       const current = result.current.operations.A[0];
+
+      // WHEN: the previous session completes after the replacement send has started.
       await act(async () => {
         if (completion === 'success') oldRequest.resolve({ message: message(1) });
         else if (completion === 'rejection')
@@ -365,13 +432,18 @@ describe('session-owned send operations', () => {
         else oldRequest.reject(new Error('Old network error'));
         expect(await oldSend).toEqual({ status: 'ignored' });
       });
+
+      // THEN: neither old listeners nor the new session's draft and operation are affected.
       expect(oldListener).not.toHaveBeenCalled();
       expect(readConversationDraft('A').text).toBe('New session draft');
       expect(result.current.operations.A).toEqual([current]);
+
+      // Only the current session's completion can clear its operation.
       await act(async () => {
         newRequest.resolve({ message: message(2) });
         await newSend;
       });
+
       expect(result.current.operations).toEqual({});
     },
   );
@@ -379,16 +451,19 @@ describe('session-owned send operations', () => {
   it('clears immediately on session expiry and never sends invalid text', async () => {
     vi.mocked(sendConversationMessage).mockRejectedValue(new Error('Offline'));
     const { result } = renderHook(useConversationSend, { wrapper });
+
     expect(result.current.sendMessage('A', { body: ' \n ', images: [] })).toEqual({
       accepted: false,
       result: { status: 'invalid' },
     });
     expect(result.current.operations).toEqual({});
     expect(sendConversationMessage).not.toHaveBeenCalled();
+
     await act(async () => {
       await acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
     });
     act(() => notifySessionExpiry(getSessionGeneration()));
+
     expect(result.current.operations).toEqual({});
   });
 
@@ -397,14 +472,20 @@ describe('session-owned send operations', () => {
     vi.mocked(sendConversationMessage).mockReturnValue(transport.promise);
     const { result, unmount } = renderHook(useConversationSend, { wrapper });
     const listener = vi.fn();
+
     result.current.subscribeToResults(listener);
+
     let pending!: Promise<SendResult>;
+
     act(() => {
       pending = acceptedCompletion(result.current.sendMessage('A', { body: 'Hello', images: [] }));
     });
+
     await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
+
     unmount();
     transport.resolve({ message: message(1) });
+
     expect(await pending).toEqual({ status: 'ignored' });
     expect(listener).not.toHaveBeenCalled();
   });
@@ -424,42 +505,55 @@ describe('image operation ownership', () => {
       .mockResolvedValueOnce({ message: message(7, { body: null }) });
     const { result } = renderHook(useConversationSend, { wrapper });
     let started!: SendStart;
+
     act(() => {
       started = result.current.sendMessage('A', { body: ' \r\n ', images });
     });
     assert(started.accepted);
+
     const original = started.operation;
     const completion = started.completion;
+
     expect(original.body).toBeNull();
     expect(original.images).not.toBe(images);
     expect(Object.isFrozen(original.images)).toBe(true);
+
     images[0] = b;
     images.pop();
     await act(async () => {
       await completion;
     });
+
     expect(result.current.operations.A[0]).toMatchObject({
       status: 'uncertain',
       mayBePersisted: true,
     });
     expect(readConversationDraft('A')).toEqual({ text: '', images: [] });
+
     await act(() => result.current.retry('A', original.operationId));
+
     expect(result.current.operations.A[0]).toMatchObject({
       status: 'rate-limited',
       mayBePersisted: true,
     });
+
     await act(() => result.current.retry('A', original.operationId));
+
     expect(result.current.operations.A[0]).toMatchObject({
       status: 'uncertain',
       mayBePersisted: true,
     });
+
     await act(() => result.current.retry('A', original.operationId));
+
     expect(result.current.operations).toEqual({});
+
     for (const [id, payload, key] of vi.mocked(sendConversationMessage).mock.calls) {
       expect(id).toBe('A');
       expect(key).toBe(original.operationId);
       expect(payload.body).toBeNull();
       expect(payload.images).toBe(original.images);
+
       [a, b, a].forEach((file, index) => expect(payload.images[index]).toBe(file));
     }
   });
@@ -474,16 +568,21 @@ describe('image operation ownership', () => {
     vi.mocked(sendConversationMessage).mockRejectedValueOnce(error);
     const { result } = renderHook(useConversationSend, { wrapper });
     let operation!: SendStart;
+
     await act(async () => {
       operation = result.current.sendMessage('A', { body: ' \r\nCaption\rText ', images: files });
       await acceptedCompletion(operation);
     });
     assert(operation.accepted);
+
     const pending = result.current.operations.A[0];
+
     expect(pending.body).toBe('Caption\nText');
     expect(pending.operationId).toBe(operation.operation.operationId);
     expect(pending.images).toBe(operation.operation.images);
+
     files.forEach((file, index) => expect(pending.images[index]).toBe(file));
+
     expect(pending.status).toBe(
       error instanceof ApiError && error.status === 429 ? 'rate-limited' : 'uncertain',
     );
@@ -497,14 +596,19 @@ describe('image operation ownership', () => {
         new ApiError(status, 'REJECTED', 'Rejected'),
       );
       const { result } = renderHook(useConversationSend, { wrapper });
+
       await act(async () => {
         await acceptedCompletion(
           result.current.sendMessage('A', { body: ' Caption\r\n ', images: files }),
         );
       });
+
       expect(result.current.operations).toEqual({});
+
       const restored = readConversationDraft('A');
+
       expect(restored.text).toBe('Caption');
+
       files.forEach((file, index) => expect(restored.images[index]).toBe(file));
     },
   );
@@ -517,19 +621,28 @@ describe('image operation ownership', () => {
       vi.mocked(sendConversationMessage).mockReturnValueOnce(transport.promise);
       const { result } = renderHook(useConversationSend, { wrapper });
       const listener = vi.fn();
+
       result.current.subscribeToResults(listener);
+
       let completion!: Promise<SendResult>;
+
       act(() => {
         completion = acceptedCompletion(
           result.current.sendMessage('A', { body: null, images: [file] }),
         );
       });
+
       await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
+
       act(() => advanceSessionGeneration());
+
       const newFile = photo('New session');
+
       act(() =>
         saveConversationDraft('A', { text: 'New', images: [newFile] }, getSessionGeneration()),
       );
+
+      // WHEN: the previous session finishes after the new session has attached its own file.
       await act(async () => {
         if (outcome === 'success') transport.resolve({ message: message(1) });
         else
@@ -540,6 +653,8 @@ describe('image operation ownership', () => {
           );
         expect(await completion).toEqual({ status: 'ignored' });
       });
+
+      // THEN: old files cannot reappear in the current session's draft.
       expect(result.current.operations).toEqual({});
       expect(listener).not.toHaveBeenCalled();
       expect(readConversationDraft('A').images).toHaveLength(1);

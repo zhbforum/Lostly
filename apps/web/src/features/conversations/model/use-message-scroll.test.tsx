@@ -72,17 +72,26 @@ function setup(reducedMotion = false) {
 
 it('follows a resize only while the reader is at the bottom and disconnects on unmount', () => {
   const test = setup();
+
   expect(test.observe).toHaveBeenCalledExactlyOnceWith(test.history);
+
   test.resize();
+
   expect(test.scrollTo).toHaveBeenCalledExactlyOnceWith({ top: 1000, behavior: 'instant' });
+
   test.scrollTo.mockClear();
   fireEvent.scroll(test.history, { target: { scrollTop: 100 } });
   test.resize();
+
   expect(test.scrollTo).not.toHaveBeenCalled();
+
   fireEvent.scroll(test.history, { target: { scrollTop: 600 } });
   test.resize();
+
   expect(test.scrollTo).toHaveBeenCalledOnce();
+
   test.unmount();
+
   expect(test.disconnect).toHaveBeenCalledOnce();
 });
 
@@ -91,10 +100,14 @@ it.each([false, true])(
   async (reduced) => {
     const actor = userEvent.setup();
     const test = setup(reduced);
+
     fireEvent.scroll(test.history, { target: { scrollTop: 100 } });
     test.append();
+
     expect(test.scrollTo).not.toHaveBeenCalled();
+
     await actor.click(screen.getByRole('button', { name: 'New messages' }));
+
     expect(test.scrollTo).toHaveBeenCalledExactlyOnceWith({
       top: 1000,
       behavior: reduced ? 'instant' : 'smooth',
@@ -105,10 +118,14 @@ it.each([false, true])(
 
 it('dismisses the new-message affordance when the reader scrolls back to the bottom', () => {
   const test = setup();
+
   fireEvent.scroll(test.history, { target: { scrollTop: 100 } });
   test.append();
+
   expect(screen.getByRole('button', { name: 'New messages' })).toBeVisible();
+
   fireEvent.scroll(test.history, { target: { scrollTop: 600 } });
+
   expect(screen.queryByRole('button', { name: 'New messages' })).not.toBeInTheDocument();
   expect(test.scrollTo).not.toHaveBeenCalled();
 });

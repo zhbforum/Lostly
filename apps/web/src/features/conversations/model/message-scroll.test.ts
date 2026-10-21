@@ -7,8 +7,10 @@ it('preserves the visual anchor after prepend and distinguishes reading from bot
   expect(isNearMessageBottom(1200, 100, 400)).toBe(false);
   expect(isNearMessageBottom(1200, 790, 400)).toBe(true);
 });
+
 it('formats calendar separators across month/year boundaries in local time', () => {
   const now = new Date(2026, 0, 1, 10);
+
   expect(messageDay(new Date(2026, 0, 1, 1).toISOString(), now)).toBe('Today');
   expect(messageDay(new Date(2025, 11, 31, 1).toISOString(), now)).toBe('Yesterday');
   expect(messageDay('invalid', now)).toBe('');

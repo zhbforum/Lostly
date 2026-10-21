@@ -9,6 +9,7 @@ describe('Retry-After', () => {
   ])('parses delay %s', (header, seconds) => {
     expect(parseRetryAfter(header as string)).toBe(seconds);
   });
+
   it.each([
     null,
     '',
@@ -23,8 +24,10 @@ describe('Retry-After', () => {
   ])('rejects invalid delay %s', (header) => {
     expect(parseRetryAfter(header)).toBeNull();
   });
+
   it('supports HTTP dates, rounds up and clamps expired dates', () => {
     const now = Date.parse('2026-09-24T12:00:00.500Z');
+
     expect(parseRetryAfter('Thu, 24 Sep 2026 12:00:42 GMT', now)).toBe(42);
     expect(parseRetryAfter('Thu, 24 Sep 2026 11:00:00 GMT', now)).toBe(0);
     expect(parseRetryAfter('Thu, definitely not a date', now)).toBeNull();

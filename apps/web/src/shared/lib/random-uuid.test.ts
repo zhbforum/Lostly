@@ -8,6 +8,7 @@ afterEach(() => {
 
 it('generates a UUID v4 with the RFC variant when crypto.randomUUID is unavailable', () => {
   vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+
   expect(crypto.randomUUID).toBeUndefined();
 
   expect(randomUuid()).toMatch(

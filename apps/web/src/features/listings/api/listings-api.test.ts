@@ -23,8 +23,11 @@ it('creates a report with its details in the body and returns the saved listing'
   const response = { listing: ownerReport().listing };
   const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response));
   vi.stubGlobal('fetch', fetcher);
+
   await expect(createListing(input)).resolves.toEqual(response);
+
   const [url, options] = fetcher.mock.calls[0]!;
+
   expect(new URL(String(url)).pathname).toBe('/listings');
   expect(options).toMatchObject({
     method: 'POST',
@@ -39,6 +42,7 @@ it('fetches encoded report IDs and forwards cancellation', async () => {
   const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response));
   vi.stubGlobal('fetch', fetcher);
   const { signal } = new AbortController();
+
   await expect(getListing('report/1', signal)).resolves.toEqual(response);
   expect(new URL(String(fetcher.mock.calls[0]![0])).pathname).toBe('/listings/report%2F1');
   expect(fetcher.mock.calls[0]![1]).toMatchObject({ method: 'GET', signal });
@@ -56,6 +60,7 @@ it('includes the expected version in an update and preserves a stale-write rejec
   vi.stubGlobal('fetch', fetcher);
   const { signal } = new AbortController();
   const change = { ...input, expectedVersion: 3 };
+
   await expect(updateListing('report/1', change, signal)).rejects.toMatchObject({
     status: 409,
     code: 'LISTING_CHANGED',
@@ -76,6 +81,7 @@ it.each([
   const response = { listing: ownerReport(action === 'resolve' ? 'resolved' : 'archived').listing };
   const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response));
   vi.stubGlobal('fetch', fetcher);
+
   await expect(request('report/1')).resolves.toEqual(response);
   expect(new URL(String(fetcher.mock.calls[0]![0])).pathname).toBe(
     `/listings/report%2F1/${action}`,
@@ -90,8 +96,11 @@ it.each([{}, { kind: 'found' as const, sort: 'oldest' as const, cursor: 'a+/= b'
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response));
     vi.stubGlobal('fetch', fetcher);
     const { signal } = new AbortController();
+
     await expect(getListings(query, signal)).resolves.toEqual(response);
+
     const url = new URL(String(fetcher.mock.calls[0]![0]));
+
     expect(url.pathname).toBe('/listings');
     expect(Object.fromEntries(url.searchParams)).toEqual(query);
     expect(fetcher.mock.calls[0]![1]).toMatchObject({ method: 'GET', signal });

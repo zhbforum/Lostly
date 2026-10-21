@@ -24,6 +24,7 @@ it('loads the editor and connected sign-in methods, then saves changes through t
   });
   vi.stubGlobal('fetch', fetcher);
   const actor = userEvent.setup();
+
   render(
     <MemoryRouter>
       <TestSession auth={{ updateProfile }}>
@@ -31,21 +32,28 @@ it('loads the editor and connected sign-in methods, then saves changes through t
       </TestSession>
     </MemoryRouter>,
   );
+
   expect(screen.getByText('Loading your profile…')).toBeVisible();
   expect(screen.getByRole('link', { name: /View public profile/ })).toHaveAttribute(
     'href',
     '/u/alex_morgan',
   );
+
   await act(async () => pending.resolve(Response.json({ profile })));
+
   expect(await screen.findByText('Google connected')).toBeVisible();
+
   await actor.clear(screen.getByLabelText(/Bio/));
   await actor.type(screen.getByLabelText(/Bio/), 'Updated bio');
   await actor.click(screen.getByRole('button', { name: 'Save changes' }));
+
   expect(await screen.findByText('Changes saved.')).toBeVisible();
   expect(updateProfile).toHaveBeenCalledWith(
     expect.objectContaining({ bio: 'Updated bio', version: 2 }),
   );
+
   const [, options] = fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')!;
+
   expect(JSON.parse(String(options!.body))).toMatchObject({
     bio: 'Updated bio',
     expectedVersion: 1,
@@ -69,12 +77,18 @@ it('retries a failed profile load and cancels the current request on unmount', a
       </TestSession>
     </MemoryRouter>,
   );
+
   expect(await screen.findByRole('alert')).toHaveTextContent('We could not load your profile.');
+
   await actor.click(screen.getByRole('button', { name: 'Try again' }));
+
   expect(await screen.findByLabelText('Display name')).toHaveValue('Alex Morgan');
+
   const [, options] = fetcher.mock.calls.findLast(
     ([url]) => new URL(String(url)).pathname === '/me/profile',
   )!;
+
   view.unmount();
+
   expect(options!.signal!.aborted).toBe(true);
 });

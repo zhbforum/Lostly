@@ -16,6 +16,7 @@ describe('editable listing fields', () => {
       location: 'Enter a location.',
       occurredOn: 'Enter a valid date.',
     };
+
     expect(validateEditableListingFields(values)).toEqual(errors);
     expect(validateCreateListingForm({ ...values, kind: 'lost' })).toEqual(errors);
     expect(validateCreateListingForm({ ...values, kind: null })).toEqual({
@@ -33,6 +34,7 @@ describe('editable listing fields', () => {
       location: '  Library  ',
     };
     const values = toEditableValues(listing);
+
     expect(values).toEqual({
       title: listing.title,
       description: listing.description,

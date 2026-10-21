@@ -23,13 +23,16 @@ import type { ClaimMessageResponse } from './types';
 import type { SendResult } from './send-operations';
 
 vi.mock('../api/conversations-api');
+
 beforeEach(() => vi.resetAllMocks());
+
 afterEach(() => {
   cleanup();
   clearDrafts();
   vi.unstubAllGlobals();
   advanceSessionGeneration();
 });
+
 const user = {
   id: 'user-1',
   email: 'alex@example.com',
@@ -50,6 +53,7 @@ function ConversationRoute() {
   const { id } = useParams();
   return <DraftAndSend key={id} id={id!} />;
 }
+
 function DraftAndSend({ id }: { id: string }) {
   const composer = useMessageComposer(id, true);
   const { subscribeToResults } = useConversationSend();
@@ -92,6 +96,7 @@ it('preserves A operations and drafts through B, Activity, a listing and back to
     .mockReturnValueOnce(committedButLost.promise)
     .mockResolvedValueOnce({ message: message(7) });
   const interaction = userEvent.setup();
+
   render(
     <MemoryRouter initialEntries={['/messages/A']}>
       <AuthContext.Provider value={auth}>
@@ -113,20 +118,30 @@ it('preserves A operations and drafts through B, Activity, a listing and back to
   );
   await interaction.type(screen.getByLabelText('Message'), 'Draft A');
   await interaction.click(screen.getByRole('button', { name: 'Send' }));
+
   await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
+
   const key = vi.mocked(sendConversationMessage).mock.calls[0][2];
+
   await interaction.click(screen.getByRole('link', { name: 'B' }));
+
   expect(screen.getByLabelText('Message')).toHaveValue('');
   expect(screen.queryByText(/Draft A/)).not.toBeInTheDocument();
+
   await interaction.type(screen.getByLabelText('Message'), 'Draft B');
   await act(async () => committedButLost.reject(new TypeError('Committed, response lost')));
+
   expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+
   await interaction.click(screen.getByRole('link', { name: 'Activity' }));
   await interaction.click(screen.getByRole('link', { name: 'Listing' }));
   await interaction.click(screen.getByRole('link', { name: 'A' }));
+
   expect(screen.getByLabelText('Message')).toHaveValue('');
   expect(screen.getByText('Draft A · uncertain')).toBeInTheDocument();
+
   await interaction.click(screen.getByRole('button', { name: 'Retry' }));
+
   await screen.findByText('message-7');
   expect(vi.mocked(sendConversationMessage).mock.calls[1]).toEqual([
     'A',
@@ -134,7 +149,9 @@ it('preserves A operations and drafts through B, Activity, a listing and back to
     key,
   ]);
   expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+
   await interaction.click(screen.getByRole('link', { name: 'B' }));
+
   expect(screen.getByLabelText('Message')).toHaveValue('Draft B');
   expect(screen.queryByText('message-7')).not.toBeInTheDocument();
 });
@@ -150,6 +167,7 @@ it('clears sends at the beginning of real AuthProvider logout, before its HTTP r
   );
   const transport = deferred<ClaimMessageResponse>();
   vi.mocked(sendConversationMessage).mockReturnValueOnce(transport.promise);
+
   function wrapper({ children }: { children: ReactNode }) {
     return (
       <AuthProvider>
@@ -157,29 +175,39 @@ it('clears sends at the beginning of real AuthProvider logout, before its HTTP r
       </AuthProvider>
     );
   }
+
   const { result } = renderHook(() => ({ auth: useAuth(), sends: useConversationSend() }), {
     wrapper,
   });
+
   await waitFor(() => expect(result.current.auth.status).toBe('authenticated'));
+
   let send!: Promise<SendResult>;
+
   act(() => {
     const started = result.current.sends.sendMessage('A', { body: 'Hello', images: [] });
     assert(started.accepted);
     send = started.completion;
   });
+
   await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
+
   let logout!: Promise<void>;
+
   act(() => {
     logout = result.current.auth.logout();
   });
+
   expect(result.current.sends.operations).toEqual({});
   expect(result.current.auth.status).toBe('authenticated');
+
   await act(async () => {
     transport.resolve({ message: message(1) });
     expect(await send).toEqual({ status: 'ignored' });
     logoutResponse.resolve(new Response(null, { status: 204 }));
     await logout;
   });
+
   expect(result.current.auth.status).toBe('unauthenticated');
 });
 
@@ -190,6 +218,7 @@ it('real session expiry and relogin of the same owner never restore old conversa
   );
   const transport = deferred<ClaimMessageResponse>();
   vi.mocked(sendConversationMessage).mockReturnValueOnce(transport.promise);
+
   function wrapper({ children }: { children: ReactNode }) {
     return (
       <AuthProvider>
@@ -197,6 +226,7 @@ it('real session expiry and relogin of the same owner never restore old conversa
       </AuthProvider>
     );
   }
+
   const { result } = renderHook(
     () => ({
       auth: useAuth(),
@@ -205,30 +235,43 @@ it('real session expiry and relogin of the same owner never restore old conversa
     }),
     { wrapper },
   );
+
   await waitFor(() => expect(result.current.auth.status).toBe('authenticated'));
+
   const file = new File(['private'], 'private.jpg', { type: 'image/jpeg' });
+
   act(() => {
     result.current.composer.addImages([file]);
     result.current.otherDraft.addImages([file]);
   });
+
   let send!: Promise<void>;
+
   act(() => {
     send = result.current.composer.submit();
   });
+
   await waitFor(() => expect(sendConversationMessage).toHaveBeenCalledOnce());
+
   act(() => notifySessionExpiry(getSessionGeneration()));
+
   expect(result.current.auth.status).toBe('unauthenticated');
   expect(result.current.composer.operations).toEqual([]);
   expect(result.current.otherDraft.draft).toEqual({ text: '', images: [] });
   expect(readConversationDraft('B')).toEqual({ text: '', images: [] });
+
   await act(() => result.current.auth.login({ email: user.email, password: 'password' }));
+
   expect(result.current.auth.user?.id).toBe(user.id);
   expect(result.current.auth.status).toBe('authenticated');
+
   await act(async () => {
     transport.reject(new ApiError(422, 'VALIDATION_ERROR', 'Late rejection'));
     await send;
   });
+
   for (const id of ['A', 'B']) expect(readConversationDraft(id)).toEqual({ text: '', images: [] });
+
   expect(result.current.composer.draft.images).toEqual([]);
   expect(result.current.otherDraft.draft.images).toEqual([]);
 });

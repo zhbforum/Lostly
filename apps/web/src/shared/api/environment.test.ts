@@ -13,6 +13,7 @@ it.each([
 ])('rejects missing or invalid build configuration: %j', (value) => {
   expect(() => requireApiUrl(value)).toThrow(/VITE_API_URL/);
 });
+
 it('normalizes an explicitly configured API base URL', () => {
   expect(requireApiUrl('https://api.example.com/v1/')).toBe('https://api.example.com/v1');
 });

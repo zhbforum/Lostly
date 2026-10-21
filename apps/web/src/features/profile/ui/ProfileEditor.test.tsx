@@ -49,18 +49,25 @@ beforeEach(() => {
 
 it('keeps a stale draft across reopening and requires a decision before saving', () => {
   const first = render(<ProfileEditor initialProfile={profile} />);
+
   fireEvent.change(screen.getByLabelText(/Bio/), { target: { value: 'Unsaved bio' } });
   first.unmount();
+
   const latest = { ...profile, version: 2 };
   const second = render(<ProfileEditor initialProfile={latest} />);
+
   expect(screen.getByLabelText(/Bio/)).toHaveValue('Unsaved bio');
   expect(screen.getByRole('status', { name: 'Profile conflict' })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
   expect(readDraft(`profile:${profile.id}`)).toMatchObject({ version: 1, bio: 'Unsaved bio' });
+
   second.unmount();
   render(<ProfileEditor initialProfile={latest} />);
+
   expect(screen.getByRole('status', { name: 'Profile conflict' })).toBeVisible();
+
   fireEvent.click(screen.getByRole('button', { name: 'Keep editable changes' }));
+
   expect(screen.getByLabelText(/Bio/)).toHaveValue('Unsaved bio');
   expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled();
   expect(saveProfile).not.toHaveBeenCalled();
@@ -74,6 +81,7 @@ it('preserves remote changes to untouched fields when accepting a stale draft', 
   });
   render(<ProfileEditor initialProfile={{ ...profile, version: 2, bio: 'Remote bio' }} />);
   fireEvent.click(screen.getByRole('button', { name: 'Keep editable changes' }));
+
   expect(screen.getByLabelText('Display name')).toHaveValue('Local name');
   expect(screen.getByLabelText(/Bio/)).toHaveValue('Remote bio');
 });
@@ -90,8 +98,11 @@ it('applies name cooldowns only after the user resolves the stale draft', () => 
       }}
     />,
   );
+
   expect(screen.getByLabelText('Display name')).toHaveValue('Local name');
+
   fireEvent.click(screen.getByRole('button', { name: 'Keep editable changes' }));
+
   expect(screen.getByLabelText('Display name')).toHaveValue('Remote name');
   expect(screen.getByLabelText(/Bio/)).toHaveValue('Local bio');
 });
@@ -100,15 +111,18 @@ it('discards a stale draft only when the user cancels', () => {
   saveDraft(`profile:${profile.id}`, { ...profile, bio: 'Local bio' });
   render(<ProfileEditor initialProfile={{ ...profile, version: 2, bio: 'Remote bio' }} />);
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
   expect(screen.getByLabelText(/Bio/)).toHaveValue('Remote bio');
   expect(readDraft(`profile:${profile.id}`)).toBeUndefined();
 });
 
 it('focuses a taken username after the saving state re-enables the input', async () => {
   vi.mocked(saveProfile).mockRejectedValue(new ApiError(409, 'USERNAME_TAKEN', 'Username taken'));
+
   render(<ProfileEditor initialProfile={profile} />);
   fireEvent.change(screen.getByLabelText('Username Optional'), { target: { value: 'taken_name' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
   expect(await screen.findByText('Username taken')).toBeVisible();
   expect(screen.getByLabelText('Username Optional')).toHaveFocus();
   expect(screen.getByLabelText('Username Optional')).toBeEnabled();
@@ -125,10 +139,14 @@ const newAvatar = { ...oldAvatar, id: 'new', staticUrl: 'https://images.example.
 
 it.each([newAvatar, null])('uses a newer session avatar, including removal: %s', (avatar) => {
   authenticate({ ...user, avatar: oldAvatar });
+
   const view = render(<ProfileEditor initialProfile={{ ...profile, avatar: oldAvatar }} />);
+
   expect(view.container.querySelector('img')?.getAttribute('src')).toBe(oldAvatar.staticUrl);
+
   authenticate({ ...user, profileVersion: 2, avatar });
   view.rerender(<ProfileEditor initialProfile={{ ...profile, avatar: oldAvatar }} />);
+
   if (avatar)
     expect(view.container.querySelector('img')?.getAttribute('src')).toBe(avatar.staticUrl);
   else expect(view.container.querySelector('img')).toBeNull();
@@ -136,8 +154,10 @@ it.each([newAvatar, null])('uses a newer session avatar, including removal: %s',
 
 it('does not replace a newer editor avatar with an older session', () => {
   authenticate({ ...user, avatar: oldAvatar });
+
   const view = render(
     <ProfileEditor initialProfile={{ ...profile, version: 2, avatar: newAvatar }} />,
   );
+
   expect(view.container.querySelector('img')?.getAttribute('src')).toBe(newAvatar.staticUrl);
 });

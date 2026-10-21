@@ -9,8 +9,10 @@ describe('photo selection limits', () => {
       'The photo upload took too long. Check your connection and try again.',
     );
   });
+
   it('allows zero through five photos and counts existing photos', () => {
     const file = new File(['png'], 'photo.png', { type: 'image/png' });
+
     expect(validateImageSelection([], 0)).toBeNull();
     expect(
       validateImageSelection(
@@ -21,6 +23,7 @@ describe('photo selection limits', () => {
     expect(validateImageSelection([file], 4)).toBeNull();
     expect(validateImageSelection([file, file], 4)).toContain('5');
   });
+
   it('validates MIME, empty files and inclusive size boundary', () => {
     expect(validateImageSelection([new File([], 'empty.png', { type: 'image/png' })], 0)).toContain(
       'non-empty',
@@ -28,7 +31,9 @@ describe('photo selection limits', () => {
     expect(
       validateImageSelection([new File(['svg'], 'file.svg', { type: 'image/svg+xml' })], 0),
     ).toContain('JPEG');
+
     const limit = LISTING_IMAGE_CONSTRAINTS.maxSizeBytes;
+
     expect(
       validateImageSelection(
         [new File([new Uint8Array(limit)], 'photo.png', { type: 'image/png' })],
@@ -42,8 +47,10 @@ describe('photo selection limits', () => {
       ),
     ).toContain('5 MiB');
   });
+
   it('allows an unknown MIME for server inspection without bypassing size or count limits', () => {
     const file = new File(['bytes to inspect on the server'], 'photo.jpg');
+
     expect(file.type).toBe('');
     expect(validateImageSelection([file], 4)).toBeNull();
     expect(validateImageSelection([file], 5)).toContain('5');

@@ -15,6 +15,7 @@ const profile = {
   createdAt: '2026-01-01T00:00:00Z',
   avatar: null,
 };
+
 afterEach(() => {
   vi.useRealTimers();
   vi.resetAllMocks();
@@ -42,27 +43,40 @@ it('refreshes an expiring public avatar on visibility without hiding the profile
     .mockResolvedValueOnce({ profile: { ...profile, avatar } })
     .mockReturnValueOnce(pending.promise);
   const { result, unmount } = renderHook(() => usePublicProfile('alex'));
+
   await act(async () => {});
   act(() => document.dispatchEvent(new Event('visibilitychange')));
+
   expect(getPublicProfile).toHaveBeenCalledOnce();
+
   vi.setSystemTime(Date.now() + 90_000);
+
   hidden.mockReturnValue(true);
   act(() => document.dispatchEvent(new Event('visibilitychange')));
+
   expect(getPublicProfile).toHaveBeenCalledOnce();
+
   hidden.mockReturnValue(false);
   act(() => {
     document.dispatchEvent(new Event('visibilitychange'));
     document.dispatchEvent(new Event('visibilitychange'));
   });
+
   expect(getPublicProfile).toHaveBeenCalledTimes(2);
   expect(result.current.state).toMatchObject({ status: 'success', profile: { avatar } });
+
   await act(async () => pending.resolve({ profile: { ...profile, avatar: fresh } }));
+
   expect(result.current.state).toMatchObject({ status: 'success', profile: { avatar: fresh } });
+
   act(() => document.dispatchEvent(new Event('visibilitychange')));
+
   expect(getPublicProfile).toHaveBeenCalledTimes(2);
+
   unmount();
   act(() => document.dispatchEvent(new Event('visibilitychange')));
   await vi.advanceTimersByTimeAsync(3_600_000);
+
   expect(getPublicProfile).toHaveBeenCalledTimes(2);
 });
 
@@ -79,10 +93,14 @@ it('aborts a previous member request and never displays its late response for a 
   const { result, rerender } = renderHook(({ id }) => usePublicProfile(id), {
     initialProps: { id: 'alex' },
   });
+
   rerender({ id: 'sam' });
   await act(async () => {});
+
   expect(vi.mocked(getPublicProfile).mock.calls[0]![1]?.aborted).toBe(true);
+
   await act(async () => resolve({ profile }));
+
   expect(result.current.state).toMatchObject({ status: 'success', profile: { id: 'sam' } });
 });
 
@@ -107,12 +125,18 @@ it('renews a public avatar without hiding the profile, retries failures, and cle
     .mockResolvedValueOnce({ profile: { ...profile, avatar: fresh } })
     .mockRejectedValueOnce(new ApiError(404, 'PROFILE_NOT_FOUND', 'Missing'));
   const { result } = renderHook(() => usePublicProfile('alex'));
+
   await act(async () => {});
   await act(() => vi.advanceTimersByTimeAsync(30_000));
+
   expect(result.current.state).toMatchObject({ status: 'success', profile: { avatar } });
+
   await act(() => vi.advanceTimersByTimeAsync(60_000));
+
   expect(result.current.state).toMatchObject({ status: 'success', profile: { avatar: fresh } });
+
   await act(() => vi.advanceTimersByTimeAsync(3_450_000));
+
   expect(result.current.state).toEqual({ status: 'not-found' });
 });
 
@@ -121,8 +145,12 @@ it('distinguishes an unavailable API from a missing profile and allows retry', a
     .mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValueOnce({ profile });
   const { result } = renderHook(() => usePublicProfile('alex'));
+
   await act(async () => {});
+
   expect(result.current.state.status).toBe('error');
+
   await act(async () => result.current.refresh());
+
   expect(result.current.state).toMatchObject({ status: 'success', profile });
 });

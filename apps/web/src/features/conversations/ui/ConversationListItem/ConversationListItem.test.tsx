@@ -19,6 +19,7 @@ it.each([1, 4])('renders an attachment-only inbox preview for %i photos', (count
       </ul>
     </MemoryRouter>,
   );
+
   expect(screen.getByText(count === 1 ? 'Photo' : `${count} photos`)).toBeInTheDocument();
   expect(screen.queryByText('Claim submitted · No messages yet')).not.toBeInTheDocument();
 });

@@ -59,16 +59,25 @@ describe('ListingFeed navigation', () => {
       },
       claim: null,
     });
+
     const user = userEvent.setup();
+
     renderFeed();
+
     await screen.findByRole('heading', { name: item.title });
+
     await user.selectOptions(screen.getByLabelText('Report type'), 'found');
     await user.selectOptions(screen.getByLabelText('Sort by'), 'oldest');
     await user.click(await screen.findByRole('button', { name: 'Next' }));
+
     await screen.findByRole('heading', { name: item.title });
+
     await user.click(screen.getByRole('link', { name: /Blue backpack/ }));
+
     await screen.findByRole('heading', { name: item.title });
+
     await user.click(screen.getByRole('link', { name: /Back to results/ }));
+
     await screen.findByRole('heading', { name: item.title });
     expect(screen.getByLabelText('Report type')).toHaveValue('found');
     expect(screen.getByLabelText('Sort by')).toHaveValue('oldest');
@@ -76,7 +85,9 @@ describe('ListingFeed navigation', () => {
       { kind: 'found', sort: 'oldest', cursor: 'second-page' },
       expect.any(AbortSignal),
     );
+
     await user.click(screen.getByRole('button', { name: 'Previous' }));
+
     await waitFor(() =>
       expect(listMock).toHaveBeenLastCalledWith(
         { kind: 'found', sort: 'oldest', cursor: undefined },
@@ -89,9 +100,12 @@ describe('ListingFeed navigation', () => {
     listMock
       .mockRejectedValueOnce(new Error('invalid cursor'))
       .mockResolvedValue({ listings: [item], pageInfo: end });
+
     const user = userEvent.setup();
+
     renderFeed('/listings?kind=found&sort=oldest&cursor=obsolete');
     await user.click(await screen.findByRole('button', { name: 'First page' }));
+
     await screen.findByRole('heading', { name: item.title });
     expect(listMock).toHaveBeenLastCalledWith(
       { kind: 'found', sort: 'oldest', cursor: undefined },
@@ -104,12 +118,19 @@ describe('ListingFeed navigation', () => {
       .mockResolvedValueOnce({ listings: [item], pageInfo: end })
       .mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValue({ listings: [], pageInfo: end });
+
     const user = userEvent.setup();
+
     renderFeed('/listings?kind=found&sort=oldest&cursor=second-page');
+
     await screen.findByRole('heading', { name: item.title });
+
     await user.selectOptions(screen.getByLabelText('Report type'), 'lost');
+
     await screen.findByRole('alert');
+
     await user.click(screen.getByRole('button', { name: 'Try again' }));
+
     await screen.findByRole('heading', { name: 'No matching active reports' });
     expect(listMock).toHaveBeenLastCalledWith(
       { kind: 'lost', sort: 'oldest', cursor: undefined },

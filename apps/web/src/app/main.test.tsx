@@ -22,6 +22,7 @@ it('boots with the real providers, restores a filtered route and signs out', asy
   container = document.createElement('div');
   container.id = 'root';
   document.body.append(container);
+
   const mount = vi.mocked(ReactDOMClient.createRoot);
   const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url) => {
     const path = new URL(String(url)).pathname;
@@ -37,17 +38,21 @@ it('boots with the real providers, restores a filtered route and signs out', asy
   });
   vi.stubGlobal('fetch', fetcher);
   const actor = userEvent.setup();
+
   await act(async () => {
     await import('./main');
     root = mount.mock.results[0]!.value;
   });
+
   expect(await screen.findByRole('heading', { name: 'No matching active reports' })).toBeVisible();
   expect(screen.getByLabelText('Report type')).toHaveValue('found');
   expect(screen.getByRole('link', { name: 'Browse' })).toHaveAttribute('aria-current', 'page');
   expect(
     await screen.findByRole('link', { name: 'Messages, 2 unread conversations' }),
   ).toHaveAttribute('href', '/messages');
+
   await actor.selectOptions(screen.getByLabelText('Report type'), 'lost');
+
   await waitFor(() => expect(new URLSearchParams(window.location.search).get('kind')).toBe('lost'));
   await waitFor(() =>
     expect(
@@ -57,13 +62,17 @@ it('boots with the real providers, restores a filtered route and signs out', asy
       }),
     ).toBe(true),
   );
+
   await actor.click(screen.getByRole('button', { name: 'Account: Alex Morgan' }));
   await actor.click(await screen.findByRole('button', { name: 'Sign out' }));
+
   expect(await screen.findByRole('button', { name: 'Sign in' })).toBeVisible();
   expect(window.location.pathname).toBe('/login');
   expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument();
+
   const [, logout] = fetcher.mock.calls.find(
     ([url]) => new URL(String(url)).pathname === '/auth/logout',
   )!;
+
   expect(logout).toMatchObject({ method: 'POST', credentials: 'include' });
 });

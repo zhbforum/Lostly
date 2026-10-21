@@ -75,21 +75,28 @@ it.each(['approved', 'rejected'] as const)(
   'focuses after successful %s context renders, once, not on subsequent polling',
   async (status) => {
     const test = setup();
+
     await test.confirm(status);
+
     expect(test.focus).not.toHaveBeenCalled();
+
     await act(async () => test.completion.resolve(true));
+
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(test.focus).not.toHaveBeenCalled();
 
     test.rerender(test.updated(status));
+
     expect(test.heading).toHaveFocus();
     expect(test.heading).toHaveAttribute('tabindex', '-1');
     expect(test.focus).toHaveBeenCalledOnce();
 
     const composer = screen.getByRole('textbox', { name: 'Write a message' });
+
     await test.actor.click(composer);
     test.rerender(test.updated(status));
     test.rerender({ ...test.updated(status), unreadCount: 1 });
+
     expect(composer).toHaveFocus();
     expect(test.focus).toHaveBeenCalledOnce();
   },
@@ -97,11 +104,15 @@ it.each(['approved', 'rejected'] as const)(
 
 it('handles context arriving before the successful PATCH continuation without focusing early', async () => {
   const test = setup();
+
   await test.confirm('approved');
   test.rerender(test.updated('approved'));
+
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(test.focus).not.toHaveBeenCalled();
+
   await act(async () => test.completion.resolve(true));
+
   expect(test.heading).toHaveFocus();
   expect(test.focus).toHaveBeenCalledOnce();
 });
@@ -109,26 +120,38 @@ it('handles context arriving before the successful PATCH continuation without fo
 it('does not transfer focus for a passive context update without a successful decision', async () => {
   const test = setup();
   const composer = screen.getByRole('textbox', { name: 'Write a message' });
+
   await test.actor.click(composer);
   test.rerender(test.updated('approved'));
+
   expect(composer).toHaveFocus();
   expect(test.focus).not.toHaveBeenCalled();
 });
 
 it('keeps failure in the dialog and preserves cancel/Escape focus restoration', async () => {
   const test = setup();
+
   await test.confirm('approved');
   await act(async () => test.completion.resolve(false));
+
   const dialog = screen.getByRole('dialog');
+
   expect(dialog).toBeInTheDocument();
   expect(test.focus).not.toHaveBeenCalled();
+
   await test.actor.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
   const approve = screen.getByRole('button', { name: 'Approve claim' });
+
   await waitFor(() => expect(approve).toHaveFocus());
+
   await test.actor.click(approve);
   await test.actor.keyboard('{Escape}');
+
   await waitFor(() => expect(approve).toHaveFocus());
   expect(test.focus).not.toHaveBeenCalled();
+
   test.rerender(test.updated('approved'));
+
   expect(test.focus).not.toHaveBeenCalled();
 });

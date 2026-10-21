@@ -18,6 +18,7 @@ it.each(['id', 'username'] as const)(
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response));
     vi.stubGlobal('fetch', fetcher);
     const { signal } = new AbortController();
+
     await expect(getPublicProfile('member/name', signal, lookup)).resolves.toEqual(response);
     expect(new URL(String(fetcher.mock.calls[0]![0])).pathname).toBe(
       `/${lookup === 'id' ? 'users' : 'u'}/member%2Fname`,
@@ -31,6 +32,7 @@ it('checks username availability without interpreting the response locally', asy
   const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response));
   vi.stubGlobal('fetch', fetcher);
   const { signal } = new AbortController();
+
   await expect(checkUsername('alex/name', signal)).resolves.toEqual(response);
   expect(new URL(String(fetcher.mock.calls[0]![0])).pathname).toBe(
     '/me/profile/username/alex%2Fname',
@@ -43,12 +45,15 @@ it('loads the private profile and saves changes with the last observed version',
   const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => Response.json(response));
   vi.stubGlobal('fetch', fetcher);
   const { signal } = new AbortController();
+
   await expect(getProfile(signal)).resolves.toEqual(response);
+
   const input = {
     displayName: response.profile.displayName,
     bio: 'New bio',
     expectedVersion: response.profile.version,
   };
+
   await expect(saveProfile(input, signal)).resolves.toEqual(response);
   expect(fetcher.mock.calls.map(([url]) => new URL(String(url)).pathname)).toEqual([
     '/me/profile',
@@ -68,8 +73,11 @@ it('uploads an avatar as multipart with its expected version', async () => {
   vi.stubGlobal('fetch', fetcher);
   const file = new File(['gif'], 'photo.gif', { type: 'image/gif' });
   const { signal } = new AbortController();
+
   await expect(uploadAvatar(file, 4, signal)).resolves.toEqual(response);
+
   const [url, options] = fetcher.mock.calls[0]!;
+
   expect(new URL(String(url)).pathname).toBe('/me/profile/avatar');
   expect(options).toMatchObject({ method: 'POST', signal, credentials: 'include' });
   expect(Object.fromEntries(options!.body as FormData)).toEqual({ file, expectedVersion: '4' });
@@ -87,6 +95,7 @@ it('removes an avatar with version protection and does not retry a conflict', as
     );
   vi.stubGlobal('fetch', fetcher);
   const { signal } = new AbortController();
+
   await expect(removeAvatar(4, signal)).rejects.toMatchObject({
     status: 409,
     code: 'PROFILE_CHANGED',

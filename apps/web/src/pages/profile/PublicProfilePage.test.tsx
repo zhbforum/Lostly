@@ -43,12 +43,17 @@ it.each(['loading', 'unauthenticated', 'error'] as const)(
     const pending = deferred<Response>();
     const fetcher = vi.fn<typeof fetch>().mockReturnValue(pending.promise);
     vi.stubGlobal('fetch', fetcher);
+
     showProfile('/u/alex_morgan', { status, user: null });
+
     expect(screen.getByText('Loading profile…')).toBeVisible();
+
     if (status === 'loading')
       expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument();
     else expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
+
     await act(async () => pending.resolve(Response.json({ profile: userProfile() })));
+
     expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeVisible();
     expect(screen.getByText('@alex_morgan')).toBeVisible();
     expect(screen.getByText(userProfile().bio)).toBeVisible();
@@ -64,7 +69,9 @@ it('canonicalizes an ID link while retaining its query, fragment and return dest
       .fn<typeof fetch>()
       .mockImplementation(async () => Response.json({ profile: userProfile({ bio: '' }) })),
   );
+
   showProfile('/users/alex?from=claim#member', {}, { returnTo: '/activity?tab=incoming' });
+
   await waitFor(() =>
     expect(screen.getByLabelText('Current URL')).toHaveTextContent(
       '/u/alex_morgan?from=claim#member',
@@ -88,7 +95,9 @@ it('keeps ID-based profiles without usernames accessible and shows an empty bio 
       .fn<typeof fetch>()
       .mockResolvedValue(Response.json({ profile: userProfile({ username: null, bio: '' }) })),
   );
+
   showProfile('/users/alex');
+
   expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeVisible();
   expect(screen.getByText('This member hasn’t added a bio yet.')).toBeVisible();
   expect(screen.getByLabelText('Current URL')).toHaveTextContent('/users/alex');
@@ -103,7 +112,9 @@ it.each([404, 422])('shows not found for an unavailable profile (%s)', async (st
         Response.json({ error: { code: 'NOT_FOUND', message: 'Unavailable' } }, { status }),
       ),
   );
+
   showProfile();
+
   expect(await screen.findByRole('heading', { name: 'Profile not found' })).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Copy profile link' })).not.toBeInTheDocument();
 });
@@ -116,11 +127,16 @@ it('recovers from a failed request after retry and aborts the request on unmount
     .mockResolvedValueOnce(Response.json({ profile: userProfile() }));
   vi.stubGlobal('fetch', fetcher);
   const view = showProfile();
+
   await actor.click(await screen.findByRole('button', { name: 'Try again' }));
+
   expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeVisible();
   expect(fetcher.mock.calls[0]![1]!.signal!.aborted).toBe(true);
+
   const signal = fetcher.mock.calls[1]![1]!.signal!;
+
   view.unmount();
+
   expect(signal.aborted).toBe(true);
 });
 
@@ -129,14 +145,18 @@ it.each([false, true])(
   async (fails) => {
     const actor = userEvent.setup();
     const copy = vi.spyOn(navigator.clipboard, 'writeText');
+
     if (fails) copy.mockRejectedValue(new Error('denied'));
     else copy.mockResolvedValue();
+
     vi.stubGlobal(
       'fetch',
       vi.fn<typeof fetch>().mockResolvedValue(Response.json({ profile: userProfile() })),
     );
+
     showProfile();
     await actor.click(await screen.findByRole('button', { name: 'Copy profile link' }));
+
     expect(copy).toHaveBeenCalledWith(new URL('/u/alex_morgan', window.location.origin).href);
     expect(
       await screen.findByText(
@@ -155,16 +175,23 @@ it('plays an animated avatar only on request and rejects an external return dest
     'fetch',
     vi.fn<typeof fetch>().mockResolvedValue(Response.json({ profile: userProfile({ avatar }) })),
   );
+
   showProfile('/u/alex_morgan', {}, { returnTo: 'https://outside.example' });
+
   const article = await screen.findByRole('article');
+
   expect(article.querySelector('img')).toHaveAttribute('src', avatar.staticUrl);
+
   await actor.click(screen.getByRole('button', { name: 'Play animation' }));
+
   expect(article.querySelector('img')).toHaveAttribute('src', avatar.url);
   expect(screen.getByRole('button', { name: 'Pause animation' })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
+
   await actor.click(screen.getByRole('button', { name: 'Pause animation' }));
+
   expect(article.querySelector('img')).toHaveAttribute('src', avatar.staticUrl);
   expect(screen.getByRole('link', { name: /Back$/ })).toHaveAttribute('href', '/');
 });

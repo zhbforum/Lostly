@@ -29,6 +29,7 @@ describe('report update flash notice', () => {
     const routes = [{ path: '/listings/:id', element: <ListingDetailsPage /> }];
     const router = createMemoryRouter(routes, { initialEntries: [entry] });
     const view = render(<RouterProvider router={router} />);
+
     try {
       expect(await screen.findByText('Your report was updated.')).toBeVisible();
       await waitFor(() => expect(router.state.location.state).toEqual(restState));
@@ -42,9 +43,12 @@ describe('report update flash notice', () => {
 
       // A new app instance receives only the browser's persisted history entry.
       const persistedEntry = router.state.location;
+
       view.unmount();
+
       const reloaded = createMemoryRouter(routes, { initialEntries: [persistedEntry] });
       const reloadedView = render(<RouterProvider router={reloaded} />);
+
       try {
         await screen.findByRole('heading', { name: ownerReport().listing.title });
         expect(screen.queryByText('Your report was updated.')).not.toBeInTheDocument();
