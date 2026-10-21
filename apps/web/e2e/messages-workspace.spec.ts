@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { corsHeaders } from './support/cors-headers.ts';
 
 const titles = ['AirPods Pro', 'Blue backpack', 'Silver ring', 'Canon camera', 'House keys'];
+
 function conversation(index: number) {
   return {
     id: `conversation-${index}`,
@@ -115,74 +116,109 @@ test('route-driven workspace preserves inbox pagination and scroll on desktop an
   isMobile,
 }, testInfo) => {
   const { requests, errors } = await mockApi(page);
+
   await page.goto('/activity');
   await page
     .getByRole('navigation', { name: 'Main navigation' })
     .getByRole('link', { name: /^Messages/ })
     .click();
+
   const inbox = page.getByRole('region', { name: 'Messages', exact: true });
+
   await expect(inbox.getByRole('link')).toHaveCount(20);
   await expect(
     page
       .getByRole('navigation', { name: 'Main navigation' })
       .getByRole('link', { name: 'Messages, 1 unread conversation' }),
   ).toBeVisible();
+
   const detail = page.getByRole('region', { name: 'Conversation', exact: true });
+
   if (isMobile) await expect(detail).toBeHidden();
   else await expect(page.getByRole('heading', { name: 'Select a conversation' })).toBeVisible();
+
   const beforeSelection = requests.filter((request) =>
     request.startsWith('/me/conversations?'),
   ).length;
-  await inbox.getByRole('button', { name: 'Load more' }).click();
-  await expect(inbox.getByRole('link')).toHaveCount(21);
-  await expect(inbox.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+
+  await test.step('Load the next inbox page without duplicating overlapping rows', async () => {
+    await inbox.getByRole('button', { name: 'Load more' }).click();
+
+    await expect(inbox.getByRole('link')).toHaveCount(21);
+    await expect(inbox.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+  });
+
   const scroll = page.getByTestId('inbox-scroll');
+
   await scroll.evaluate((element) => {
     element.scrollTop = 600;
   });
+
   const row = inbox.locator('a[href="/messages/conversation-5"]');
+
   await row.scrollIntoViewIfNeeded();
+
   const scrollTop = await scroll.evaluate((element) => element.scrollTop);
-  await row.click();
-  await expect(page).toHaveURL(/\/messages\/conversation-5$/);
-  await expect(detail.getByRole('heading', { name: 'Maya', exact: true })).toBeVisible();
-  if (isMobile) {
-    await expect(inbox).toBeHidden();
-    await expect(detail.getByRole('heading', { name: 'Maya', exact: true })).toBeFocused();
-    await detail.getByRole('link', { name: 'Messages', exact: true }).click();
-  } else {
-    await expect(inbox).toBeVisible();
-    await expect(row).toHaveAttribute('aria-current', 'page');
-    await page
-      .getByRole('navigation', { name: 'Main navigation' })
-      .getByRole('link', { name: /^Messages/ })
-      .click();
-  }
-  await expect(page).toHaveURL(/\/messages$/);
-  await expect(inbox).toBeVisible();
-  if (isMobile) await expect(row).toBeFocused();
-  expect(await scroll.evaluate((element) => element.scrollTop)).toBeCloseTo(scrollTop, 0);
-  expect(requests.filter((request) => request.startsWith('/me/conversations?')).length).toBe(
-    beforeSelection + 1,
-  );
-  expect(requests.some((request) => request.startsWith('/conversations/'))).toBe(true);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
-  expect(
-    await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1),
-  ).toBe(true);
-  await scroll.evaluate((element) => {
-    element.scrollTop = 0;
-  });
-  await page.screenshot({ path: testInfo.outputPath('workspace.png'), fullPage: true });
-  if (isMobile) {
-    await page.goBack();
-    await expect(page).toHaveURL(/\/activity$/);
-    // Forward still reaches the original inbox entry rather than another copy of it.
-    await page.goForward();
+
+  await test.step('Open a conversation and return through the layout-specific navigation', async () => {
+    await row.click();
+
+    await expect(page).toHaveURL(/\/messages\/conversation-5$/);
+    await expect(detail.getByRole('heading', { name: 'Maya', exact: true })).toBeVisible();
+
+    if (isMobile) {
+      await expect(inbox).toBeHidden();
+      await expect(detail.getByRole('heading', { name: 'Maya', exact: true })).toBeFocused();
+
+      await detail.getByRole('link', { name: 'Messages', exact: true }).click();
+    } else {
+      await expect(inbox).toBeVisible();
+      await expect(row).toHaveAttribute('aria-current', 'page');
+
+      await page
+        .getByRole('navigation', { name: 'Main navigation' })
+        .getByRole('link', { name: /^Messages/ })
+        .click();
+    }
+
     await expect(page).toHaveURL(/\/messages$/);
+    await expect(inbox).toBeVisible();
+
+    if (isMobile) await expect(row).toBeFocused();
+  });
+
+  await test.step('Retain inbox pagination and scroll without refetching the first page', async () => {
+    expect(await scroll.evaluate((element) => element.scrollTop)).toBeCloseTo(scrollTop, 0);
+    expect(requests.filter((request) => request.startsWith('/me/conversations?')).length).toBe(
+      beforeSelection + 1,
+    );
+    expect(requests.some((request) => request.startsWith('/conversations/'))).toBe(true);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1),
+    ).toBe(true);
+
+    await scroll.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await page.screenshot({ path: testInfo.outputPath('workspace.png'), fullPage: true });
+  });
+
+  if (isMobile) {
+    await test.step('Keep a single inbox entry in browser history', async () => {
+      await page.goBack();
+
+      await expect(page).toHaveURL(/\/activity$/);
+
+      // Forward still reaches the original inbox entry rather than another copy of it.
+      await page.goForward();
+
+      await expect(page).toHaveURL(/\/messages$/);
+    });
   }
+
   expect(errors).toEqual([]);
 });
 
@@ -191,34 +227,49 @@ test('cold detail URLs, back navigation and narrow viewports work with a thread'
   isMobile,
 }) => {
   const { requests, errors } = await mockApi(page);
+
   await page.goto('/activity');
+
   await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
   // Wait for Activity's data before replacing the document with a cold detail URL.
   await expect(page.getByText('No reports on this page.', { exact: true })).toBeVisible();
+
   await page.goto('/messages/conversation-0');
+
   const detail = page.getByRole('region', { name: 'Conversation', exact: true });
+
   await expect(detail.getByRole('heading', { name: 'Alex', exact: true })).toBeVisible();
   await expect(detail.getByRole('link', { name: 'View report' })).toHaveAttribute(
     'href',
     '/listings/listing-0',
   );
+
   if (isMobile) {
     await page.setViewportSize({ width: 320, height: 640 });
+
     await expect(detail.getByRole('link', { name: 'Messages', exact: true })).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
+
     await detail.getByRole('link', { name: 'Messages', exact: true }).click();
+
     const inbox = page.getByRole('region', { name: 'Messages', exact: true });
+
     await expect(inbox).toBeVisible();
     await expect(inbox.locator('a[href="/messages/conversation-0"]')).toBeFocused();
+
     await page.goBack();
+
     await expect(page).toHaveURL(/\/activity$/);
     await expect(page.getByText('No reports on this page.', { exact: true })).toBeVisible();
+
     await page.goForward();
+
     await expect(page).toHaveURL(/\/messages$/);
     await expect(inbox.getByRole('link')).toHaveCount(20);
   }
+
   expect(requests.some((request) => request.startsWith('/conversations/'))).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -228,25 +279,39 @@ test('a cold detail absent from loaded rows returns focus to the inbox heading',
   isMobile,
 }) => {
   test.skip(!isMobile, 'The return control is presented on mobile.');
+
   const { errors } = await mockApi(page);
+
   await page.goto('/activity');
+
   await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
   await expect(page.getByText('No reports on this page.', { exact: true })).toBeVisible();
+
   const unreadNavigation = page
     .getByRole('navigation', { name: 'Main navigation' })
     .getByRole('link', { name: 'Messages, 1 unread conversation', exact: true });
+
   await expect(unreadNavigation).toBeVisible();
+
   await page.goto('/messages/not-loaded');
+
   const detail = page.getByRole('region', { name: 'Conversation', exact: true });
+
   await expect(detail.getByRole('textbox', { name: 'Write a message' })).toBeVisible();
+
   await detail.getByRole('link', { name: 'Messages', exact: true }).click();
+
   await expect(page).toHaveURL(/\/messages$/);
   await expect(page.getByRole('heading', { name: 'Messages', exact: true })).toBeFocused();
+
   await page.goBack();
+
   await expect(page).toHaveURL(/\/activity$/);
   await expect(page.getByText('No reports on this page.', { exact: true })).toBeVisible();
   await expect(unreadNavigation).toBeVisible();
+
   await page.goForward();
+
   await expect(page).toHaveURL(/\/messages$/);
   await expect(
     page.getByRole('region', { name: 'Messages', exact: true }).getByRole('link'),
@@ -256,16 +321,27 @@ test('a cold detail absent from loaded rows returns focus to the inbox heading',
 
 test('inbox errors can be retried and empty state is reachable', async ({ page }) => {
   const { errors } = await mockApi(page, 'error');
-  await page.goto('/messages');
-  await expect(page.getByRole('alert')).toContainText('Could not load your conversations.');
-  await page.getByRole('button', { name: 'Try again' }).click();
-  await expect(
-    page.getByRole('region', { name: 'Messages', exact: true }).getByRole('link'),
-  ).toHaveCount(20);
-  await page.unrouteAll();
-  await mockApi(page, 'empty');
-  await page.reload();
-  await expect(page.getByRole('heading', { name: 'No conversations yet' })).toBeVisible();
+
+  await test.step('Recover the inbox after a failed initial request', async () => {
+    await page.goto('/messages');
+
+    await expect(page.getByRole('alert')).toContainText('Could not load your conversations.');
+
+    await page.getByRole('button', { name: 'Try again' }).click();
+
+    await expect(
+      page.getByRole('region', { name: 'Messages', exact: true }).getByRole('link'),
+    ).toHaveCount(20);
+  });
+
+  await test.step('Render the empty state for an account without conversations', async () => {
+    await page.unrouteAll();
+    await mockApi(page, 'empty');
+    await page.reload();
+
+    await expect(page.getByRole('heading', { name: 'No conversations yet' })).toBeVisible();
+  });
+
   expect(errors).toEqual([]);
 });
 
@@ -273,16 +349,22 @@ test('the same Messages navigation and badge are available on home, browse and a
   page,
 }) => {
   const { errors } = await mockApi(page);
+
   for (const path of ['/', '/listings', '/activity']) {
     await page.goto(path);
+
     const nav = page.getByRole('navigation', { name: 'Main navigation' });
+
     await expect(nav).toHaveCount(1);
     await expect(nav.getByRole('link', { name: 'Messages, 1 unread conversation' })).toBeVisible();
+
     await nav.getByRole('link', { name: /^Messages/ }).click();
+
     await expect(page).toHaveURL(/\/messages$/);
     await expect(
       page.getByRole('region', { name: 'Messages', exact: true }).getByRole('link'),
     ).toHaveCount(20);
   }
+
   expect(errors).toEqual([]);
 });
