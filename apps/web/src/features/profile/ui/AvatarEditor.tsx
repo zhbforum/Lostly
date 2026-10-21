@@ -234,7 +234,7 @@ export function AvatarEditor({
                 src={selected.preview}
                 width="160"
                 height="160"
-                alt="Preview of your new profile photo"
+                alt="New profile preview"
               />
             )}
             <p className={styles.dialogHint}>

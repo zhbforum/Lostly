@@ -31,7 +31,7 @@ export function SelectedPhoto({
           <img
             ref={image}
             className={styles.preview}
-            alt={`Selected photo ${number}`}
+            alt={`Selected attachment ${number}`}
             onError={() => setUnavailable(true)}
           />
         )}

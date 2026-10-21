@@ -165,7 +165,7 @@ test('route-driven workspace preserves inbox pagination and scroll on desktop an
   expect(requests.filter((request) => request.startsWith('/me/conversations?')).length).toBe(
     beforeSelection + 1,
   );
-  expect(requests.some((request) => /^\/conversations\//.test(request))).toBe(true);
+  expect(requests.some((request) => request.startsWith('/conversations/'))).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -219,7 +219,7 @@ test('cold detail URLs, back navigation and narrow viewports work with a thread'
     await expect(page).toHaveURL(/\/messages$/);
     await expect(inbox.getByRole('link')).toHaveCount(20);
   }
-  expect(requests.some((request) => /^\/conversations\//.test(request))).toBe(true);
+  expect(requests.some((request) => request.startsWith('/conversations/'))).toBe(true);
   expect(errors).toEqual([]);
 });
 

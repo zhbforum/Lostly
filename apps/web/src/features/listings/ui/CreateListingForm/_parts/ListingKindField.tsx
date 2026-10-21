@@ -62,7 +62,6 @@ export function ListingKindField({
                 value={option.value}
                 checked={selected}
                 disabled={disabled}
-                aria-invalid={error ? true : undefined}
                 onChange={() => onChange(option.value)}
               />
 

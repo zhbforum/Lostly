@@ -27,11 +27,11 @@ export function useClaimDecision(onChanged: (claim: Claim) => void, onReconcile?
       if (!isCurrent()) return false;
       onChanged(claim);
       return true;
-    } catch (error) {
+    } catch (cause) {
       if (!isCurrent()) return false;
       setError(
-        error instanceof ApiError
-          ? error.message
+        cause instanceof ApiError
+          ? cause.message
           : 'Could not save the decision. Refresh the report to check its latest status.',
       );
       onReconcile?.();

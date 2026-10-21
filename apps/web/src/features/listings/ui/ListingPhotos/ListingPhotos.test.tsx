@@ -51,9 +51,9 @@ it('previews selected files, removes them and releases object URLs', async () =>
     screen.getByLabelText('Add photos'),
     new File(['png'], 'photo.png', { type: 'image/png' }),
   );
-  expect(screen.getByAltText('Selected photo 1')).toHaveAttribute('src', 'blob:photo-preview');
+  expect(screen.getByAltText('Selected attachment 1')).toHaveAttribute('src', 'blob:photo-preview');
   await actor.click(screen.getByRole('button', { name: 'Remove selected photo 1' }));
-  expect(screen.queryByAltText('Selected photo 1')).not.toBeInTheDocument();
+  expect(screen.queryByAltText('Selected attachment 1')).not.toBeInTheDocument();
   expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:photo-preview');
   expect(screen.getByLabelText('Add photos')).toHaveFocus();
 });

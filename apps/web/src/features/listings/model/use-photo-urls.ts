@@ -127,12 +127,12 @@ export function usePhotoUrls(listingId: string, initial: ListingImage[]) {
     [refresh],
   );
 
-  const setImages = useCallback((images: ListingImage[]) => {
+  const setImages = useCallback((nextImages: ListingImage[]) => {
     // An older refresh must not overwrite the response to a completed mutation.
     request.current?.controller.abort();
     request.current = null;
     recovery.current = initialRecovery();
-    setCollection((current) => ({ ...current, images }));
+    setCollection((current) => ({ ...current, images: nextImages }));
   }, []);
   return { images, setImages, refresh, onImageError };
 }

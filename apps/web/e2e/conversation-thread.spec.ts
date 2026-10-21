@@ -359,7 +359,7 @@ test('a concurrent append and user scroll do not displace the older-history anch
   const saved = await history.evaluate((element) => {
     const top = element.getBoundingClientRect().top;
     const row = [...element.querySelectorAll<HTMLElement>('[data-message-id]')].find(
-      (row) => row.getBoundingClientRect().bottom > top,
+      (candidate) => candidate.getBoundingClientRect().bottom > top,
     )!;
     return { id: row.dataset.messageId!, y: row.getBoundingClientRect().top };
   });

@@ -66,9 +66,9 @@ export function GoogleAuth({
     try {
       const { url } = await startGoogleAuth(mode, returnTo);
       window.location.assign(url);
-    } catch (error) {
+    } catch (cause) {
       setError(
-        error instanceof ApiError && error.code === 'RATE_LIMITED'
+        cause instanceof ApiError && cause.code === 'RATE_LIMITED'
           ? 'Too many attempts. Please wait a minute and try again.'
           : 'Google sign-in is unavailable. Please try again later.',
       );

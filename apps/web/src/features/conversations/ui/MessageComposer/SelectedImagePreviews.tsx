@@ -75,9 +75,9 @@ function ImagePreview({ file, index }: { file: File; index: number }) {
   }, [file]);
   // An occurrence keeps the same File; replacement gets a new key and preview component.
   return !failed ? (
-    <img ref={image} alt={`Selected image ${index + 1}`} onError={() => setFailed(true)} />
+    <img ref={image} alt={`Selected attachment ${index + 1}`} onError={() => setFailed(true)} />
   ) : (
-    <span role="img" aria-label={`Selected image ${index + 1}`}>
+    <span role="img" aria-label={`Selected attachment ${index + 1}`}>
       Preview unavailable
     </span>
   );

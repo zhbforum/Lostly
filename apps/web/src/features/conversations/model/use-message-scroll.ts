@@ -7,7 +7,7 @@ import { imageCountLabel } from './message-attachments';
 function captureAnchor(element: HTMLDivElement, first: number) {
   const top = element.getBoundingClientRect().top;
   const row = Array.from(element.querySelectorAll<HTMLElement>('[data-message-id]')).find(
-    (row) => row.getBoundingClientRect().bottom > top,
+    (candidate) => candidate.getBoundingClientRect().bottom > top,
   );
   return {
     height: element.scrollHeight,
@@ -87,7 +87,7 @@ export function useMessageScroll(
       bottom();
     } else if (saved && (messages[0]?.sequence ?? 0) < saved.first) {
       const row = Array.from(element.querySelectorAll<HTMLElement>('[data-message-id]')).find(
-        (row) => row.dataset.messageId === saved.id,
+        (candidate) => candidate.dataset.messageId === saved.id,
       );
       // Preserve the actual row, including grouping/date changes or a concurrent append.
       element.scrollTop = row

@@ -46,8 +46,8 @@ export function ListingImageManager({
       onChanged(next);
       setNotice(message);
       return true;
-    } catch (error) {
-      if (!controller.signal.aborted) setError(imageErrorMessage(error));
+    } catch (cause) {
+      if (!controller.signal.aborted) setError(imageErrorMessage(cause));
       return false;
     } finally {
       if (!controller.signal.aborted) {

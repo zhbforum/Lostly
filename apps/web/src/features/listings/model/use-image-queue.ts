@@ -16,12 +16,12 @@ export function useImageQueue() {
   }
   function add(files: File[], existingCount = 0) {
     if (request.current) return;
-    const error = validateImageSelection(
+    const validationError = validateImageSelection(
       files,
       existingCount + current.current.filter((item) => item.status !== 'uploaded').length,
     );
-    setError(error);
-    if (error) return;
+    setError(validationError);
+    if (validationError) return;
     update([
       ...current.current,
       ...files.map((file): SelectedImage => ({
@@ -55,7 +55,7 @@ export function useImageQueue() {
     const controller = new AbortController();
     request.current = controller;
     try {
-      for (const item of current.current.filter((item) => item.status !== 'uploaded')) {
+      for (const item of current.current.filter((candidate) => candidate.status !== 'uploaded')) {
         if (controller.signal.aborted) break;
         const change = (patch: Partial<SelectedImage>) =>
           update(current.current.map((row) => (row.id === item.id ? { ...row, ...patch } : row)));
@@ -70,9 +70,9 @@ export function useImageQueue() {
           if (controller.signal.aborted) break;
           change({ status: 'uploaded' });
           onUploaded?.(image);
-        } catch (error) {
+        } catch (cause) {
           if (controller.signal.aborted) break;
-          change({ status: 'failed', error: imageErrorMessage(error) });
+          change({ status: 'failed', error: imageErrorMessage(cause) });
         }
       }
     } finally {
