@@ -199,37 +199,57 @@ test('profile is reachable from the account, adapts to narrow screens and saves 
   page,
 }, testInfo) => {
   const server = await mockProfile(page);
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Account: Alex Morgan' }).click();
-  await page.getByRole('link', { name: 'Profile', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Alex Morgan', exact: true })).toBeVisible();
-  await expect(page).toHaveURL(/\/users\/user$/);
-  await page.screenshot({ path: testInfo.outputPath('public-profile.png'), fullPage: true });
-  await page.getByRole('link', { name: 'Edit profile', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Edit profile', exact: true })).toBeVisible();
+
+  await test.step('Reach the public profile and editor through the account menu', async () => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Account: Alex Morgan' }).click();
+    await page.getByRole('link', { name: 'Profile', exact: true }).click();
+
+    await expect(page.getByRole('heading', { name: 'Alex Morgan', exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/users\/user$/);
+
+    await page.screenshot({ path: testInfo.outputPath('public-profile.png'), fullPage: true });
+    await page.getByRole('link', { name: 'Edit profile', exact: true }).click();
+
+    await expect(page.getByRole('heading', { name: 'Edit profile', exact: true })).toBeVisible();
+  });
+
   const name = page.getByLabel('Display name', { exact: true });
-  await expect(name).toHaveValue('Alex Morgan');
-  await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toBeDisabled();
-  await page.screenshot({ path: testInfo.outputPath('profile.png'), fullPage: true });
-  for (const width of [320, 390, 768]) {
-    await page.setViewportSize({ width, height: 844 });
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-    ).toBe(true);
-  }
-  await name.fill('Alex Rivers');
-  await page
-    .getByRole('textbox', { name: /Bio/ })
-    .fill('Coffee, walks and helping things find their way home.');
-  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-  await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
-    'Changes saved.',
-  );
-  await expect(name).toHaveAttribute('readonly', '');
-  await expect(page.getByRole('button', { name: 'Account: Alex Rivers' })).toBeVisible();
-  await expect(page.getByText(/You can change your name again on/)).toBeVisible();
-  await page.reload();
-  await expect(name).toHaveValue('Alex Rivers');
+
+  await test.step('Fit the unchanged editor at narrow widths', async () => {
+    await expect(name).toHaveValue('Alex Morgan');
+    await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toBeDisabled();
+
+    await page.screenshot({ path: testInfo.outputPath('profile.png'), fullPage: true });
+
+    for (const width of [320, 390, 768]) {
+      await page.setViewportSize({ width, height: 844 });
+
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+    }
+  });
+
+  await test.step('Save profile edits, update the account menu and retain values after reload', async () => {
+    await name.fill('Alex Rivers');
+    await page
+      .getByRole('textbox', { name: /Bio/ })
+      .fill('Coffee, walks and helping things find their way home.');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
+    await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
+      'Changes saved.',
+    );
+    await expect(name).toHaveAttribute('readonly', '');
+    await expect(page.getByRole('button', { name: 'Account: Alex Rivers' })).toBeVisible();
+    await expect(page.getByText(/You can change your name again on/)).toBeVisible();
+
+    await page.reload();
+
+    await expect(name).toHaveValue('Alex Rivers');
+  });
+
   expect(server.errors).toEqual([]);
 });
 
@@ -240,63 +260,100 @@ test('failed saves retain edits, navigation retains a draft and locked names sti
     ...initial,
     nextDisplayNameChangeAt: new Date(Date.now() + 86400000).toISOString(),
   });
+
   await page.goto('/profile/edit');
+
   await expect(page.getByLabel('Display name', { exact: true })).toHaveAttribute('readonly', '');
+
   const bio = page.getByRole('textbox', { name: /Bio/ });
-  await bio.fill('A new introduction.');
-  await page.getByRole('textbox', { name: /Username/ }).fill('alex_draft');
-  await page.getByRole('link', { name: 'Lostly home' }).click();
-  await page.getByRole('button', { name: 'Account: Alex Morgan' }).click();
-  await page.getByRole('link', { name: 'Profile', exact: true }).click();
-  await page.getByRole('link', { name: 'Edit profile', exact: true }).click();
-  await expect(bio).toHaveValue('A new introduction.');
-  await expect(page.getByRole('textbox', { name: /Username/ })).toHaveValue('alex_draft');
-  server.failNextSave();
-  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('We could not save');
-  await expect(bio).toHaveValue('A new introduction.');
-  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-  await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
-    'Changes saved.',
-  );
-  expect(server.writes).toHaveLength(2);
-  expect(server.errors).toEqual([]);
+
+  await test.step('Preserve unsaved fields after navigating away and back', async () => {
+    await bio.fill('A new introduction.');
+    await page.getByRole('textbox', { name: /Username/ }).fill('alex_draft');
+    await page.getByRole('link', { name: 'Lostly home' }).click();
+    await page.getByRole('button', { name: 'Account: Alex Morgan' }).click();
+    await page.getByRole('link', { name: 'Profile', exact: true }).click();
+    await page.getByRole('link', { name: 'Edit profile', exact: true }).click();
+
+    await expect(bio).toHaveValue('A new introduction.');
+    await expect(page.getByRole('textbox', { name: /Username/ })).toHaveValue('alex_draft');
+  });
+
+  await test.step('Retain edits after a failed save', async () => {
+    server.failNextSave();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
+    await expect(page.getByRole('alert')).toContainText('We could not save');
+    await expect(bio).toHaveValue('A new introduction.');
+  });
+
+  await test.step('Retry successfully while the display name remains locked', async () => {
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
+    await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
+      'Changes saved.',
+    );
+    expect(server.writes).toHaveLength(2);
+    expect(server.errors).toEqual([]);
+  });
 });
 
 test('GIF preview is keyboard accessible, saves to the header and respects reduced motion', async ({
   page,
 }) => {
   const server = await mockProfile(page);
+
   await page.goto('/profile/edit');
+
   const button = page.getByRole('button', { name: 'Upload photo', exact: true });
   await button.focus();
   const chooser = page.waitForEvent('filechooser');
   await button.press('Enter');
+
   const gif = await gifFixture();
   await (
     await chooser
   ).setFiles({ name: gif.name, mimeType: gif.type, buffer: Buffer.from(await gif.arrayBuffer()) });
+
   const dialog = page.getByRole('dialog', { name: 'Update profile photo' });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByAltText('New profile preview')).toBeVisible();
-  await dialog.getByRole('button', { name: 'Save photo', exact: true }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Change photo', exact: true })).toBeFocused();
+
+  await test.step('Save the GIF preview and restore focus to the photo control', async () => {
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByAltText('New profile preview')).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Save photo', exact: true }).click();
+
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Change photo', exact: true })).toBeFocused();
+  });
+
   await page.getByRole('button', { name: 'Play animation' }).click();
+
   const photo = page.getByRole('region', { name: 'Profile photo' }).locator('img');
-  await expect(photo).toHaveAttribute('src', 'https://avatars.test/animated.webp');
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(page.getByRole('button', { name: 'Pause animation' })).toBeHidden();
-  await expect
-    .poll(() => photo.evaluate((image: HTMLImageElement) => image.currentSrc))
-    .toBe('https://avatars.test/still.webp');
-  await page.getByRole('button', { name: 'Remove', exact: true }).click();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: 'Remove', exact: true })).toBeFocused();
-  await page.getByRole('button', { name: 'Remove', exact: true }).click();
-  await page.getByRole('button', { name: 'Remove photo', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Upload photo', exact: true })).toBeVisible();
-  expect(server.errors).toEqual([]);
+
+  await test.step('Stop animation when reduced motion is requested', async () => {
+    await expect(photo).toHaveAttribute('src', 'https://avatars.test/animated.webp');
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+
+    await expect(page.getByRole('button', { name: 'Pause animation' })).toBeHidden();
+    await expect
+      .poll(() => photo.evaluate((image: HTMLImageElement) => image.currentSrc))
+      .toBe('https://avatars.test/still.webp');
+  });
+
+  await test.step('Cancel removal accessibly, then confirm it', async () => {
+    await page.getByRole('button', { name: 'Remove', exact: true }).click();
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByRole('button', { name: 'Remove', exact: true })).toBeFocused();
+
+    await page.getByRole('button', { name: 'Remove', exact: true }).click();
+    await page.getByRole('button', { name: 'Remove photo', exact: true }).click();
+
+    await expect(page.getByRole('button', { name: 'Upload photo', exact: true })).toBeVisible();
+    expect(server.errors).toEqual([]);
+  });
 });
 
 async function choosePngWithoutMime(page: Page) {
@@ -313,12 +370,18 @@ async function choosePngWithoutMime(page: Page) {
 
 test('a valid PNG with an empty File.type reaches preview and upload', async ({ page }) => {
   const server = await mockProfile(page);
+
   await page.goto('/profile/edit');
+
   await expect(page.getByLabel('Display name', { exact: true })).toBeVisible();
+
   await choosePngWithoutMime(page);
+
   const dialog = page.getByRole('dialog', { name: 'Update profile photo' });
   await expect(dialog.getByAltText('New profile preview')).toBeVisible();
+
   await dialog.getByRole('button', { name: 'Save photo', exact: true }).click();
+
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
     'Profile photo updated.',
@@ -331,46 +394,59 @@ for (const action of ['text save', 'avatar upload'] as const) {
     page,
   }) => {
     const server = await mockProfile(page);
+
     await page.goto('/profile/edit');
+
     const name = page.getByLabel('Display name', { exact: true });
-    await name.fill('My unsaved name');
-    await page.getByRole('textbox', { name: /Username/ }).fill('my_unsaved_username');
-    await page.getByRole('textbox', { name: /Bio/ }).fill('My unsaved bio');
-    server.remoteChange({
-      avatar: {
-        id: 'remote-avatar',
-        animated: false,
-        url: 'https://avatars.test/remote.webp',
-        staticUrl: 'https://avatars.test/remote.webp',
-        urlExpiresAt: new Date(Date.now() + 3600000).toISOString(),
-      },
+
+    await test.step('Race local text edits against a remote avatar change', async () => {
+      await name.fill('My unsaved name');
+      await page.getByRole('textbox', { name: /Username/ }).fill('my_unsaved_username');
+      await page.getByRole('textbox', { name: /Bio/ }).fill('My unsaved bio');
+      server.remoteChange({
+        avatar: {
+          id: 'remote-avatar',
+          animated: false,
+          url: 'https://avatars.test/remote.webp',
+          staticUrl: 'https://avatars.test/remote.webp',
+          urlExpiresAt: new Date(Date.now() + 3600000).toISOString(),
+        },
+      });
+
+      if (action === 'text save')
+        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+      else {
+        await choosePngWithoutMime(page);
+        await page.getByRole('button', { name: 'Save photo', exact: true }).click();
+      }
+
+      await expect(page.getByRole('alert')).toContainText('changed elsewhere');
+
+      if (action === 'avatar upload')
+        await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+
+      await expect(name).toHaveValue('My unsaved name');
+      await expect(page.getByRole('textbox', { name: /Username/ })).toHaveValue(
+        'my_unsaved_username',
+      );
+      await expect(page.getByRole('textbox', { name: /Bio/ })).toHaveValue('My unsaved bio');
+      await expect(name).not.toHaveAttribute('readonly', '');
     });
-    if (action === 'text save')
+
+    await test.step('Save the preserved local fields against the refreshed profile version', async () => {
       await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-    else {
-      await choosePngWithoutMime(page);
-      await page.getByRole('button', { name: 'Save photo', exact: true }).click();
-    }
-    await expect(page.getByRole('alert')).toContainText('changed elsewhere');
-    if (action === 'avatar upload')
-      await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
-    await expect(name).toHaveValue('My unsaved name');
-    await expect(page.getByRole('textbox', { name: /Username/ })).toHaveValue(
-      'my_unsaved_username',
-    );
-    await expect(page.getByRole('textbox', { name: /Bio/ })).toHaveValue('My unsaved bio');
-    await expect(name).not.toHaveAttribute('readonly', '');
-    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-    await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
-      'Changes saved.',
-    );
-    expect(server.writes.at(-1)).toMatchObject({
-      displayName: 'My unsaved name',
-      username: 'my_unsaved_username',
-      bio: 'My unsaved bio',
-      expectedVersion: 2,
+
+      await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
+        'Changes saved.',
+      );
+      expect(server.writes.at(-1)).toMatchObject({
+        displayName: 'My unsaved name',
+        username: 'my_unsaved_username',
+        bio: 'My unsaved bio',
+        expectedVersion: 2,
+      });
+      expect(server.errors).toEqual([]);
     });
-    expect(server.errors).toEqual([]);
   });
 }
 
@@ -378,7 +454,9 @@ test('a conflicting server name replaces the draft and applies the weekly lock w
   page,
 }) => {
   const server = await mockProfile(page);
+
   await page.goto('/profile/edit');
+
   const name = page.getByLabel('Display name', { exact: true });
   await name.fill('Local name');
   await page.getByRole('textbox', { name: /Bio/ }).fill('Keep this bio');
@@ -387,11 +465,14 @@ test('a conflicting server name replaces the draft and applies the weekly lock w
     nextDisplayNameChangeAt: new Date(Date.now() + 604800000).toISOString(),
   });
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
   await expect(page.getByRole('alert')).toContainText('changed elsewhere');
   await expect(name).toHaveValue('Name from another tab');
   await expect(name).toHaveAttribute('readonly', '');
   await expect(page.getByRole('textbox', { name: /Bio/ })).toHaveValue('Keep this bio');
+
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
   await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
     'Changes saved.',
   );
@@ -401,7 +482,9 @@ test('public profile is readable without signing in and offers no editing or pri
   page,
 }, testInfo) => {
   const server = await mockProfile(page, initial, true);
+
   await page.goto('/users/user');
+
   await expect(page.getByRole('heading', { name: 'Alex Morgan' })).toBeVisible();
   await expect(page.getByText(initial.bio)).toBeVisible();
   await expect(page.getByText(/Member since/)).toBeVisible();
@@ -409,8 +492,10 @@ test('public profile is readable without signing in and offers no editing or pri
   await expect(page.getByRole('textbox')).toHaveCount(0);
   await expect(page.getByText('alex.morgan@example.com')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+
   await page.screenshot({ path: testInfo.outputPath('public-guest.png'), fullPage: true });
   await page.getByRole('link', { name: 'Sign in' }).click();
+
   await expect(page).toHaveURL(/\/login$/);
   expect(server.errors).toEqual([]);
 });
@@ -427,8 +512,11 @@ test('missing profiles show not-found and public viewing survives a failed sessi
     }),
   );
   await page.goto('/users/user');
+
   await expect(page.getByRole('heading', { name: 'Alex Morgan' })).toBeVisible();
+
   await page.goto('/users/missing');
+
   await expect(page.getByRole('heading', { name: 'Profile not found' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Alex Morgan' })).toHaveCount(0);
 });
@@ -437,20 +525,29 @@ test('choosing a username previews the canonical URL, updates account navigation
   page,
 }, testInfo) => {
   const server = await mockProfile(page);
+
   await page.goto('/profile/edit');
+
   const username = page.getByRole('textbox', { name: /Username/ });
   await expect(username).toHaveValue('');
+
   await username.fill('Alex_Morgan');
+
   await expect(page.getByText('Available — reserved when you save.')).toBeVisible();
   await expect(page.locator('#profile-username-link')).toContainText('/u/alex_morgan');
+
   await page.screenshot({ path: testInfo.outputPath('username-editor.png'), fullPage: true });
+
   for (const width of [320, 390, 768]) {
     await page.setViewportSize({ width, height: 844 });
+
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
   }
+
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
   await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
     'Changes saved.',
   );
@@ -465,12 +562,16 @@ test('choosing a username previews the canonical URL, updates account navigation
     'href',
     '/u/alex_morgan',
   );
+
   await page.getByRole('link', { name: /View public profile/ }).click();
+
   await expect(page).toHaveURL(/\/u\/alex_morgan$/);
   await expect(page.getByText('@alex_morgan', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Edit profile', exact: true })).toBeVisible();
+
   await page.getByRole('button', { name: 'Account: Alex Morgan' }).click();
   await page.getByRole('link', { name: 'Profile', exact: true }).click();
+
   await expect(page).toHaveURL(/\/u\/alex_morgan$/);
   expect(server.writes).toEqual([
     {
@@ -487,30 +588,50 @@ test('reserved, occupied and newly taken usernames show actionable errors withou
   page,
 }) => {
   const server = await mockProfile(page);
+
   await page.goto('/profile/edit');
+
   const username = page.getByRole('textbox', { name: /Username/ });
-  await username.fill('ADMIN');
-  await expect(page.getByRole('alert')).toContainText('reserved');
-  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-  await expect(username).toBeFocused();
-  expect(server.writes).toHaveLength(0);
-  await username.fill('already_taken');
-  await expect(page.getByRole('alert')).toContainText('not available');
-  await username.fill('just_available');
-  await expect(page.getByText('Available — reserved when you save.')).toBeVisible();
-  await page.getByRole('textbox', { name: /Bio/ }).fill('Keep this bio draft');
-  server.takeUsernameOnSave();
-  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('not available');
-  await expect(username).toBeFocused();
-  await expect(username).toHaveValue('just_available');
-  await expect(page.getByRole('textbox', { name: /Bio/ })).toHaveValue('Keep this bio draft');
-  await username.fill('another_available');
-  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-  await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
-    'Changes saved.',
-  );
-  expect(server.errors).toEqual([]);
+
+  await test.step('Reject reserved and already occupied usernames', async () => {
+    await username.fill('ADMIN');
+
+    await expect(page.getByRole('alert')).toContainText('reserved');
+
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
+    await expect(username).toBeFocused();
+    expect(server.writes).toHaveLength(0);
+
+    await username.fill('already_taken');
+
+    await expect(page.getByRole('alert')).toContainText('not available');
+  });
+
+  await test.step('Retain drafts when an available username is taken before saving', async () => {
+    await username.fill('just_available');
+
+    await expect(page.getByText('Available — reserved when you save.')).toBeVisible();
+
+    await page.getByRole('textbox', { name: /Bio/ }).fill('Keep this bio draft');
+    server.takeUsernameOnSave();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
+    await expect(page.getByRole('alert')).toContainText('not available');
+    await expect(username).toBeFocused();
+    await expect(username).toHaveValue('just_available');
+    await expect(page.getByRole('textbox', { name: /Bio/ })).toHaveValue('Keep this bio draft');
+  });
+
+  await test.step('Save successfully with another available username', async () => {
+    await username.fill('another_available');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
+    await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
+      'Changes saved.',
+    );
+    expect(server.errors).toEqual([]);
+  });
 });
 
 test('UUID, uppercase and historical public URLs replace with the current handle and copy only the canonical link', async ({
@@ -526,21 +647,30 @@ test('UUID, uppercase and historical public URLs replace with the current handle
       },
     });
   });
+
   const server = await mockProfile(page, { ...initial, username: 'alex_old' }, true);
   server.remoteChange({ username: 'alex_current' });
+
   for (const path of ['/users/user', '/u/alex_old', '/u/ALEX_CURRENT']) {
-    await page.goto(path + '?ref=shared#about');
-    await expect(page).toHaveURL(/\/u\/alex_current\?ref=shared#about$/);
-    await expect(page.getByRole('heading', { name: 'Alex Morgan' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Edit profile' })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Copy profile link' }).click();
-    await expect(page.getByRole('status')).toHaveText('Profile link copied.');
-    expect(await page.evaluate(() => sessionStorage.getItem('copied-profile-link'))).toBe(
-      new URL('/u/alex_current', page.url()).href,
-    );
+    await test.step(`Canonicalize ${path} and copy only the current public URL`, async () => {
+      await page.goto(path + '?ref=shared#about');
+
+      await expect(page).toHaveURL(/\/u\/alex_current\?ref=shared#about$/);
+      await expect(page.getByRole('heading', { name: 'Alex Morgan' })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Edit profile' })).toHaveCount(0);
+
+      await page.getByRole('button', { name: 'Copy profile link' }).click();
+
+      await expect(page.getByRole('status')).toHaveText('Profile link copied.');
+      expect(await page.evaluate(() => sessionStorage.getItem('copied-profile-link'))).toBe(
+        new URL('/u/alex_current', page.url()).href,
+      );
+    });
   }
+
   await page.screenshot({ path: testInfo.outputPath('username-public.png'), fullPage: true });
   await page.goto('/u/missing_handle');
+
   await expect(page.getByRole('heading', { name: 'Profile not found' })).toBeVisible();
   expect(server.errors).toEqual([]);
 });
@@ -549,7 +679,9 @@ test('a remotely changed username replaces only that draft and applies its indep
   page,
 }) => {
   const server = await mockProfile(page);
+
   await page.goto('/profile/edit');
+
   const username = page.getByRole('textbox', { name: /Username/ });
   await username.fill('local_draft');
   await page.getByLabel('Display name', { exact: true }).fill('Keep my name draft');
@@ -559,12 +691,15 @@ test('a remotely changed username replaces only that draft and applies its indep
     nextUsernameChangeAt: new Date(Date.now() + 30 * 86400000).toISOString(),
   });
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
   await expect(page.getByRole('alert')).toContainText('changed elsewhere');
   await expect(username).toHaveValue('remote_username');
   await expect(username).toHaveAttribute('readonly', '');
   await expect(page.getByLabel('Display name', { exact: true })).toHaveValue('Keep my name draft');
   await expect(page.getByRole('textbox', { name: /Bio/ })).toHaveValue('Keep my bio draft');
+
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
   await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
     'Changes saved.',
   );
@@ -582,39 +717,55 @@ for (const action of ['text save', 'avatar upload'] as const) {
       page,
     }) => {
       const server = await mockProfile(page);
+
       await page.goto('/profile/edit');
+
       const name = page.getByLabel('Display name', { exact: true });
       const username = page.getByRole('textbox', { name: /Username/ });
       const bio = page.getByRole('textbox', { name: /Bio/ });
-      await name.fill('My local name');
-      await username.fill('my_local_username');
-      if (!remoteBio) await bio.fill('A conflicting local bio draft');
-      server.remoteChange({ bio: remoteBio });
-      if (action === 'text save')
-        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-      else {
-        await choosePngWithoutMime(page);
-        await page.getByRole('button', { name: 'Save photo', exact: true }).click();
-      }
-      await expect(page.getByRole('alert')).toContainText('changed elsewhere');
-      if (action === 'avatar upload')
-        await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
-      await expect(bio).toHaveValue(remoteBio);
-      await expect(name).toHaveValue('My local name');
-      await expect(username).toHaveValue('my_local_username');
-      await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-      await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
-        'Changes saved.',
-      );
-      expect(server.writes.at(-1)).toEqual({
-        displayName: 'My local name',
-        username: 'my_local_username',
-        bio: remoteBio,
-        expectedVersion: 2,
+
+      await test.step('Reconcile the remote bio without discarding unrelated local edits', async () => {
+        await name.fill('My local name');
+        await username.fill('my_local_username');
+        if (!remoteBio) await bio.fill('A conflicting local bio draft');
+
+        server.remoteChange({ bio: remoteBio });
+
+        if (action === 'text save')
+          await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+        else {
+          await choosePngWithoutMime(page);
+          await page.getByRole('button', { name: 'Save photo', exact: true }).click();
+        }
+
+        await expect(page.getByRole('alert')).toContainText('changed elsewhere');
+
+        if (action === 'avatar upload')
+          await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+
+        await expect(bio).toHaveValue(remoteBio);
+        await expect(name).toHaveValue('My local name');
+        await expect(username).toHaveValue('my_local_username');
       });
-      await page.reload();
-      await expect(bio).toHaveValue(remoteBio);
-      expect(server.errors).toEqual([]);
+
+      await test.step('Save and reload the reconciled profile using its new version', async () => {
+        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
+        await expect(page.getByRole('status', { name: 'Profile save status' })).toHaveText(
+          'Changes saved.',
+        );
+        expect(server.writes.at(-1)).toEqual({
+          displayName: 'My local name',
+          username: 'my_local_username',
+          bio: remoteBio,
+          expectedVersion: 2,
+        });
+
+        await page.reload();
+
+        await expect(bio).toHaveValue(remoteBio);
+        expect(server.errors).toEqual([]);
+      });
     });
   }
 }

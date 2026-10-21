@@ -11,8 +11,11 @@ it.each([undefined, 'a+/= b'])(
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response));
     vi.stubGlobal('fetch', fetcher);
     const signal = new AbortController().signal;
+
     expect(await getIncomingClaims('report/1', signal, cursor)).toEqual(response);
+
     const [url, options] = fetcher.mock.calls[0]!;
+
     expect(new URL(String(url)).pathname).toBe('/listings/report%2F1/claims');
     expect(new URL(String(url)).searchParams.get('cursor')).toBe(cursor ?? null);
     expect(options).toMatchObject({ method: 'GET', credentials: 'include', signal });
@@ -24,8 +27,11 @@ it('submits ownership proof in a protected request body, not in the URL', async 
   const response = { claim: claim({ verificationDetails: input.verificationDetails }) };
   const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response, { status: 201 }));
   vi.stubGlobal('fetch', fetcher);
+
   expect(await createClaim('report/1', input)).toEqual(response);
+
   const [url, options] = fetcher.mock.calls[0]!;
+
   expect(new URL(String(url)).pathname).toBe('/listings/report%2F1/claims');
   expect(new URL(String(url)).search).toBe('');
   expect(options).toMatchObject({
@@ -49,8 +55,11 @@ it.each([
   };
   const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response));
   vi.stubGlobal('fetch', fetcher);
+
   expect(await decideClaim('claim/1', input)).toEqual(response);
+
   const [url, options] = fetcher.mock.calls[0]!;
+
   expect(new URL(String(url)).pathname).toBe('/claims/claim%2F1');
   expect(options).toMatchObject({ method: 'PATCH', body: JSON.stringify(input) });
   expect(new Headers(options!.headers).get('X-CSRF-Protection')).toBe('1');
@@ -66,6 +75,7 @@ it('preserves a stale decision conflict without retrying the mutation', async ()
       ),
     );
   vi.stubGlobal('fetch', fetcher);
+
   await expect(decideClaim('claim-1', { decision: 'rejected' })).rejects.toMatchObject({
     status: 409,
     code: 'CLAIM_ALREADY_DECIDED',

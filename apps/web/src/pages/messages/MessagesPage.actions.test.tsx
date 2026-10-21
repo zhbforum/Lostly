@@ -49,11 +49,15 @@ it('recovers a failed initial history load without making the conversation unava
   vi.mocked(api.getConversationMessages)
     .mockRejectedValueOnce(new TypeError('offline'))
     .mockResolvedValue(historyPage([message(1)]));
+
   showConversation();
+
   expect(await screen.findByRole('alert')).toHaveTextContent('Could not load message history.');
   expect(screen.getByRole('textbox', { name: 'Write a message' })).toBeEnabled();
   expect(screen.getByRole('link', { name: /AirPods Pro/ })).toBeVisible();
+
   await actor.click(screen.getByRole('button', { name: 'Retry messages' }));
+
   expect(await screen.findByText('Message 1')).toBeVisible();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(screen.queryByText('This conversation is no longer available.')).not.toBeInTheDocument();
@@ -66,15 +70,20 @@ it('keeps loaded history during a failed background poll and resumes from its co
     .mockResolvedValueOnce(historyPage([message(5)]))
     .mockRejectedValueOnce(new TypeError('offline'))
     .mockResolvedValue(historyPage([message(6)]));
+
   await act(async () => {
     showConversation();
   });
   await act(() => vi.advanceTimersByTimeAsync(4000));
+
   const warning = screen.getByText('Could not check for new messages. We will try again.');
+
   expect(warning.parentElement).toHaveAttribute('role', 'status');
   expect(screen.getByText('Message 5')).toBeVisible();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Retry messages' })));
+
   expect(screen.getByText('Message 6')).toBeVisible();
   expect(screen.getByText('Message 5')).toBeVisible();
   expect(
@@ -95,15 +104,22 @@ it('reloads history after a missing read target and waits for a newly visible se
   vi.mocked(api.readConversation)
     .mockRejectedValueOnce(new ApiError(404, 'MESSAGE_NOT_FOUND', 'Message removed'))
     .mockResolvedValue({ lastReadSequence: 6, unreadCount: 0 });
+
   showConversation();
+
   const first = (await screen.findByText('Message 5')).closest('[data-message-id]')!;
+
   await waitFor(() =>
     expect(observers.some((observer) => observer.observed.has(first))).toBe(true),
   );
+
+  // WHEN: the visible read target is missing on the server, reload history first.
   await act(async () =>
     observers.findLast((observer) => observer.observed.has(first))!.intersect(first),
   );
+
   const next = (await screen.findByText('Message 6')).closest('[data-message-id]')!;
+
   expect(screen.queryByText('Message 5')).not.toBeInTheDocument();
   expect(screen.getByRole('textbox', { name: 'Write a message' })).toBeEnabled();
   expect(screen.getByRole('link', { name: /AirPods Pro/ })).toBeVisible();
@@ -114,9 +130,12 @@ it('reloads history after a missing read target and waits for a newly visible se
   );
   expect(api.readConversation).toHaveBeenCalledOnce();
   await waitFor(() => expect(observers.some((observer) => observer.observed.has(next))).toBe(true));
+
+  // THEN: only a newly visible server message can advance the read pointer.
   await act(async () =>
     observers.findLast((observer) => observer.observed.has(next))!.intersect(next),
   );
+
   expect(api.readConversation).toHaveBeenCalledTimes(2);
   expect(api.readConversation).toHaveBeenLastCalledWith('A', 'message-6', expect.any(AbortSignal));
 });
@@ -128,20 +147,30 @@ it('retries an uncertain send through its pending bubble without duplicating the
   vi.mocked(api.sendConversationMessage)
     .mockRejectedValueOnce(new TypeError('response lost'))
     .mockReturnValueOnce(retry.promise);
+
   showConversation();
   await actor.type(
     await screen.findByRole('textbox', { name: 'Write a message' }),
     confirmed.body!,
   );
   await actor.click(screen.getByRole('button', { name: 'Send' }));
+
   const retryButton = await screen.findByRole('button', { name: 'Retry to confirm' });
+
   expect(screen.getByText('Delivery status unknown')).toBeVisible();
   expect(screen.getByRole('textbox', { name: 'Write a message' })).toHaveAttribute('readonly');
+
   const firstCall = vi.mocked(api.sendConversationMessage).mock.calls[0]!;
+
+  // WHEN: the pending bubble retries, it must reuse the original payload and operation key.
   await actor.click(retryButton);
+
   expect(api.sendConversationMessage).toHaveBeenNthCalledWith(2, ...firstCall);
   expect(screen.queryByRole('button', { name: 'Retry to confirm' })).not.toBeInTheDocument();
+
   await act(async () => retry.resolve({ message: confirmed }));
+
+  // THEN: confirmation replaces the pending bubble and unlocks the composer.
   expect(screen.getAllByText(confirmed.body!)).toHaveLength(1);
   expect(screen.queryByText('Delivery status unknown')).not.toBeInTheDocument();
   expect(screen.getByRole('textbox', { name: 'Write a message' })).toBeEnabled();
@@ -177,20 +206,31 @@ it('propagates a visible message read to its inbox row and global unread badge',
     .mockResolvedValueOnce({ unreadConversationCount: 1 })
     .mockResolvedValue({ unreadConversationCount: 0 });
   vi.mocked(api.readConversation).mockResolvedValue({ lastReadSequence: 1, unreadCount: 0 });
+
   showConversation();
+
   expect(
     await screen.findByRole('link', { name: 'Messages, 1 unread conversation' }),
   ).toBeVisible();
+
   const row = await screen.findByRole('link', { name: /AirPods Pro.*2 unread messages/ });
   const body = await screen.findByText('Message 1');
+
   await waitFor(() => expect(observers.some((observer) => observer.observed.size > 0)).toBe(true));
+
   const target = body.closest('[data-message-id]')!;
   const observer = observers.findLast((item) => item.observed.has(target))!;
+
   expect(api.readConversation).not.toHaveBeenCalled();
+
+  // WHEN: an incoming message actually enters the history viewport.
   vi.mocked(api.getConversationInbox).mockResolvedValue(
     inboxPage([conversation('A', { unreadCount: 0 })]),
   );
+
   await act(async () => observer.intersect(target));
+
+  // THEN: the read response reconciles both the inbox row and the navigation badge.
   await waitFor(() => expect(row).not.toHaveTextContent('2 unread messages'));
   expect(api.readConversation).toHaveBeenCalledExactlyOnceWith(
     'A',
@@ -210,12 +250,14 @@ it('propagates approval to the conversation context, inbox and unread refresh', 
     reviewedAt: '2026-09-25T12:00:00.000Z',
   });
   vi.mocked(decideClaim).mockResolvedValue({ claim: approved });
+
   showConversation();
   await actor.click(await screen.findByRole('button', { name: 'Approve claim' }));
   await actor.type(
     screen.getByLabelText('Private collection instructions'),
     approved.handoverDetails!,
   );
+
   const detail = conversationDetail({ participantRole: 'owner' });
   vi.mocked(api.getConversation).mockResolvedValue({
     conversation: {
@@ -227,7 +269,9 @@ it('propagates approval to the conversation context, inbox and unread refresh', 
   vi.mocked(api.getConversationInbox).mockResolvedValue(
     inboxPage([conversation('A', { claim: { id: approved.id, status: 'approved' } })]),
   );
+
   await actor.click(screen.getByRole('button', { name: 'Confirm approval' }));
+
   expect(decideClaim).toHaveBeenCalledExactlyOnceWith('claim-A', {
     decision: 'approved',
     handoverDetails: approved.handoverDetails,
@@ -246,6 +290,7 @@ it('reconciles a failed decision across context, inbox and global count without 
   vi.mocked(decideClaim).mockRejectedValue(
     new ApiError(409, 'CLAIM_ALREADY_DECIDED', 'This claim was already reviewed.'),
   );
+
   showConversation();
   await actor.click(await screen.findByRole('button', { name: 'Approve claim' }));
   await actor.type(
@@ -253,7 +298,9 @@ it('reconciles a failed decision across context, inbox and global count without 
     'Collect at the library.',
   );
   await actor.click(screen.getByRole('button', { name: 'Confirm approval' }));
+
   const dialog = screen.getByRole('dialog');
+
   expect(await within(dialog).findByRole('alert')).toHaveTextContent(
     'This claim was already reviewed.',
   );
@@ -263,12 +310,16 @@ it('reconciles a failed decision across context, inbox and global count without 
   expect(api.getConversation).toHaveBeenCalledTimes(2);
   expect(api.getConversationInbox).toHaveBeenCalledTimes(2);
   expect(api.getUnreadConversationCount).toHaveBeenCalledTimes(2);
+
   await actor.click(screen.getByRole('button', { name: 'Refresh status' }));
+
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   expect(api.getConversation).toHaveBeenCalledTimes(3);
   expect(api.getConversationInbox).toHaveBeenCalledTimes(3);
   expect(api.getUnreadConversationCount).toHaveBeenCalledTimes(3);
+
   await actor.click(screen.getByRole('button', { name: 'Approve claim' }));
+
   expect(screen.getByLabelText('Private collection instructions')).toHaveValue(
     'Collect at the library.',
   );

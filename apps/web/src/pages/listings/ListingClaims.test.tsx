@@ -82,6 +82,7 @@ describe('listing claims flow', () => {
       details.mockResolvedValue(ownerDetails);
       incoming.mockResolvedValue({ claims: [{ ...claim, status }], pageInfo: end });
       renderPage();
+
       expect(await screen.findByRole('link', { name: 'Open conversation' })).toHaveAttribute(
         'href',
         '/messages/' + claim.conversationId,
@@ -97,7 +98,9 @@ describe('listing claims flow', () => {
         pageInfo: { endCursor: 'next', hasNextPage: true },
       })
       .mockResolvedValue({ claims: [claim], pageInfo: end });
+
     const user = userEvent.setup();
+
     render(
       <MemoryRouter
         initialEntries={[
@@ -115,10 +118,13 @@ describe('listing claims flow', () => {
       </MemoryRouter>,
     );
     await user.click(await screen.findByRole('button', { name: 'Next' }));
+
     await waitFor(() =>
       expect(incoming).toHaveBeenLastCalledWith(id, expect.any(AbortSignal), 'next'),
     );
+
     await user.click(screen.getByRole('link', { name: 'Back to conversation' }));
+
     expect(await screen.findByRole('heading', { name: 'Original conversation' })).toBeVisible();
   });
 
@@ -128,6 +134,7 @@ describe('listing claims flow', () => {
       status: 'approved' as const,
       handoverDetails: 'Collect from the library reception.',
     };
+
     details.mockResolvedValueOnce(ownerDetails).mockResolvedValue({
       ...ownerDetails,
       listing: { ...ownerDetails.listing, status: 'resolved' },
@@ -137,16 +144,21 @@ describe('listing claims flow', () => {
       .mockResolvedValueOnce({ claims: [claim], pageInfo: end })
       .mockResolvedValue({ claims: [approved], pageInfo: end });
     decision.mockResolvedValue({ claim: approved });
+
     const user = userEvent.setup();
+
     renderPage();
     await user.click(await screen.findByRole('button', { name: 'Approve claim' }));
     await user.click(screen.getByRole('button', { name: 'Confirm approval' }));
+
     expect(decision).not.toHaveBeenCalled();
+
     await user.type(
       screen.getByLabelText('Private collection instructions'),
       approved.handoverDetails,
     );
     await user.click(screen.getByRole('button', { name: 'Confirm approval' }));
+
     await screen.findByText('Resolved');
     await screen.findByText(approved.handoverDetails);
     expect(decision).toHaveBeenCalledWith(claim.id, {
@@ -161,7 +173,9 @@ describe('listing claims flow', () => {
     details.mockResolvedValue(ownerDetails);
     incoming.mockResolvedValue({ claims: [claim], pageInfo: end });
     decision.mockRejectedValue(new TypeError('Response lost'));
+
     const user = userEvent.setup();
+
     renderPage();
     await user.click(await screen.findByRole('button', { name: 'Approve claim' }));
     await user.type(
@@ -169,9 +183,12 @@ describe('listing claims flow', () => {
       'Collect at library reception.',
     );
     await user.click(screen.getByRole('button', { name: 'Confirm approval' }));
+
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the decision');
+
     await user.click(screen.getByRole('button', { name: 'Refresh status' }));
     await user.click(await screen.findByRole('button', { name: 'Approve claim' }));
+
     expect(screen.getByLabelText('Private collection instructions')).toHaveValue(
       'Collect at library reception.',
     );
@@ -192,24 +209,30 @@ describe('listing claims flow', () => {
       canResolve: false,
       canArchive: false,
     };
+
     details.mockResolvedValueOnce({ ...ownerDetails, capabilities: viewer }).mockResolvedValue({
       ...ownerDetails,
       listing: { ...ownerDetails.listing, status: 'resolved' },
       capabilities: { ...viewer, canClaim: false },
       claim: approved,
     });
+
     vi.mocked(createClaim).mockResolvedValue({ claim });
     const user = userEvent.setup();
+
     renderPage();
     await user.type(await screen.findByLabelText(/Proof of ownership/), claim.verificationDetails);
     await user.click(screen.getByRole('button', { name: 'Submit private claim' }));
+
     await screen.findByText('Your claim is awaiting review');
     expect(screen.getByRole('link', { name: 'Open conversation' })).toHaveAttribute(
       'href',
       '/messages/' + claim.conversationId,
     );
     expect(details).toHaveBeenCalledTimes(1);
+
     await user.click(screen.getByRole('button', { name: 'Refresh status' }));
+
     await screen.findByText('Your claim was approved');
     expect(screen.getByText(approved.handoverDetails)).toBeInTheDocument();
     expect(incoming).not.toHaveBeenCalled();
@@ -229,6 +252,7 @@ describe('listing claims flow', () => {
       claim: null,
     });
     renderPage();
+
     await screen.findByRole('heading', { name: 'Blue backpack' });
     expect(screen.queryByText(claim.verificationDetails)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Approve claim' })).not.toBeInTheDocument();
@@ -243,7 +267,9 @@ describe('listing claims flow', () => {
         pageInfo: { endCursor: 'claims-page-two', hasNextPage: true },
       })
       .mockResolvedValue({ claims: [claim], pageInfo: end });
+
     const user = userEvent.setup();
+
     render(
       <MemoryRouter
         initialEntries={[
@@ -263,10 +289,13 @@ describe('listing claims flow', () => {
       </MemoryRouter>,
     );
     await user.click(await screen.findByRole('button', { name: 'Next' }));
+
     await waitFor(() =>
       expect(incoming).toHaveBeenLastCalledWith(id, expect.any(AbortSignal), 'claims-page-two'),
     );
+
     await user.click(screen.getByRole('link', { name: /Back to results/ }));
+
     expect(screen.getByLabelText('Restored feed')).toHaveTextContent(
       JSON.stringify({
         search: '?kind=found&cursor=feed-page-three',

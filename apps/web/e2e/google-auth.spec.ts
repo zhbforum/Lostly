@@ -22,6 +22,7 @@ for (const mode of ['login', 'link'] as const) {
     const authorizationUrl = `https://identity.example.test/authorize?state=${mode}-state&scope=openid%20email`;
     const errors: string[] = [];
     const starts: unknown[] = [];
+
     page.on('pageerror', (error) => errors.push(error.message));
     await page.route('**/*', async (route) => {
       const request = route.request();
@@ -71,18 +72,24 @@ for (const mode of ['login', 'link'] as const) {
       }),
     );
 
-    await page.goto(mode === 'login' ? returnTo : '/profile/edit');
-    if (mode === 'login') await expect(page).toHaveURL(/\/login$/);
-    else await expect(page.getByRole('heading', { name: 'Edit profile' })).toBeVisible();
+    await test.step('Reach the appropriate Google entry point', async () => {
+      await page.goto(mode === 'login' ? returnTo : '/profile/edit');
 
-    await page
-      .getByRole('button', { name: mode === 'login' ? 'Continue with Google' : 'Connect Google' })
-      .click();
-    await expect(page).toHaveURL(authorizationUrl);
-    await expect(
-      page.getByRole('heading', { name: 'Controlled authorization endpoint' }),
-    ).toBeVisible();
-    expect(starts).toEqual([{ mode, returnTo }]);
-    expect(errors).toEqual([]);
+      if (mode === 'login') await expect(page).toHaveURL(/\/login$/);
+      else await expect(page.getByRole('heading', { name: 'Edit profile' })).toBeVisible();
+    });
+
+    await test.step('Start the requested OAuth mode and follow the exact authorization URL', async () => {
+      await page
+        .getByRole('button', { name: mode === 'login' ? 'Continue with Google' : 'Connect Google' })
+        .click();
+
+      await expect(page).toHaveURL(authorizationUrl);
+      await expect(
+        page.getByRole('heading', { name: 'Controlled authorization endpoint' }),
+      ).toBeVisible();
+      expect(starts).toEqual([{ mode, returnTo }]);
+      expect(errors).toEqual([]);
+    });
   });
 }

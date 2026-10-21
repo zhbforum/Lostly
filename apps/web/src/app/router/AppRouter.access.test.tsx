@@ -35,7 +35,9 @@ it.each(['loading', 'error', 'unauthenticated'] as const)(
       .fn<typeof fetch>()
       .mockResolvedValue(Response.json({ profile: userProfile() }));
     vi.stubGlobal('fetch', fetcher);
+
     render(appAt('/u/alex_morgan', { status, user: null }));
+
     expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeVisible();
     expect(screen.getByLabelText('Current URL')).toHaveTextContent('/u/alex_morgan');
     expect(screen.queryByRole('heading', { name: 'Sign in to Lostly' })).not.toBeInTheDocument();
@@ -55,8 +57,10 @@ it('opens the current member profile from its account shortcut and edits it thro
     throw new Error('Unexpected request: ' + path);
   });
   vi.stubGlobal('fetch', fetcher);
+
   render(appAt('/profile', {}));
   await actor.click(await screen.findByRole('link', { name: 'Edit profile' }));
+
   expect(await screen.findByLabelText('Display name')).toHaveValue('Alex Morgan');
   expect(screen.getByLabelText('Current URL')).toHaveTextContent('/profile/edit');
   expect(fetcher.mock.calls.map(([url]) => new URL(String(url)).pathname)).toContain('/me/profile');
@@ -70,16 +74,21 @@ it('does not request private profile data until the session is authenticated', a
   });
   vi.stubGlobal('fetch', fetcher);
   const view = render(appAt('/profile/edit', { status: 'loading', user: null }));
+
   expect(screen.getByRole('heading', { name: 'Getting things ready' })).toBeVisible();
   expect(fetcher).not.toHaveBeenCalled();
+
   view.rerender(appAt('/profile/edit', { status: 'authenticated', user: profileUser() }));
+
   expect(await screen.findByLabelText('Display name')).toHaveValue('Alex Morgan');
 });
 
 it('keeps a session bootstrap failure distinct from being signed out on protected routes', () => {
   const fetcher = vi.fn<typeof fetch>();
   vi.stubGlobal('fetch', fetcher);
+
   render(appAt('/profile/edit', { status: 'error', user: null }));
+
   expect(screen.getByRole('heading', { name: 'We could not load your session' })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
   expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
@@ -105,6 +114,7 @@ it('registers through the real auth provider and returns to the original private
     throw new Error('Unexpected request: ' + path);
   });
   vi.stubGlobal('fetch', fetcher);
+
   render(
     <MemoryRouter initialEntries={['/listings?kind=found#results']}>
       <AuthProvider>
@@ -122,20 +132,25 @@ it('registers through the real auth provider and returns to the original private
   await actor.type(screen.getByLabelText('Email'), 'alex@example.com');
   await actor.type(screen.getByLabelText('Password'), 'a long private password');
   await actor.click(screen.getByRole('button', { name: 'Create account' }));
+
   expect(screen.getByLabelText('Current URL')).toHaveTextContent('/register');
   expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === '/listings')).toBe(
     false,
   );
+
   await act(async () => pending.resolve(Response.json({ user: profileUser() }, { status: 201 })));
+
   expect(await screen.findByRole('heading', { name: 'No matching active reports' })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Account: Alex Morgan' })).toBeVisible();
   expect(screen.getByLabelText('Report type')).toHaveValue('found');
   await waitFor(() =>
     expect(screen.getByLabelText('Current URL')).toHaveTextContent('/listings?kind=found#results'),
   );
+
   const requests = fetcher.mock.calls.filter(
     ([url]) => new URL(String(url)).pathname === '/auth/register',
   );
+
   expect(requests).toHaveLength(1);
   expect(JSON.parse(String(requests[0]![1]!.body))).toEqual({
     displayName: 'Alex Morgan',

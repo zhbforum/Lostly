@@ -8,11 +8,15 @@ it('stays hidden below the warning threshold and appears at the boundary', () =>
   const view = render(
     <ListingCharacterCount id="title-count" currentLength={threshold - 1} maxLength={100} />,
   );
+
   expect(view.container).toBeEmptyDOMElement();
+
   view.rerender(
     <ListingCharacterCount id="title-count" currentLength={threshold} maxLength={100} />,
   );
+
   const counter = screen.getByText(`${100 - threshold} characters remaining`);
+
   expect(counter).toHaveAttribute('id', 'title-count');
   expect(counter).toHaveAttribute('aria-live', 'polite');
 });
@@ -24,5 +28,6 @@ it.each([
   [102, '2 characters over the limit'],
 ])('announces the remaining or excess characters at length %s', (length, feedback) => {
   render(<ListingCharacterCount id="title-count" currentLength={length} maxLength={100} />);
+
   expect(screen.getByText(feedback)).toBeVisible();
 });

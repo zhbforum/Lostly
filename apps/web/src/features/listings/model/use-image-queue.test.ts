@@ -21,6 +21,7 @@ function imageFile(name: string) {
 }
 
 it('retains create progress by default and explicitly discards only completed files', async () => {
+  // GIVEN: only the first photo can be uploaded successfully.
   vi.mocked(uploadListingImage)
     .mockResolvedValueOnce({ image: photo() })
     .mockRejectedValueOnce(new Error('offline'));
@@ -42,10 +43,12 @@ it('retains create progress by default and explicitly discards only completed fi
 
   let discardedCount!: number;
 
+  // WHEN: completed photos are discarded.
   act(() => {
     discardedCount = result.current.discardUploaded();
   });
 
+  // THEN: the failed operation remains in the queue for retry.
   expect(discardedCount).toBe(1);
   expect(result.current.items).toEqual([failed]);
   expect(result.current.items[0]).toBe(failed);
@@ -60,6 +63,7 @@ it('retains create progress by default and explicitly discards only completed fi
 });
 
 it('locks queue edits and duplicate uploads until the active upload settles', async () => {
+  // GIVEN: the transport keeps the first upload in flight.
   const pending = deferred<Awaited<ReturnType<typeof uploadListingImage>>>();
 
   vi.mocked(uploadListingImage).mockReturnValueOnce(pending.promise);
@@ -82,6 +86,7 @@ it('locks queue edits and duplicate uploads until the active upload settles', as
 
   let discardedCount!: number;
 
+  // WHEN: the caller tries to edit the queue or start the same upload again.
   await act(async () => {
     result.current.add([imageFile('extra')]);
     result.current.remove(id);
@@ -91,6 +96,7 @@ it('locks queue edits and duplicate uploads until the active upload settles', as
     await result.current.upload(reportId);
   });
 
+  // THEN: no operation changes the queue or creates another request.
   expect(discardedCount).toBe(0);
   expect(uploadListingImage).toHaveBeenCalledOnce();
   expect(result.current.items).toEqual([
@@ -100,6 +106,7 @@ it('locks queue edits and duplicate uploads until the active upload settles', as
     }),
   ]);
 
+  // WHEN: the upload settles, the caller can discard it and select a replacement.
   await act(async () => {
     pending.resolve({ image: photo() });
     await upload;
@@ -130,6 +137,7 @@ it('locks queue edits and duplicate uploads until the active upload settles', as
 it.each(['success', 'failure'] as const)(
   'keeps a new upload isolated from an old %s after resetting the queue',
   async (outcome) => {
+    // GIVEN: an old upload is pending with another file still waiting in its queue.
     const oldRequest = deferred<Awaited<ReturnType<typeof uploadListingImage>>>();
     const newRequest = deferred<Awaited<ReturnType<typeof uploadListingImage>>>();
 
@@ -154,6 +162,7 @@ it.each(['success', 'failure'] as const)(
 
     const oldSignal = vi.mocked(uploadListingImage).mock.calls[0][3];
 
+    // WHEN: resetting cancels the old queue and a new upload starts immediately.
     act(() => {
       result.current.reset();
     });
@@ -175,6 +184,7 @@ it.each(['success', 'failure'] as const)(
     const newItem = result.current.items[0];
     const newSignal = vi.mocked(uploadListingImage).mock.calls[1][3];
 
+    // WHEN: the cancelled transport finishes after its replacement has started.
     await act(async () => {
       if (outcome === 'success') {
         oldRequest.resolve({ image: photo() });
@@ -185,6 +195,7 @@ it.each(['success', 'failure'] as const)(
       await oldUpload;
     });
 
+    // THEN: the old completion cannot modify or unlock the new queue.
     expect(onOldUploaded).not.toHaveBeenCalled();
     expect(onNewUploaded).not.toHaveBeenCalled();
     expect(result.current.items).toEqual([newItem]);
@@ -200,6 +211,7 @@ it.each(['success', 'failure'] as const)(
 
     const uploaded = photo(1);
 
+    // WHEN: the current upload finishes, only its own callback may run.
     await act(async () => {
       newRequest.resolve({ image: uploaded });
       await newUpload;
@@ -242,6 +254,7 @@ it.each(['success', 'failure'] as const)(
 
     expect(signal?.aborted).toBe(true);
 
+    // WHEN: the transport ignores cancellation and completes after unmount.
     await act(async () => {
       if (outcome === 'success') {
         pending.resolve({ image: photo() });
@@ -252,6 +265,7 @@ it.each(['success', 'failure'] as const)(
       await upload;
     });
 
+    // THEN: no callback runs and the second file never starts uploading.
     expect(uploadListingImage).toHaveBeenCalledOnce();
     expect(onUploaded).not.toHaveBeenCalled();
   },

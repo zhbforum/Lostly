@@ -16,8 +16,10 @@ it.each(['reports', 'claims', 'incoming'] as const)(
       ...response,
       kind: tab === 'reports' ? 'reports' : 'claims',
     });
+
     const [url, options] = fetcher.mock.calls[0]!;
     const address = new URL(String(url));
+
     expect(address.pathname).toBe(tab === 'reports' ? '/me/listings' : '/me/claims');
     expect(address.searchParams.get('cursor')).toBe('a+/= b');
     expect(address.searchParams.get('direction')).toBe(
@@ -37,6 +39,7 @@ it('omits an absent cursor and preserves an invalid-cursor error for the page to
       ),
     );
   vi.stubGlobal('fetch', fetcher);
+
   await expect(
     getActivity('reports', undefined, new AbortController().signal),
   ).rejects.toMatchObject({

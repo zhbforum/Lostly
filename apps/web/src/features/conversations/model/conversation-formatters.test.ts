@@ -18,6 +18,7 @@ it('distinguishes an empty conversation from text and image-only message preview
 
 it('formats recent activity and calendar dates without negative or invalid labels', () => {
   const now = new Date('2026-09-25T12:00:00Z');
+
   expect(formatConversationActivity('2026-09-25T12:00:30Z', now)).toBe('Now');
   expect(formatConversationActivity('2026-09-25T11:58:00Z', now)).toBe('2m');
   expect(formatConversationActivity('2026-09-25T10:00:00Z', now)).toBe('2h');

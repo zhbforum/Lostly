@@ -16,6 +16,7 @@ it.each([
 ])('rejects unsafe return destinations: %j', (value) => {
   expect(safeReturnTo(value)).toBe('/');
 });
+
 it('preserves an internal destination with query and fragment', () => {
   expect(safeReturnTo('/listings/abc?kind=found#claims')).toBe('/listings/abc?kind=found#claims');
   expect(safeReturnTo('/listings?q=blue%20backpack')).toBe('/listings?q=blue%20backpack');

@@ -23,13 +23,17 @@ it('keeps a draft for the same version but remounts the editor when server versi
     </MemoryRouter>
   );
   const view = render(page());
+
   fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Unsaved changes' } });
+
   vi.mocked(useListingDetails).mockReturnValue({
     state: { status: 'success', listing: structuredClone(report) },
     retry,
     acceptClaim: vi.fn(),
   });
+
   view.rerender(page());
+
   expect(screen.getByLabelText('Title')).toHaveValue('Unsaved changes');
 
   const newer = {
@@ -45,7 +49,9 @@ it('keeps a draft for the same version but remounts the editor when server versi
     retry,
     acceptClaim: vi.fn(),
   });
+
   view.rerender(page());
+
   expect(screen.getByLabelText('Title')).toHaveValue(newer.listing.title);
   expect(screen.getByLabelText('Description')).toHaveValue(newer.listing.description);
 });

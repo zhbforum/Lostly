@@ -34,10 +34,14 @@ it('does not resurrect unread counts when old inbox/context/global requests reso
   guards.forEach((guard) => guard.invalidate());
   inbox = applyInboxRead(inbox, 'A', 0);
   context = { ...context, unreadCount: 0 };
+
   const refreshedUnread = guards[2].capture();
+
   if (guards[2].isCurrent(refreshedUnread)) globalUnread = 0;
+
   oldResponses.forEach((response) => response.resolve(4));
   await Promise.all(pending);
+
   expect([inbox.byId.A.unreadCount, context.unreadCount, globalUnread]).toEqual([0, 0, 0]);
 });
 
@@ -46,11 +50,16 @@ it('isolates A from B, disposed controllers and previous sessions', () => {
   const b = createRequestRevision();
   const tokenA = a.capture();
   const tokenB = b.capture();
+
   expect(b.isCurrent(tokenA)).toBe(false);
+
   a.dispose();
+
   expect(a.isCurrent(tokenA)).toBe(false);
   expect(b.isCurrent(tokenB)).toBe(true);
+
   advanceSessionGeneration();
+
   expect(b.isCurrent(tokenB)).toBe(false);
   expect(b.isCurrent(b.capture())).toBe(true);
 });

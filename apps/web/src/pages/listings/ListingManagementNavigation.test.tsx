@@ -17,8 +17,10 @@ describe.each(['resolve', 'archive'] as const)('delayed %s after report navigati
     async (outcome) => {
       const first = ownerReport();
       const second = ownerReport();
+
       second.listing.id = '550e8400-e29b-41d4-a716-446655440002';
       second.listing.title = 'Second report';
+
       vi.mocked(getListing).mockImplementation(async (id) => {
         if (id === first.listing.id) return first;
         if (id === second.listing.id) return second;
@@ -26,6 +28,7 @@ describe.each(['resolve', 'archive'] as const)('delayed %s after report navigati
       });
       const mutation = vi.mocked(action === 'resolve' ? resolveListing : archiveListing);
       let finish!: () => void;
+
       mutation.mockImplementation(
         () =>
           new Promise((resolve, reject) => {
@@ -46,6 +49,7 @@ describe.each(['resolve', 'archive'] as const)('delayed %s after report navigati
             };
           }),
       );
+
       const router = createMemoryRouter(
         [{ path: '/listings/:id', element: <ListingDetailsPage /> }],
         { initialEntries: [`/listings/${first.listing.id}`] },
@@ -53,9 +57,11 @@ describe.each(['resolve', 'archive'] as const)('delayed %s after report navigati
       const view = render(<RouterProvider router={router} />);
       const user = userEvent.setup();
       const label = action === 'resolve' ? 'Mark as resolved' : 'Archive report';
+
       try {
         await user.click(await screen.findByRole('button', { name: label }));
         await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: label }));
+
         expect(mutation).toHaveBeenCalledWith(first.listing.id);
         expect(
           within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }),
@@ -65,15 +71,20 @@ describe.each(['resolve', 'archive'] as const)('delayed %s after report navigati
         await act(async () => {
           await router.navigate(`/listings/${second.listing.id}`);
         });
+
         await screen.findByRole('heading', { name: second.listing.title });
+
         await user.click(screen.getByRole('button', { name: 'Archive report' }));
+
         const secondDialog = screen.getByRole('dialog');
         const cancel = within(secondDialog).getByRole('button', { name: 'Cancel' });
+
         expect(cancel).toHaveFocus();
         expect(getListing).toHaveBeenCalledTimes(2);
 
         // Settle A only after B has loaded and its confirmation is already open.
         await act(async () => finish());
+
         expect(getListing).toHaveBeenCalledTimes(2);
         expect(router.state.location.pathname).toBe(`/listings/${second.listing.id}`);
         expect(screen.getByRole('dialog')).toBe(secondDialog);

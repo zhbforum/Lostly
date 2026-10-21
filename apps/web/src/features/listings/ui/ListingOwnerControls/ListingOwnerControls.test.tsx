@@ -12,6 +12,7 @@ import { ListingOwnerControls } from './ListingOwnerControls';
 vi.mock('@/features/listings/api/listings-api');
 
 type Action = 'resolve' | 'archive';
+
 type Outcome = 'success' | '409' | 'network';
 
 function delayedResponse(action: Action, outcome: Outcome) {
@@ -52,6 +53,7 @@ function controls(listingId: string, onChanged: (message: string) => void) {
 
 describe.each(['resolve', 'archive'] as const)('%s request lifetime', (action) => {
   beforeEach(() => vi.resetAllMocks());
+
   const label = action === 'resolve' ? 'Mark as resolved' : 'Archive report';
 
   it.each(['success', '409', 'network'] as const)(
@@ -59,16 +61,21 @@ describe.each(['resolve', 'archive'] as const)('%s request lifetime', (action) =
     async (outcome) => {
       const response = delayedResponse(action, outcome);
       const mutation = vi.mocked(action === 'resolve' ? resolveListing : archiveListing);
+
       mutation.mockReturnValue(response.promise);
+
       const onChanged = vi.fn();
       const view = render(controls(reportId, onChanged));
       const user = userEvent.setup();
+
       await user.click(screen.getByRole('button', { name: label }));
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: label }));
+
       expect(mutation).toHaveBeenCalledWith(reportId);
 
       view.unmount();
       await act(async () => response.finish());
+
       expect(onChanged).not.toHaveBeenCalled();
     },
   );
@@ -79,40 +86,52 @@ describe.each(['resolve', 'archive'] as const)('%s request lifetime', (action) =
       const oldResponse = delayedResponse(action, outcome);
       const currentResponse = delayedResponse(action, 'success');
       const mutation = vi.mocked(action === 'resolve' ? resolveListing : archiveListing);
+
       mutation
         .mockReturnValueOnce(oldResponse.promise)
         .mockReturnValueOnce(currentResponse.promise);
+
       const oldOnChanged = vi.fn();
       const currentOnChanged = vi.fn();
       const view = render(controls(reportId, oldOnChanged));
       const user = userEvent.setup();
+
       await user.click(screen.getByRole('button', { name: label }));
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: label }));
+
       expect(mutation).toHaveBeenCalledTimes(1);
 
       // No key supplied by the caller: changing listingId must reset the controls themselves.
       view.rerender(controls('550e8400-e29b-41d4-a716-446655440002', currentOnChanged));
+
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: label })).toBeEnabled();
+
       // Matching the old ID again must not make its abandoned request current.
       view.rerender(controls(reportId, currentOnChanged));
       await user.click(screen.getByRole('button', { name: label }));
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: label }));
+
       const dialog = screen.getByRole('dialog');
       const cancel = within(dialog).getByRole('button', { name: 'Cancel' });
+
       expect(cancel).toBeDisabled();
       expect(mutation).toHaveBeenCalledTimes(2);
 
       await act(async () => oldResponse.finish());
+
       expect(oldOnChanged).not.toHaveBeenCalled();
       expect(currentOnChanged).not.toHaveBeenCalled();
       expect(screen.getByRole('dialog')).toBe(dialog);
       expect(cancel).toBeDisabled();
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
       await user.click(screen.getByRole('button', { name: 'Saving…' }));
+
       expect(mutation).toHaveBeenCalledTimes(2);
 
       await act(async () => currentResponse.finish());
+
       expect(currentOnChanged).toHaveBeenCalledExactlyOnceWith(
         action === 'resolve'
           ? 'Your report was marked as resolved.'

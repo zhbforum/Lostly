@@ -18,7 +18,9 @@ it('shows the conversation count, caps the visual badge and selects nested messa
       </ConversationUnreadContext.Provider>
     </MemoryRouter>,
   );
+
   const messages = screen.getByRole('link', { name: 'Messages, 123 unread conversations' });
+
   expect(messages).toHaveAttribute('aria-current', 'page');
   expect(messages).toHaveAttribute('href', '/messages');
   expect(screen.getByText('99+')).toHaveAttribute('aria-hidden', 'true');
@@ -36,6 +38,7 @@ it('does not show a zero badge and uses the same navigation for activity', () =>
       </ConversationUnreadContext.Provider>
     </MemoryRouter>,
   );
+
   expect(screen.getByRole('link', { name: 'Activity' })).toHaveAttribute('aria-current', 'page');
   expect(screen.getByRole('link', { name: 'Messages' })).toHaveTextContent(/^Messages$/);
 });

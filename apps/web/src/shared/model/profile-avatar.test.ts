@@ -15,9 +15,12 @@ it('reconciles both URLs as one capability for an immutable avatar, without revi
     staticUrl: 'fresh-still',
     urlExpiresAt: '2026-10-11T13:00:00Z',
   };
+
   expect(reconcileProfileAvatar(fresh, old)).toBe(fresh);
   expect(reconcileProfileAvatar(old, fresh)).toBe(fresh);
   expect(reconcileProfileAvatar(fresh, null)).toBeNull();
+
   const replacement = { ...old, id: 'new-avatar' };
+
   expect(reconcileProfileAvatar(fresh, replacement)).toBe(replacement);
 });

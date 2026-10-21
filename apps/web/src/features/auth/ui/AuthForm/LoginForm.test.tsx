@@ -94,13 +94,17 @@ describe('LoginForm', () => {
 
   it('allows correcting email and password after an invalid submission', async () => {
     const user = userEvent.setup();
+
     mocks.login.mockResolvedValue(undefined);
     render(<LoginForm />);
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await user.type(screen.getByLabelText('Email'), 'user@example.com');
     await user.type(screen.getByLabelText('Password'), 'password');
+
     expect(screen.queryByRole('heading', { name: 'Check the form' })).not.toBeInTheDocument();
+
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
     expect(mocks.login).toHaveBeenCalledExactlyOnceWith({
       email: 'user@example.com',
       password: 'password',

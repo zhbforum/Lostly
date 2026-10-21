@@ -5,6 +5,7 @@ import { isConversationUnavailable, isReadTargetMissing } from './conversation-e
 it('distinguishes a missing read target from a missing conversation using the error code', () => {
   const missingConversation = new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Unavailable');
   const missingMessage = new ApiError(404, 'MESSAGE_NOT_FOUND', 'Missing target');
+
   expect(isConversationUnavailable(missingConversation)).toBe(true);
   expect(isReadTargetMissing(missingMessage)).toBe(true);
   expect(isConversationUnavailable(missingMessage)).toBe(false);
