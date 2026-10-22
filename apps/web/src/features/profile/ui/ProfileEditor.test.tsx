@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { AuthUser } from '@lostly/contracts/auth';
 import type { UserProfile } from '@lostly/contracts/profile';
@@ -120,12 +120,19 @@ it('focuses a taken username after the saving state re-enables the input', async
   vi.mocked(saveProfile).mockRejectedValue(new ApiError(409, 'USERNAME_TAKEN', 'Username taken'));
 
   render(<ProfileEditor initialProfile={profile} />);
-  fireEvent.change(screen.getByLabelText('Username Optional'), { target: { value: 'taken_name' } });
+
+  fireEvent.change(screen.getByLabelText('Username Optional'), {
+    target: { value: 'taken_name' },
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
-  expect(await screen.findByText('Username taken')).toBeVisible();
-  expect(screen.getByLabelText('Username Optional')).toHaveFocus();
-  expect(screen.getByLabelText('Username Optional')).toBeEnabled();
+  const usernameInput = screen.getByLabelText('Username Optional');
+
+  await waitFor(() => {
+    expect(screen.getByText('Username taken')).toBeVisible();
+    expect(usernameInput).toBeEnabled();
+    expect(usernameInput).toHaveFocus();
+  });
 });
 
 const oldAvatar = {
