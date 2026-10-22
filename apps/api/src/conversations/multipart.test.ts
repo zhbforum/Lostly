@@ -117,6 +117,32 @@ test('read timeout and abort retain their public failure reasons', async () => {
   await expect(pending).rejects.toMatchObject({ reason: 'upload-aborted' });
 });
 
+test('a missing JSON body retains the JSON parse error', async () => {
+  await expect(parseSendRequest(request(null, 'application/json'))).rejects.toMatchObject({
+    code: 'PARSE',
+  });
+});
+
+test('a missing multipart body retains the conversation upload error', async () => {
+  await expect(
+    parseSendRequest(request(null, 'multipart/form-data; boundary=test')),
+  ).rejects.toMatchObject({ name: 'ConversationUploadError', reason: 'invalid-multipart' });
+});
+
+test('unexpected stream failures propagate unchanged and release the reader', async () => {
+  const failure = new Error('Transport failed');
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      controller.error(failure);
+    },
+  });
+
+  await expect(parseSendRequest(request(body, 'multipart/form-data; boundary=test'))).rejects.toBe(
+    failure,
+  );
+  expect(body.locked).toBe(false);
+});
+
 test('validates the decoded JS string: malformed wire UTF-8 becomes permitted replacement characters', async () => {
   const bytes = Buffer.concat([
     Buffer.from('--test\r\nContent-Disposition: form-data; name="body"\r\n\r\n'),

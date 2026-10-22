@@ -147,3 +147,33 @@ test('ignores response cleanup for requests that never entered upload ingress', 
 
   expect(cancel).not.toHaveBeenCalled();
 });
+
+test('failed source cleanup still releases the user slot and stays idempotent', async () => {
+  spyOn(authService, 'getSession').mockResolvedValue(auth('user'));
+  const ingress = createImageUploadIngress();
+  const pull = mock(() => {});
+  const cancel = mock(() => {
+    throw new Error('Source cleanup failed');
+  });
+  const request = new Request('http://localhost/upload', {
+    method: 'POST',
+    headers: { Cookie: 'lostly_session=user' },
+    body: new ReadableStream<Uint8Array>({ pull, cancel }, { highWaterMark: 0 }),
+  });
+  const next = authenticatedUpload('user');
+
+  try {
+    expect(await ingress.begin(request, 'test-ip')).toEqual({ ok: true, userId: 'user' });
+
+    ingress.finish(request);
+    ingress.finish(request);
+
+    expect(await ingress.begin(next.request, 'test-ip')).toEqual({ ok: true, userId: 'user' });
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(pull).not.toHaveBeenCalled();
+    expect(next.pull).not.toHaveBeenCalled();
+  } finally {
+    ingress.finish(request);
+    ingress.finish(next.request);
+  }
+});

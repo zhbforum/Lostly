@@ -1,4 +1,4 @@
-import { expect, spyOn, test } from 'bun:test';
+import { expect, mock, spyOn, test } from 'bun:test';
 import { Elysia, t } from 'elysia';
 import { request as httpRequest } from 'node:http';
 import { legacyBodyLimit, LEGACY_REQUEST_MAX_BYTES, nativeRequest } from './body-limit';
@@ -53,6 +53,37 @@ test('rejects actual oversized bytes before the automatic JSON decoder, includin
     decode.mockRestore();
   }
 });
+
+test.each(['successful', 'failed'] as const)(
+  'rejects an oversized Content-Length without reading, even with %s source cleanup',
+  async (cleanup) => {
+    const pull = mock(() => {});
+    const cancel = mock(() => {
+      if (cleanup === 'failed') throw new Error('Private transport cleanup failure');
+    });
+    const body = new ReadableStream<Uint8Array>({ pull, cancel }, { highWaterMark: 0 });
+
+    const response = await app().handle(
+      new Request('http://localhost/json', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': String(LEGACY_REQUEST_MAX_BYTES + 1),
+        },
+        body,
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(await response.json()).toEqual({
+      error: { code: 'REQUEST_TOO_LARGE', message: 'The request body is too large' },
+    });
+    expect(pull).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(body.locked).toBe(false);
+  },
+);
 
 test('preserves inferred/explicit JSON, form, ignored-body and malformed JSON semantics', async () => {
   const api = app();
