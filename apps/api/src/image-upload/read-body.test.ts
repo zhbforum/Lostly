@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { expect, mock, test } from 'bun:test';
 import { readBoundedRequestBody } from './read-body';
 
 function request(body: ReadableStream<Uint8Array>, signal?: AbortSignal) {
@@ -115,5 +115,38 @@ test('cleans up the abort listener after a successful read', async () => {
   });
   controller.abort();
   expect(await result.bytes()).toEqual(new Uint8Array([1, 2]));
+  expect(body.locked).toBe(false);
+});
+
+test('a failed source cancellation cannot replace the size-limit error', async () => {
+  const cancel = mock(() => {
+    throw new Error('Source cleanup failed');
+  });
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      controller.enqueue(new Uint8Array([1, 2, 3]));
+    },
+    cancel,
+  });
+
+  await expect(readBoundedRequestBody(request(body), { maxBytes: 2 })).rejects.toMatchObject({
+    reason: 'body-too-large',
+  });
+  expect(cancel).toHaveBeenCalledTimes(1);
+  expect(body.locked).toBe(false);
+});
+
+test('a failed source cancellation cannot replace an in-flight abort or retain its reader', async () => {
+  const cancel = mock(() => {
+    throw new Error('Source cleanup failed');
+  });
+  const body = new ReadableStream<Uint8Array>({ cancel });
+  const controller = new AbortController();
+  const pending = readBoundedRequestBody(request(body, controller.signal), { maxBytes: 2 });
+
+  controller.abort();
+
+  await expect(pending).rejects.toMatchObject({ reason: 'upload-aborted' });
+  expect(cancel).toHaveBeenCalledTimes(1);
   expect(body.locked).toBe(false);
 });

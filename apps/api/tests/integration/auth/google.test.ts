@@ -179,6 +179,47 @@ test('start requires CSRF and connecting requires an authenticated session', asy
   expect((await start('link')).status).toBe(401);
   expect(await db.select().from(oauthStates)).toHaveLength(0);
 });
+
+test('disabled Google sign-in returns 503 without creating OAuth state or cookies', async () => {
+  delete process.env.GOOGLE_CLIENT_ID;
+  delete process.env.GOOGLE_CLIENT_SECRET;
+  delete process.env.GOOGLE_REDIRECT_URI;
+  api = createApp(new MemoryObjectStorage());
+
+  const providers = await api.handle(new Request('http://localhost/auth/providers'));
+  const response = await start();
+
+  expect(providers.status).toBe(200);
+  expect(await providers.json()).toEqual({ google: { enabled: false, linked: false } });
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({
+    error: { code: 'GOOGLE_UNAVAILABLE', message: 'Google sign-in is not configured' },
+  });
+  expect(response.headers.getSetCookie()).toEqual([]);
+  expect(await db.select().from(oauthStates)).toHaveLength(0);
+  expect(exchange).not.toHaveBeenCalled();
+});
+
+test.each(['/%', '/%E0%A4%A'])(
+  'malformed return path %s safely falls back to the web root through the OAuth flow',
+  async (returnTo) => {
+    const response = await start('login', '', returnTo);
+    expect(response.status).toBe(200);
+    const { url } = (await response.json()) as { url: string };
+    const cookie = response.headers.get('set-cookie')!.split(';')[0]!;
+    const records = await db.select().from(oauthStates);
+    expect(records).toHaveLength(1);
+    expect(records[0]!.returnTo).toBe('/');
+
+    const result = await callback(new URL(url).searchParams.get('state')!, cookie);
+
+    expect(result.status).toBe(303);
+    expect(result.headers.get('location')).toBe(config.webOrigin + '/');
+    expect(exchange).toHaveBeenCalledTimes(1);
+    expect(await db.select().from(oauthStates)).toHaveLength(0);
+  },
+);
+
 test('callback sets the existing strict session cookie and never exposes Google tokens', async () => {
   const flow = await pending();
   expect(flow.cookie).toContain('lostly_google_browser=');
