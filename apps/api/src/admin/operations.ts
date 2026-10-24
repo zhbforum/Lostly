@@ -1,4 +1,4 @@
-import { and, count, desc, eq, getTableColumns, gte, lte, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, getTableColumns, gte, lte, inArray, or, sql } from 'drizzle-orm';
 import type { PageQuery } from '@lostly/contracts/pagination';
 import type { ModerationAction } from '@lostly/contracts/moderation';
 import { LISTING_IMAGE_CONSTRAINTS } from '@lostly/contracts/listings';
@@ -22,7 +22,7 @@ import {
 } from '@/pagination/cursor';
 import { publicListingSelection } from '@/listings/selection';
 import { lockListing } from '@/listings/locking';
-import { toListingImage } from '@/listing-images/queries';
+import { findImages, toListingImage } from '@/listing-images/queries';
 import { profileSelection, toProfile } from '@/profile/queries';
 import { claimUsername } from '@/profile/usernames';
 import { accountRestriction } from '@/moderation/restrictions';
@@ -209,7 +209,8 @@ export async function claimDetails(id: string) {
 }
 
 async function moderatableUser(tx: DatabaseTransaction, id: string) {
-  const [person] = await tx.select().from(users).where(eq(users.id, id)).for('update');
+  // Notification foreign keys can still acquire KEY SHARE while account writes serialize.
+  const [person] = await tx.select().from(users).where(eq(users.id, id)).for('no key update');
   if (!person) notFound();
   if (person.role === 'admin')
     throw new ModerationError(
@@ -409,6 +410,13 @@ export async function moderateListingImage(
       .update(listingImages)
       .set({ isHidden: hidden, ...(!hidden ? { position: visible!.value } : {}) })
       .where(eq(listingImages.id, id));
+    for (const [position, visibleImage] of (await findImages(listing.id, tx)).entries()) {
+      if (visibleImage.position !== position)
+        await tx
+          .update(listingImages)
+          .set({ position })
+          .where(eq(listingImages.id, visibleImage.id));
+    }
     await tx
       .update(listings)
       .set({ version: listing.version + 1, updatedAt: new Date() })
@@ -648,6 +656,19 @@ async function reopenReviewedClaim(
 ) {
   const timestamp = decision.metadata['reviewedAt'];
   if (typeof timestamp !== 'string') return false;
+  const [latest] = await tx
+    .select({ id: moderationEvents.id })
+    .from(moderationEvents)
+    .where(
+      and(
+        eq(moderationEvents.targetType, 'claim'),
+        eq(moderationEvents.targetId, decision.targetId),
+        inArray(moderationEvents.action, ['reject_claim', 'reopen_claim']),
+      ),
+    )
+    .orderBy(desc(moderationEvents.id))
+    .limit(1);
+  if (latest?.id !== decision.id) return false;
   const [claim] = await tx
     .update(claims)
     .set({

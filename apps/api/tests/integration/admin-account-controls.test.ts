@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   authIdentities,
+  claims,
   moderationCases,
   moderationEvents,
   moderationNotifications,
@@ -10,12 +11,14 @@ import {
   users,
 } from '@/db/schema';
 import { listingImages } from '@/db/listing-images';
+import { moderateListingImage } from '@/admin/operations';
 import { restrictUser } from '@/admin/operations';
 import { createApp } from '@/app';
 import { deleteOwnedImage } from '@/listing-images/management';
 import { createReport, revealEvidence } from '@/moderation/cases';
 import { MemoryObjectStorage } from '../support/memory-storage';
-import { clearDatabase, report, request, user } from './listings/management-fixtures';
+import { clearDatabase, claim, report, request, user } from './listings/management-fixtures';
+import type { ModerationCase } from '@lostly/contracts/moderation';
 import type { AdminUserDetail } from '@lostly/contracts/admin-operations';
 import { usernameIssue } from '@lostly/contracts/profile';
 
@@ -143,6 +146,11 @@ test('retains reported image evidence after the owner removes its ordinary metad
     category: 'other',
     description: 'Please inspect the content of this photo.',
   });
+  const [captured] = await db
+    .select()
+    .from(moderationCases)
+    .where(eq(moderationCases.id, record.case.id));
+  expect(captured!.evidence.images).toMatchObject([{ id: image!.id, objectKey }]);
   await deleteOwnedImage(
     { listingId: listing.id, ownerUserId: owner.id, imageId: image!.id },
     storage,
@@ -158,4 +166,89 @@ test('retains reported image evidence after the owner removes its ordinary metad
   expect(evidence.images).toHaveLength(1);
   expect(evidence.images[0]!.url).toContain('evidence.webp');
   expect(JSON.stringify(evidence)).not.toContain('objectKey');
+});
+
+test('photo moderation keeps visible order contiguous and appends a restored photo', async () => {
+  const actor = await admin();
+  const owner = await user('owner');
+  const listing = await report(owner.id);
+  const images = await db
+    .insert(listingImages)
+    .values(
+      [0, 1, 2].map((position) => ({
+        listingId: listing.id,
+        objectKey: 'photo-' + position,
+        contentType: 'image/webp',
+        sizeBytes: 100,
+        width: 20,
+        height: 20,
+        position,
+      })),
+    )
+    .returning();
+  await moderateListingImage(images[1]!.id, actor.id, true, {
+    reason: 'Reported photo removed',
+    expectedVersion: 1,
+  });
+  const afterHide = await db
+    .select()
+    .from(listingImages)
+    .where(eq(listingImages.isHidden, false))
+    .orderBy(listingImages.position);
+  expect(afterHide.map((image) => image.position)).toEqual([0, 1]);
+  await moderateListingImage(images[1]!.id, actor.id, false, {
+    reason: 'Photo restored after review',
+    expectedVersion: 2,
+  });
+  const restored = await db
+    .select()
+    .from(listingImages)
+    .where(eq(listingImages.isHidden, false))
+    .orderBy(listingImages.position);
+  expect(restored.map((image) => image.position)).toEqual([0, 1, 2]);
+  expect(restored[2]!.id).toBe(images[1]!.id);
+});
+
+test('an older appeal cannot reopen a later rejection even if review timestamps coincide', async () => {
+  const actor = await admin();
+  const owner = await user('owner');
+  const claimant = await user('claimant');
+  const listing = await report(owner.id);
+  const pending = await claim(listing.id, claimant.id);
+  expect(
+    (
+      await request('/admin/claims/' + pending.id + '/reject', actor.cookie, {
+        reason: 'First moderation decision',
+      })
+    ).status,
+  ).toBe(204);
+  const [first] = await db.select().from(moderationEvents);
+  const appealed = await request('/me/moderation/appeals', claimant.cookie, {
+    eventId: first!.id,
+    description: 'Please reconsider this rejection.',
+  });
+  expect(appealed.status).toBe(200);
+  const appeal = (await appealed.json()) as { case: ModerationCase };
+  const reverse = () =>
+    request('/admin/cases/' + appeal.case.id + '/reverse-decision', actor.cookie, {
+      reason: 'Reviewing the appealed decision',
+      expectedVersion: 1,
+    });
+  expect((await reverse()).status).toBe(200);
+  expect(
+    (
+      await request('/admin/claims/' + pending.id + '/reject', actor.cookie, {
+        reason: 'A later moderation decision',
+      })
+    ).status,
+  ).toBe(204);
+  // Model two decisions recorded within the same application-clock millisecond.
+  await db
+    .update(claims)
+    .set({ reviewedAt: new Date(String(first!.metadata['reviewedAt'])) })
+    .where(eq(claims.id, pending.id));
+  expect((await reverse()).status).toBe(409);
+  expect((await db.select().from(claims).where(eq(claims.id, pending.id)))[0]!.status).toBe(
+    'rejected',
+  );
 });

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, getTableColumns, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import type { CaseStatus, CreateReportInput } from '@lostly/contracts/moderation';
 import type { PageQuery } from '@lostly/contracts/pagination';
 import { db, type DatabaseTransaction } from '@/db';
@@ -135,23 +135,10 @@ async function reportEvidence(
           .from(listingImages)
           .where(eq(listingImages.id, targetId));
   if (!reference || !(await lockListing(tx, reference.listingId, 'share'))) notFound();
-  const [record] =
-    targetType === 'listing'
-      ? await tx
-          .select()
-          .from(listings)
-          .where(and(eq(listings.id, targetId), eq(listings.isHidden, false)))
-      : await tx
-          .select(getTableColumns(listings))
-          .from(listingImages)
-          .innerJoin(listings, eq(listings.id, listingImages.listingId))
-          .where(
-            and(
-              eq(listingImages.id, targetId),
-              eq(listingImages.isHidden, false),
-              eq(listings.isHidden, false),
-            ),
-          );
+  const [record] = await tx
+    .select()
+    .from(listings)
+    .where(and(eq(listings.id, reference.listingId), eq(listings.isHidden, false)));
   if (!record) notFound();
   const images = await tx
     .select({
@@ -168,6 +155,7 @@ async function reportEvidence(
         targetType === 'listing_image' ? eq(listingImages.id, targetId) : undefined,
       ),
     );
+  if (targetType === 'listing_image' && !images.length) notFound();
   return {
     text: record.title + '\n' + record.description,
     listingId: record.id,
