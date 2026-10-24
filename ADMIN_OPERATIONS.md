@@ -8,8 +8,9 @@ Policy:
 - Restrictions revoke existing sessions. A restricted user can sign in to read their moderation decisions and submit an appeal; ordinary authenticated application access is denied until expiry or removal. Existing listings and claims are preserved and can be moderated separately.
 - Public decision text is separate from internal moderation reasons/notes. Other claim participants receive a generic availability notice, not the owner's private decision text.
 - Private conversation/proof evidence is available only through a concrete case and an explicitly reasoned, audited reveal. Admin role alone does not grant ordinary chat access.
-- Hiding is reversible. Lifecycle archive/rejection and visibility are separate. Administrators cannot approve ownership claims or impersonate users.
+- Hiding is reversible. Lifecycle archive/rejection and visibility are separate. Appeals can reverse the original archive/rejection only while its guarded state still matches; subsequent claim decisions cannot be overwritten. Administrators cannot approve ownership claims or impersonate users.
 - Hidden content never receives new ordinary signed URLs. Previously issued URLs expire under the existing R2 TTL policy; this change does not claim immediate URL revocation.
-- All new mutations require CSRF, server-side admin authorization, a reason, and an expected version where the target can change. Audit and notifications commit with the state transition.
+- All new mutations require CSRF, server-side admin authorization, a reason, and version/state checks. Audit and notifications commit with the state transition.
+- Case evidence is captured when reporting. Direct profile decisions retain the affected prior fields; a claimant's appeal shares their verification details for review. Ordinary case responses never include evidence or internal notes. Objects referenced by cases survive ordinary media deletion.
 
 Delivery checks: migrations, API unit/integration/security/concurrency checks, Admin/Web type/build/component checks, and browser workflows covering report → assignment → moderation → notification → appeal → resolution. No deployment is part of this task.

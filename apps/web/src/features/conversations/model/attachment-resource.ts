@@ -97,7 +97,7 @@ function createAttachmentResource(conversationId: string, messageId: string, for
         )
           publish({ retryable: true });
       } catch (error) {
-        if (!active()) return;
+        if (!active() || moderated || visibility !== visibilityVersion) return;
         // Keep only classifications, never server error text or capability URLs in errors/logs.
         if (isConversationUnavailable(error)) {
           loaded.clear();

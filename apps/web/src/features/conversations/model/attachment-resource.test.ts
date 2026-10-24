@@ -42,6 +42,21 @@ it('drops capabilities on moderation and ignores a delayed refresh until a fresh
 });
 
 describe('monotonic capabilities', () => {
+  it('does not let an earlier refresh failure clear restored media', async () => {
+    const pending = deferred<RefreshMessageAttachmentsResponse>();
+    vi.mocked(refreshMessageAttachments).mockReturnValueOnce(pending.promise);
+    const original = message(38, { attachments: [attachment()] });
+    const state = acceptMessageAttachments(original);
+    const refresh = state.recover(true);
+    await Promise.resolve();
+    acceptMessageAttachments({ ...original, isHidden: true, body: null, attachments: [] });
+    const restored = renewed([attachment()]);
+    acceptMessageAttachments({ ...original, isHidden: false, attachments: restored });
+    pending.reject(new ApiError(404, 'MESSAGE_NOT_FOUND', 'Removed'));
+    await refresh;
+    expect(state.getSnapshot().attachments).toEqual(restored);
+    expect(state.getSnapshot().unavailable).toBe(false);
+  });
   it('atomically combines incoming A with current B, in position order', () => {
     const current = [
       attachment(0, { urlExpiresAt: expiry('15:10') }),
