@@ -9,16 +9,20 @@ import { ApiError } from '@/shared/api/client';
 import { submitReport } from './api';
 import styles from './moderation.module.css';
 
-export function ReportButton({
-  targetType,
-  targetId,
-  label = 'Report a problem',
-}: {
+interface Props {
   targetType: ModerationTarget;
   targetId: string;
   label?: string;
-}) {
+}
+
+export function ReportButton(props: Props) {
   const user = useContext(AuthContext)?.user;
+  return user && !user.restriction ? (
+    <ReportForm key={`${user.id}:${props.targetType}:${props.targetId}`} {...props} />
+  ) : null;
+}
+
+function ReportForm({ targetType, targetId, label = 'Report a problem' }: Props) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<CaseCategory>('other');
@@ -26,7 +30,6 @@ export function ReportButton({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
-  if (!user || user.restriction) return null;
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (busy || description.trim().length < 10) return;

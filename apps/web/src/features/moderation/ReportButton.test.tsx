@@ -9,6 +9,33 @@ import { ReportButton } from './ReportButton';
 
 vi.mock('./api');
 beforeEach(() => vi.resetAllMocks());
+it('discards a private report draft when another member signs in on a public profile', async () => {
+  const actor = userEvent.setup();
+  const { rerender } = render(
+    <TestSession>
+      <ReportButton targetType="user" targetId="profile" />
+    </TestSession>,
+  );
+  await actor.click(screen.getByRole('button', { name: 'Report a problem' }));
+  await actor.type(
+    screen.getByRole('textbox', { name: 'What happened?' }),
+    'Private explanation belonging to the first member.',
+  );
+  rerender(
+    <TestSession auth={{ user: null, status: 'unauthenticated' }}>
+      <ReportButton targetType="user" targetId="profile" />
+    </TestSession>,
+  );
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  rerender(
+    <TestSession auth={{ user: { ...profileUser(), id: 'another-member' } }}>
+      <ReportButton targetType="user" targetId="profile" />
+    </TestSession>,
+  );
+  await actor.click(screen.getByRole('button', { name: 'Report a problem' }));
+  expect(screen.getByRole('textbox', { name: 'What happened?' })).toHaveValue('');
+  expect(submitReport).not.toHaveBeenCalled();
+});
 it('does not offer reports to guests or restricted accounts', () => {
   const { rerender } = render(<ReportButton targetType="message" targetId="message" />);
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
