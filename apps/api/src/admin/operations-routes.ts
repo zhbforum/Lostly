@@ -75,8 +75,10 @@ export const createAdminOperationsRoutes = (storage: ObjectStorage) =>
         targetId: t.Optional(uuid),
         caseId: t.Optional(uuid),
         action: t.Optional(
-          t.UnionEnum(
-            Object.keys(MODERATION_ACTION_LABELS) as [ModerationAction, ...ModerationAction[]],
+          t.Union(
+            (Object.keys(MODERATION_ACTION_LABELS) as ModerationAction[]).map((value) =>
+              t.Literal(value),
+            ),
           ),
         ),
       }),
@@ -158,7 +160,7 @@ export const createAdminOperationsRoutes = (storage: ObjectStorage) =>
       {
         query: t.Object({
           ...pageQueryProperties,
-          status: t.Optional(t.UnionEnum(CASE_STATUSES)),
+          status: t.Optional(t.Union(CASE_STATUSES.map((value) => t.Literal(value)))),
           assigneeId: t.Optional(uuid),
           reporterId: t.Optional(uuid),
           targetId: t.Optional(uuid),

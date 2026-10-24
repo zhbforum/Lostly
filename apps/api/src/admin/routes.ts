@@ -113,7 +113,7 @@ export const createAdminRoutes = (storage: ObjectStorage) =>
           listingId: t.Optional(t.String({ format: 'uuid' })),
           from: t.Optional(t.String({ format: 'date-time' })),
           to: t.Optional(t.String({ format: 'date-time' })),
-          restriction: t.Optional(t.UnionEnum(['active', 'none'])),
+          restriction: t.Optional(t.Union([t.Literal('active'), t.Literal('none')])),
           status: t.Optional(
             t.Union([...LISTING_STATUSES, ...CLAIM_STATUSES].map((value) => t.Literal(value))),
           ),
