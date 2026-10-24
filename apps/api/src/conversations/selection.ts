@@ -6,6 +6,7 @@ export const messageSelection = {
   conversationId: claimMessages.conversationId,
   sequence: claimMessages.sequence,
   senderUserId: claimMessages.senderUserId,
+  isHidden: claimMessages.isHidden,
   body: sql<
     string | null
   >`case when ${claimMessages.isHidden} then null else ${claimMessages.body} end`.as('body'),

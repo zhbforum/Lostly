@@ -111,6 +111,12 @@ export async function listConversations(
     value: {
       conversations: items.map((row) => ({
         ...row,
+        lastMessage: row.lastMessage
+          ? (() => {
+              const { isHidden, ...message } = row.lastMessage;
+              return { ...message, ...(isHidden ? { isHidden: true } : {}) };
+            })()
+          : null,
         listing: { ...row.listing, coverImage: covers.get(row.listing.id) ?? null },
         canSendMessages: !row.moderationClosed && canSendConversationMessages(row.claim.status),
       })),
@@ -243,6 +249,7 @@ export async function findConversationMessages(
           conversationId: page.conversationId,
           sequence: page.sequence,
           senderUserId: page.senderUserId,
+          isHidden: page.isHidden,
           body: page.body,
           createdAt: page.createdAt,
         },

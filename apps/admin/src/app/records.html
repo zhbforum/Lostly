@@ -16,7 +16,7 @@
       [(ngModel)]="q"
       [placeholder]="
         resource === 'users'
-          ? 'Name or email'
+          ? 'UUID, username, name or email'
           : resource === 'claims'
             ? 'Listing title or claimant name'
             : 'Title, description or location'
@@ -59,6 +59,24 @@
     </div>
   }
   <button type="submit" [disabled]="saving()">Apply filters</button>
+  <details>
+    <summary>More filters</summary>
+    <label>User UUID<input name="userId" [(ngModel)]="userId" /></label>
+    @if (resource !== 'users') {
+      <label>Listing UUID<input name="listingId" [(ngModel)]="listingId" /></label>
+    }
+    @if (resource === 'users') {
+      <label
+        >Restriction<select name="restriction" [(ngModel)]="restriction">
+          <option value="">All accounts</option>
+          <option value="active">Restricted</option>
+          <option value="none">Unrestricted</option>
+        </select></label
+      >
+    }
+    <label>Created from (UTC)<input type="date" name="from" [(ngModel)]="from" /></label
+    ><label>Created through (UTC)<input type="date" name="to" [(ngModel)]="to" /></label>
+  </details>
   <button type="button" class="secondary" (click)="resetFilters()" [disabled]="saving()">
     Reset
   </button>
@@ -163,6 +181,9 @@
                   <td>{{ row.email }}</td>
                   <td>
                     <span class="badge">{{ row.role }}</span>
+                    @if (row.restricted) {
+                      <small>Restricted</small>
+                    }
                   </td>
                   <td>{{ row.createdAt | date: 'mediumDate' }}</td>
                 </tr>

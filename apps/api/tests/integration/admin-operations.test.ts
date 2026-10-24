@@ -14,6 +14,7 @@ import { claimConversations, claimMessages } from '@/db/conversations';
 import { listingImages } from '@/db/listing-images';
 import { hashPassword } from '@/auth/password';
 import { createApp } from '@/app';
+import { auditPage } from '@/admin/operations';
 import { clearDatabase, claim, report, request, user } from './listings/management-fixtures';
 import type {
   ModerationCase,
@@ -200,9 +201,17 @@ test('report -> assignment -> private notes -> public decision -> appeal keeps i
       })
     ).status,
   ).toBe(409);
-  const audit = (await (
-    await request('/admin/audit?caseId=' + record.id, actor.cookie)
-  ).json()) as ModerationPage<AdminAuditEvent>;
+  expect(
+    (await db.select().from(moderationEvents).where(eq(moderationEvents.caseId, record.id))).map(
+      (item) => item.action,
+    ),
+  ).toContain('hide_listing');
+  expect((await auditPage({ caseId: record.id })).items.map((item) => item.action)).toContain(
+    'hide_listing',
+  );
+  const auditResponse = await request('/admin/audit?caseId=' + record.id, actor.cookie);
+  expect(auditResponse.status).toBe(200);
+  const audit = (await auditResponse.json()) as ModerationPage<AdminAuditEvent>;
   expect(audit.items.map((item) => item.action)).toContain('hide_listing');
   expect((await request('/admin/cases?unassigned=true', actor.cookie)).status).toBe(200);
 });

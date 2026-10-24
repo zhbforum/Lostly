@@ -59,7 +59,9 @@ import { AdminApi, errorMessage } from './api';
           <a routerLink="/cases" [queryParams]="{ kind: 'appeal' }"
             >Open appeals: {{ queue.appeals }}</a
           >
-          <span>Restricted accounts: {{ queue.restrictedUsers }}</span>
+          <a routerLink="/users" [queryParams]="{ restriction: 'active' }"
+            >Restricted accounts: {{ queue.restrictedUsers }}</a
+          >
         </div>
       </section>
     }

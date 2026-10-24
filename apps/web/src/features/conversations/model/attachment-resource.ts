@@ -39,13 +39,16 @@ function createAttachmentResource(conversationId: string, messageId: string, for
   const loaded = new Set<string>();
   let consumedAtVersion: number | null = null;
   let pending: Promise<void> | null = null;
+  let moderated = false;
+  let visibilityVersion = 0;
   const active = () => !disposed && generation === getSessionGeneration();
   function publish(patch: Partial<AttachmentSnapshot>) {
     state = { ...state, ...patch };
     for (const listener of [...listeners]) listener();
   }
   function install(incoming: readonly ClaimMessageAttachment[], explicit = false) {
-    if (!active() || state.conversationUnavailable || (state.unavailable && !explicit)) return;
+    if (!active() || moderated || state.conversationUnavailable || (state.unavailable && !explicit))
+      return;
     if (!explicit && !incoming.length && state.attachments.length) return;
     const attachments = reconcileAttachmentCapabilities(state.attachments, incoming);
     if (attachments === state.attachments) return;
@@ -71,17 +74,18 @@ function createAttachmentResource(conversationId: string, messageId: string, for
     });
   }
   function recover(explicit: boolean, eligible = false): Promise<void> {
-    if (!active() || state.conversationUnavailable) return Promise.resolve();
+    if (!active() || moderated || state.conversationUnavailable) return Promise.resolve();
     if (pending) return pending;
     if (!explicit && (!eligible || !state.automaticAvailable || state.unavailable))
       return Promise.resolve();
     consumedAtVersion = state.version;
+    const visibility = visibilityVersion;
     // Install the single-flight entry before notifying consumers (including synchronous listeners).
     const request = Promise.resolve().then(async () => {
       if (!active()) return;
       try {
         const response = await refreshMessageAttachments(conversationId, messageId);
-        if (!active()) return;
+        if (!active() || moderated || visibility !== visibilityVersion) return;
         if (!response.attachments.length) {
           unavailable();
           return;
@@ -130,6 +134,13 @@ function createAttachmentResource(conversationId: string, messageId: string, for
       };
     },
     ingest: (attachments: readonly ClaimMessageAttachment[]) => install(attachments),
+    setModerated(hidden: boolean) {
+      if (moderated === hidden) return;
+      moderated = hidden;
+      visibilityVersion++;
+      if (hidden) unavailable();
+      else publish({ unavailable: false, automaticAvailable: true });
+    },
     recover,
     isCurrent: (version: number) => active() && version === state.version,
     loaded(version: number, attachmentId: string) {
@@ -200,6 +211,7 @@ export function acceptMessageAttachments(message: ClaimMessage): MessageAttachme
     });
     resources.set(key, resource);
   }
-  resource.ingest(message.attachments);
+  resource.setModerated(Boolean(message.isHidden));
+  resource.ingest(message.isHidden ? [] : message.attachments);
   return resource;
 }

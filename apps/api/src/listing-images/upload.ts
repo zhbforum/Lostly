@@ -23,6 +23,7 @@ async function findUploadReplay(
   sourceHash: string,
   storage: ObjectStorage,
 ) {
+  if (!(await findUpload(input.listingId, input.requestId))) return null;
   return db.transaction(async (tx) => {
     const listing = await lockListing(tx, input.listingId, 'share');
     if (!listing || listing.isHidden) throw new ImageError('listing-not-found');

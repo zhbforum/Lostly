@@ -9,7 +9,10 @@ import { findConversationForMember } from './authorization';
 
 export const CONVERSATION_ATTACHMENT_READ_TTL_SECONDS = 15 * 60;
 
-export type HydratedMessage = MessageRecord & { attachments: ClaimMessageAttachment[] };
+export type HydratedMessage = Omit<MessageRecord, 'isHidden'> & {
+  isHidden?: boolean;
+  attachments: ClaimMessageAttachment[];
+};
 
 export async function findAuthorizedMessage(
   input: { conversationId: string; userId: string; messageId: string },
@@ -52,19 +55,9 @@ export async function hydrateMessages(
   tx: DatabaseTransaction,
 ) {
   if (!messages.length) return [];
-  const hiddenRows = await tx
-    .select({ id: claimMessages.id })
-    .from(claimMessages)
-    .where(
-      and(
-        inArray(
-          claimMessages.id,
-          messages.map((message) => message.id),
-        ),
-        eq(claimMessages.isHidden, true),
-      ),
-    );
-  const hidden = new Set(hiddenRows.map((message) => message.id));
+  const hidden = new Set(
+    messages.filter((message) => message.isHidden).map((message) => message.id),
+  );
   const rows = await tx
     .select({
       id: claimMessageAttachments.id,

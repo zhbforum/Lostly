@@ -34,7 +34,11 @@ export async function findMessageOperation(
     .from(claimMessageAttachments)
     .where(eq(claimMessageAttachments.messageId, message.id))
     .orderBy(asc(claimMessageAttachments.position));
-  return { message, body: message.body, sourceHashes: rows.map((row) => row.sourceHash) };
+  return {
+    message: { ...message, body: message.isHidden ? null : message.body },
+    body: message.body,
+    sourceHashes: rows.map((row) => row.sourceHash),
+  };
 }
 
 export function sameMessageFingerprint(a: MessageFingerprint, b: MessageFingerprint) {

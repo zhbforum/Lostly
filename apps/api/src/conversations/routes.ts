@@ -184,19 +184,14 @@ export const createConversationRoutes = (
             const { status: code, ...error } = CONVERSATION_ERRORS[result.reason];
             return status(code, { error });
           }
-          const visible = await findAuthorizedMessage(
-            {
-              conversationId: params.conversationId,
-              userId: auth.user.id,
-              messageId: result.value.message.id,
+          const { isHidden, ...message } = result.value.message;
+          return status(result.value.created ? 201 : 200, {
+            message: {
+              ...message,
+              ...(isHidden ? { isHidden: true } : {}),
+              attachments: 'attachments' in message ? message.attachments : [],
             },
-            storage,
-          );
-          if (!visible.ok) {
-            const { status: code, ...error } = CONVERSATION_ERRORS[visible.reason];
-            return status(code, { error });
-          }
-          return status(result.value.created ? 201 : 200, { message: visible.value.message });
+          });
         } finally {
           ingress.finish(request);
         }

@@ -12,6 +12,7 @@ export interface AdminRecordsQuery extends PageQuery {
   listingId?: string;
   from?: string;
   to?: string;
+  restriction?: 'active' | 'none';
 }
 
 export interface AdminOverview {
@@ -27,6 +28,7 @@ export interface AdminListing extends Listing {
 }
 
 export interface AdminUser extends AuthUser {
+  restricted?: boolean;
   createdAt: string;
 }
 

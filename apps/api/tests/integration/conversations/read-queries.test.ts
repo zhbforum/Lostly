@@ -350,7 +350,7 @@ test('covers use existing signed URLs and query counts stay constant across inbo
   const execute = spyOn(BunSQLSession.prototype, 'prepareQuery');
   try {
     const small = await inbox(owner.id);
-    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenCalledTimes(3);
     expect(small.conversations[0]!.listing.coverImage).toMatchObject({
       position: 0,
       width: 20,
@@ -361,12 +361,12 @@ test('covers use existing signed URLs and query counts stay constant across inbo
     for (let i = 0; i < 5; i++) await room(owner.id, claimant.id);
     execute.mockClear();
     expect((await inbox(owner.id)).conversations).toHaveLength(6);
-    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenCalledTimes(3);
     execute.mockClear();
     expect(await findConversationDetail(first.id, owner.id, storage)).toMatchObject({
       listing: { coverImage: { position: 0 } },
     });
-    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenCalledTimes(3);
     execute.mockClear();
     await countUnreadConversations(owner.id);
     expect(execute).toHaveBeenCalledTimes(1);

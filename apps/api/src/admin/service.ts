@@ -59,6 +59,7 @@ export async function adminRecords(
     query.listingId ?? '',
     query.from ?? '',
     query.to ?? '',
+    query.restriction ?? '',
   ]);
   const cursor = query.cursor ? decodeCursor(query.cursor, scope) : null;
   if (query.cursor && !cursor) return null;
@@ -113,6 +114,7 @@ export async function adminRecords(
         displayName: users.displayName,
         role: users.role,
         createdAt: users.createdAt,
+        restricted: sql<boolean>`(${users.suspendedPermanently} or coalesce(${users.suspendedUntil} > now(), false))`,
         cursorValue,
       })
       .from(users)
@@ -120,6 +122,9 @@ export async function adminRecords(
         and(
           condition,
           query.userId ? eq(users.id, query.userId) : undefined,
+          query.restriction
+            ? sql`(${users.suspendedPermanently} or coalesce(${users.suspendedUntil} > now(), false)) = ${query.restriction === 'active'}`
+            : undefined,
           search
             ? or(
                 ilike(users.email, pattern),
