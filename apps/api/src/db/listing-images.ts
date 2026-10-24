@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
+  boolean,
   index,
   integer,
   pgTable,
@@ -22,6 +23,7 @@ export const listingImages = pgTable(
       .notNull()
       .references(() => listings.id, { onDelete: 'cascade' }),
     objectKey: text('object_key').notNull(),
+    isHidden: boolean('is_hidden').notNull().default(false),
     contentType: text('content_type').notNull(),
     sizeBytes: integer('size_bytes').notNull(),
     width: integer('width').notNull(),

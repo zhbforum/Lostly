@@ -18,7 +18,7 @@ export async function findMessageOperation(
   executor: typeof db | DatabaseTransaction = db,
 ) {
   const [message] = await executor
-    .select(messageSelection)
+    .select({ ...messageSelection, body: claimMessages.body })
     .from(claimMessages)
     .where(
       and(

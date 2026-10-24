@@ -14,6 +14,7 @@ import type {
 } from '@/auth/types';
 import { db } from '@/db';
 import { sessions, users } from '@/db/schema';
+import { accountRestriction } from '@/moderation/restrictions';
 
 const USERS_EMAIL_LOWER_UNIQUE = 'users_email_lower_unique';
 
@@ -84,6 +85,9 @@ export async function login(input: LoginInput): Promise<LoginResult> {
       displayName: users.displayName,
       role: users.role,
       passwordHash: users.passwordHash,
+      suspendedPermanently: users.suspendedPermanently,
+      suspendedUntil: users.suspendedUntil,
+      suspensionReason: users.suspensionReason,
     })
     .from(users)
     .where(sql`lower(${users.email}) = ${email}`)
@@ -117,6 +121,7 @@ export async function login(input: LoginInput): Promise<LoginResult> {
         email: user.email,
         displayName: user.displayName,
         role: user.role,
+        ...(accountRestriction(user) ? { restriction: accountRestriction(user)! } : {}),
       },
       sessionToken,
       sessionExpiresAt,
@@ -133,6 +138,11 @@ export async function getSession(token: string): Promise<AuthContext | null> {
         id: sessions.id,
         userId: sessions.userId,
         expiresAt: sessions.expiresAt,
+      },
+      restriction: {
+        suspendedPermanently: users.suspendedPermanently,
+        suspendedUntil: users.suspendedUntil,
+        suspensionReason: users.suspensionReason,
       },
       user: {
         id: users.id,
@@ -156,7 +166,11 @@ export async function getSession(token: string): Promise<AuthContext | null> {
     return null;
   }
 
-  return result;
+  const restriction = accountRestriction(result.restriction);
+  return {
+    session: result.session,
+    user: { ...result.user, ...(restriction ? { restriction } : {}) },
+  };
 }
 
 export async function logout(token: string): Promise<void> {

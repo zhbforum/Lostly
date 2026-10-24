@@ -81,6 +81,9 @@ export function AccountMenu() {
                 Profile
               </Link>
 
+              <Link to="/moderation" className={styles.menuLink} onClick={close}>
+                Decisions & appeals
+              </Link>
               {errorMessage && (
                 <div className={styles.error}>
                   <AuthAlert>{errorMessage}</AuthAlert>

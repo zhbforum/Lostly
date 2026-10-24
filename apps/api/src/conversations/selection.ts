@@ -1,11 +1,14 @@
 import { claimMessages } from '@/db/conversations';
+import { sql } from 'drizzle-orm';
 
 export const messageSelection = {
   id: claimMessages.id,
   conversationId: claimMessages.conversationId,
   sequence: claimMessages.sequence,
   senderUserId: claimMessages.senderUserId,
-  body: claimMessages.body,
+  body: sql<
+    string | null
+  >`case when ${claimMessages.isHidden} then null else ${claimMessages.body} end`.as('body'),
   createdAt: claimMessages.createdAt,
 };
 

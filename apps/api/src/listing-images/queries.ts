@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { ListingImage } from '@lostly/contracts/listings';
 import { db, type DatabaseTransaction } from '@/db';
 import { listingImages, listingImageUploads } from '@/db/listing-images';
+import { listings } from '@/db/schema';
 import type { ObjectStorage } from '@/storage/object-storage';
 
 type QueryConnection = typeof db | DatabaseTransaction;
@@ -24,7 +25,7 @@ export function findImages(listingId: string, connection: QueryConnection = db) 
   return connection
     .select()
     .from(listingImages)
-    .where(eq(listingImages.listingId, listingId))
+    .where(and(eq(listingImages.listingId, listingId), eq(listingImages.isHidden, false)))
     .orderBy(asc(listingImages.position), asc(listingImages.id));
 }
 
@@ -47,10 +48,27 @@ export async function findUpload(
 
 export async function findCovers(listingIds: string[], storage: ObjectStorage) {
   if (!listingIds.length) return new Map<string, ListingImage>();
-  const rows = await db
-    .selectDistinctOn([listingImages.listingId])
-    .from(listingImages)
-    .where(inArray(listingImages.listingId, listingIds))
-    .orderBy(asc(listingImages.listingId), asc(listingImages.position), asc(listingImages.id));
-  return new Map(rows.map((row) => [row.listingId, toListingImage(row, storage)]));
+  return db.transaction(async (tx) => {
+    const visible = await tx
+      .select({ id: listings.id })
+      .from(listings)
+      .where(and(inArray(listings.id, listingIds), eq(listings.isHidden, false)))
+      .orderBy(listings.id)
+      .for('share');
+    if (!visible.length) return new Map<string, ListingImage>();
+    const rows = await tx
+      .selectDistinctOn([listingImages.listingId])
+      .from(listingImages)
+      .where(
+        and(
+          inArray(
+            listingImages.listingId,
+            visible.map((row) => row.id),
+          ),
+          eq(listingImages.isHidden, false),
+        ),
+      )
+      .orderBy(asc(listingImages.listingId), asc(listingImages.position), asc(listingImages.id));
+    return new Map(rows.map((row) => [row.listingId, toListingImage(row, storage)]));
+  });
 }

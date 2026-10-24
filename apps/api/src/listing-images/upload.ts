@@ -23,12 +23,20 @@ async function findUploadReplay(
   sourceHash: string,
   storage: ObjectStorage,
 ) {
-  const upload = await findUpload(input.listingId, input.requestId);
-  if (!upload) return null;
-  if (upload.sourceHash !== sourceHash || !upload.imageId) throw new ImageError('request-conflict');
-  const [image] = await db.select().from(listingImages).where(eq(listingImages.id, upload.imageId));
-  if (!image) throw new ImageError('request-conflict');
-  return { image: toListingImage(image, storage), created: false } as const;
+  return db.transaction(async (tx) => {
+    const listing = await lockListing(tx, input.listingId, 'share');
+    if (!listing || listing.isHidden) throw new ImageError('listing-not-found');
+    const upload = await findUpload(input.listingId, input.requestId, tx);
+    if (!upload) return null;
+    if (upload.sourceHash !== sourceHash || !upload.imageId)
+      throw new ImageError('request-conflict');
+    const [image] = await tx
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.id, upload.imageId));
+    if (!image || image.isHidden) throw new ImageError('request-conflict');
+    return { image: toListingImage(image, storage), created: false } as const;
+  });
 }
 
 export function createImageUploader(storage: ObjectStorage, processing: ImageProcessingAdmission) {
@@ -85,7 +93,7 @@ export function createImageUploader(storage: ObjectStorage, processing: ImagePro
                 .select()
                 .from(listingImages)
                 .where(eq(listingImages.id, previous.imageId));
-              if (!image) throw new ImageError('request-conflict');
+              if (!image || image.isHidden) throw new ImageError('request-conflict');
               return { image, created: false };
             }
             assertImagesEditable(listing);
@@ -125,7 +133,9 @@ export function createImageUploader(storage: ObjectStorage, processing: ImagePro
       }
       if (!result.created) await deleteImageObject(storage, objectKey);
       // URL generation/serialization is outside compensation: the DB commit already succeeded.
-      return { image: toListingImage(result.image, storage), created: result.created };
+      const replay = await findUploadReplay(input, sourceHash, storage);
+      if (!replay) throw new ImageError('request-conflict');
+      return { image: replay.image, created: result.created };
     } catch (error) {
       if (error instanceof InvalidImageError) throw new ImageError('invalid-image');
       throw error;

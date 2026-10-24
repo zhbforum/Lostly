@@ -7,6 +7,7 @@ import { assertImageOwner, assertImagesEditable, type ImageOwnerInput } from './
 import { deleteImageObject } from '@/image-upload/cleanup';
 import { ImageError } from './errors';
 import { findImages, toListingImage } from './queries';
+import { isCaseEvidence } from '@/moderation/evidence-retention';
 
 export async function deleteOwnedImage(
   input: ImageOwnerInput & { imageId: string },
@@ -26,7 +27,7 @@ export async function deleteOwnedImage(
     }
     return image.objectKey;
   });
-  await deleteImageObject(storage, objectKey);
+  if (!(await isCaseEvidence(objectKey))) await deleteImageObject(storage, objectKey);
 }
 
 export async function orderOwnedImages(

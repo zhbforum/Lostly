@@ -8,6 +8,10 @@ export interface AdminRecordsQuery extends PageQuery {
   kind?: ListingKind;
   status?: ListingStatus | ClaimStatus;
   visibility?: 'visible' | 'hidden';
+  userId?: string;
+  listingId?: string;
+  from?: string;
+  to?: string;
 }
 
 export interface AdminOverview {
@@ -42,6 +46,8 @@ export interface AdminPage<T> {
 
 export interface ModerationInput {
   reason: string;
+  publicReason?: string;
+  caseId?: string;
 }
 
 export interface ArchiveListingInput extends ModerationInput {
@@ -54,7 +60,7 @@ export interface AdminModerationEvent {
   id: string;
   actorUserId: string;
   actorName: string | null;
-  action: 'archive_listing' | 'reject_claim' | 'hide_listing' | 'restore_listing';
+  action: import('./moderation').ModerationAction;
   reason: string;
   createdAt: string;
 }

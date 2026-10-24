@@ -7,6 +7,7 @@ import { safeReturnTo } from '@/shared/navigation/return-to';
 import { profilePath } from '@/shared/navigation/profile-path';
 import { Avatar } from '@/shared/ui/Avatar/Avatar';
 import { Brand } from '@/shared/ui/Brand/Brand';
+import { ReportButton } from '@/features/moderation/ReportButton';
 import layout from './ProfilePage.module.css';
 import styles from './PublicProfilePage.module.css';
 
@@ -140,6 +141,20 @@ function ProfileView({ id, lookup }: { id: string; lookup: 'id' | 'username' }) 
               )}
             </section>
             <footer className={styles.footer}>
+              {!own && (
+                <ReportButton
+                  targetType="user"
+                  targetId={state.profile.id}
+                  label="Report profile"
+                />
+              )}
+              {!own && state.profile.avatar && (
+                <ReportButton
+                  targetType="avatar"
+                  targetId={state.profile.id}
+                  label="Report avatar"
+                />
+              )}
               <div className={styles.actions}>
                 {own && (
                   <Link className={styles.primary} to="/profile/edit">

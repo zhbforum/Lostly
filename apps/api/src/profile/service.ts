@@ -15,6 +15,7 @@ import {
   type ProfileRecord,
 } from './queries';
 import { claimUsername } from './usernames';
+import { isCaseEvidence } from '@/moderation/evidence-retention';
 
 export function assertProfileVersion(profile: ProfileRecord, expectedVersion: number) {
   if (profile.profileVersion !== expectedVersion) throw new ProfileError('conflict');
@@ -63,6 +64,7 @@ export async function updateProfile(
 export async function deleteAvatarObjects(profile: ProfileRecord, storage: ObjectStorage) {
   if (!profile.avatarId) return;
   const keys = avatarKeys(profile.id, profile.avatarId, profile.avatarAnimated);
+  if (await isCaseEvidence(keys.image)) return;
   await deleteImageObject(storage, keys.image);
   if (keys.still !== keys.image) await deleteImageObject(storage, keys.still);
 }

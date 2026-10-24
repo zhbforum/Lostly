@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { AdminClaim, AdminListing, AdminPage, AdminUser } from '@lostly/contracts/admin';
 import type { PageInfo } from '@lostly/contracts/pagination';
@@ -22,7 +22,7 @@ type Row = AdminListing | AdminClaim | AdminUser;
 type ModerationAction = 'archive' | 'hide' | 'restore' | 'reject';
 
 @Component({
-  imports: [DatePipe, TitleCasePipe, FormsModule, Review],
+  imports: [DatePipe, TitleCasePipe, FormsModule, Review, RouterLink],
   templateUrl: './records.html',
 })
 export class Records {
@@ -117,7 +117,17 @@ export class Records {
     this.selected.set(null);
     try {
       const query = new URLSearchParams();
-      for (const key of ['q', 'kind', 'status', 'visibility', 'cursor']) {
+      for (const key of [
+        'q',
+        'kind',
+        'status',
+        'visibility',
+        'cursor',
+        'userId',
+        'listingId',
+        'from',
+        'to',
+      ]) {
         const value = this.route.snapshot.queryParamMap.get(key);
         if (value) query.set(key, value);
       }

@@ -271,7 +271,16 @@ test('OpenAPI separates attachment history from count-only previews and the text
   const message = responseSchema('/conversations/{conversationId}/messages').properties.messages!
     .items;
   expect(Object.keys(message.properties).sort()).toEqual(
-    ['id', 'conversationId', 'sequence', 'senderUserId', 'body', 'attachments', 'createdAt'].sort(),
+    [
+      'id',
+      'conversationId',
+      'sequence',
+      'senderUserId',
+      'body',
+      'attachments',
+      'createdAt',
+      'isHidden',
+    ].sort(),
   );
   expect(message.properties.body!.type).toEqual(['string', 'null']);
   expect(message.properties.attachments!.maxItems).toBe(4);
@@ -282,7 +291,7 @@ test('OpenAPI separates attachment history from count-only previews and the text
     responseSchema('/me/conversations').properties.conversations!.items.properties.lastMessage!;
   expect(preview.type).toEqual(['object', 'null']);
   expect(Object.keys(preview.properties).sort()).toEqual(
-    ['id', 'sequence', 'senderUserId', 'body', 'attachmentCount', 'createdAt'].sort(),
+    ['id', 'sequence', 'senderUserId', 'body', 'attachmentCount', 'createdAt', 'isHidden'].sort(),
   );
   expect(
     responseSchema('/conversations/{conversationId}/messages', 'post').properties.message,

@@ -2,6 +2,8 @@ import { sql } from 'drizzle-orm';
 import { Elysia, t } from 'elysia';
 
 import { createAdminRoutes } from '@/admin/routes';
+import { createAdminOperationsRoutes } from '@/admin/operations-routes';
+import { createModerationRoutes } from '@/moderation/routes';
 import { createActivityRoutes } from '@/activity/routes';
 import { createAuthRoutes } from '@/auth/routes';
 import { createGoogleAuthRoutes } from '@/auth/google-routes';
@@ -122,7 +124,9 @@ export const createApp = (
     .use(claimRoutes)
     .use(createActivityRoutes(storage))
     .use(createConversationRoutes(storage, imageUploads))
-    .use(createAdminRoutes(storage));
+    .use(createAdminRoutes(storage))
+    .use(createAdminOperationsRoutes(storage))
+    .use(createModerationRoutes());
 };
 
 export const app = createApp();

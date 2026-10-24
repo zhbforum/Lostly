@@ -52,6 +52,19 @@ export async function hydrateMessages(
   tx: DatabaseTransaction,
 ) {
   if (!messages.length) return [];
+  const hiddenRows = await tx
+    .select({ id: claimMessages.id })
+    .from(claimMessages)
+    .where(
+      and(
+        inArray(
+          claimMessages.id,
+          messages.map((message) => message.id),
+        ),
+        eq(claimMessages.isHidden, true),
+      ),
+    );
+  const hidden = new Set(hiddenRows.map((message) => message.id));
   const rows = await tx
     .select({
       id: claimMessageAttachments.id,
@@ -71,6 +84,7 @@ export async function hydrateMessages(
     .orderBy(asc(claimMessageAttachments.messageId), asc(claimMessageAttachments.position));
   const byMessage = new Map<string, ClaimMessageAttachment[]>();
   for (const row of rows) {
+    if (hidden.has(row.messageId)) continue;
     const signed = storage.createReadUrl(row.objectKey, CONVERSATION_ATTACHMENT_READ_TTL_SECONDS);
     const attachments = byMessage.get(row.messageId) ?? [];
     attachments.push({
@@ -89,7 +103,8 @@ export async function hydrateMessages(
     conversationId: message.conversationId,
     sequence: message.sequence,
     senderUserId: message.senderUserId,
-    body: message.body,
+    body: hidden.has(message.id) ? null : message.body,
+    ...(hidden.has(message.id) ? { isHidden: true as const } : {}),
     attachments: byMessage.get(message.id) ?? [],
     createdAt: message.createdAt,
   }));

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ListingImage } from '@lostly/contracts/listings';
 import { Photo } from './Photo';
 import { PhotoIcon } from './PhotoIcon';
+import { ReportButton } from '@/features/moderation/ReportButton';
 import styles from './ListingPhotos.module.css';
 
 export function ListingGallery({
@@ -32,6 +33,12 @@ export function ListingGallery({
             className={styles.mainImage}
             lazy={false}
             onError={onImageError}
+          />
+          <ReportButton
+            key={selected.id}
+            targetType="listing_image"
+            targetId={selected.id}
+            label="Report this photo"
           />
           {images.length > 1 && (
             <div className={styles.galleryNavigation}>

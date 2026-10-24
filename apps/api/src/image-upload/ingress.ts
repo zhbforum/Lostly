@@ -38,7 +38,7 @@ export function createImageUploadIngress(): ImageUploadIngress {
         return { ok: false, reason: 'busy' };
       const token = new Bun.CookieMap(request.headers.get('cookie') ?? '').get(SESSION_COOKIE_NAME);
       const auth = token ? await getSession(token) : null;
-      if (!auth) return { ok: false, reason: 'unauthenticated' };
+      if (!auth || auth.user.restriction) return { ok: false, reason: 'unauthenticated' };
       if (request.signal.aborted) return { ok: false, reason: 'upload-aborted' };
       const running = users.get(auth.user.id) ?? 0;
       if (running >= IMAGE_UPLOAD_CONCURRENCY.perUser) return { ok: false, reason: 'busy' };

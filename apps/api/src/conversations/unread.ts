@@ -6,6 +6,7 @@ export function unreadMessagePredicate(userId: string) {
     eq(claimMessages.conversationId, claimConversationMembers.conversationId),
     gt(claimMessages.sequence, claimConversationMembers.lastReadSequence),
     ne(claimMessages.senderUserId, userId),
+    eq(claimMessages.isHidden, false),
   );
 }
 

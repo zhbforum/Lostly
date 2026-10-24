@@ -20,9 +20,14 @@ import { listingImagesSchema } from '@/listing-images/model';
 import { moderationActionEnum } from '@/db/schema';
 
 const reason = t.String({ minLength: 3, maxLength: 500 });
-const moderationBody = t.Object({ reason });
-const archiveBody = t.Object({
+const moderationProperties = {
   reason,
+  publicReason: t.Optional(t.String({ minLength: 3, maxLength: 1000 })),
+  caseId: t.Optional(t.String({ format: 'uuid' })),
+};
+const moderationBody = t.Object(moderationProperties);
+const archiveBody = t.Object({
+  ...moderationProperties,
   expectedVersion: t.Integer({ minimum: 1, maximum: 2147483647 }),
 });
 const person = t.Object({ id: t.String({ format: 'uuid' }), displayName: t.String() });
@@ -97,6 +102,10 @@ export const createAdminRoutes = (storage: ObjectStorage) =>
           q: t.Optional(t.String({ maxLength: 100 })),
           kind: t.Optional(t.Union(LISTING_KINDS.map((value) => t.Literal(value)))),
           visibility: t.Optional(t.Union([t.Literal('visible'), t.Literal('hidden')])),
+          userId: t.Optional(t.String({ format: 'uuid' })),
+          listingId: t.Optional(t.String({ format: 'uuid' })),
+          from: t.Optional(t.String({ format: 'date-time' })),
+          to: t.Optional(t.String({ format: 'date-time' })),
           status: t.Optional(
             t.Union([...LISTING_STATUSES, ...CLAIM_STATUSES].map((value) => t.Literal(value))),
           ),

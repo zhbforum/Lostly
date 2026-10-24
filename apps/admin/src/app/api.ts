@@ -26,7 +26,11 @@ export class AdminApi {
         path.startsWith('/admin/') &&
         generation === this.sessionGeneration &&
         error instanceof HttpErrorResponse &&
-        [401, 403].includes(error.status)
+        (error.status === 401 ||
+          (error.status === 403 &&
+            !['CASE_ASSIGNED', 'OWNER_MANAGED_ACCOUNT', 'CASE_SCOPE_MISMATCH'].includes(
+              error.error?.error?.code,
+            )))
       ) {
         this.sessionGeneration++;
         this.user.set(null);
@@ -70,7 +74,12 @@ export class AdminApi {
 }
 
 export function adminReturnUrl(value: string | null | undefined) {
-  return value && /^\/(?:listings|users|claims)?(?:\?[^#]*)?(?:#.*)?$/.test(value) ? value : '/';
+  return value &&
+    /^\/(?:(?:listings|users|claims|cases)(?:\/[0-9a-f-]{36})?|audit)?(?:\?[^#]*)?(?:#.*)?$/.test(
+      value,
+    )
+    ? value
+    : '/';
 }
 
 export const adminGuard: CanActivateFn = async (_, state) => {
@@ -98,7 +107,12 @@ export function errorMessage(error: unknown): string {
   if (error instanceof HttpErrorResponse) {
     if (error.status === 0) return 'Cannot reach the server. Check your connection and retry.';
     if (error.status === 401) return 'Sign in again. Check your email and password.';
-    if (error.status === 403) return 'Administrator access is required.';
+    if (error.status === 403)
+      return error.error?.error?.code === 'CASE_ASSIGNED'
+        ? 'This case is assigned to another administrator.'
+        : error.error?.error?.code === 'OWNER_MANAGED_ACCOUNT'
+          ? 'Administrator accounts are managed by project owners.'
+          : 'This action is not permitted for this account or case.';
     if (error.status === 404) return 'This record is no longer available. Refresh the list.';
     if (error.status === 400)
       return 'This page link is no longer valid. Reset the filters to start again.';

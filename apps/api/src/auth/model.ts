@@ -3,6 +3,7 @@ import { USER_ROLES } from '@/domain/user';
 import { profileAvatarSchema } from '@/profile/model';
 
 export const authUserSchema = t.Object({
+  restriction: t.Optional(t.Object({ reason: t.String(), until: t.Nullable(t.String()) })),
   id: t.String({
     format: 'uuid',
   }),

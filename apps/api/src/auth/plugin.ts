@@ -17,8 +17,9 @@ export const authenticationPlugin = new Elysia({
   cookie: sessionCookieSchema,
   response: {
     401: authErrorSchema,
+    403: authErrorSchema,
   },
-  async resolve({ cookie, status }) {
+  async resolve({ cookie, status, request }) {
     const sessionCookie = cookie[SESSION_COOKIE_NAME];
     const token = sessionCookie.value;
 
@@ -34,6 +35,16 @@ export const authenticationPlugin = new Elysia({
       return status(401, UNAUTHENTICATED_ERROR);
     }
 
+    const path = new URL(request.url).pathname;
+    if (auth.user.restriction && path !== '/auth/me' && !/^\/me\/moderation(?:\/|$)/.test(path)) {
+      return status(403, {
+        error: {
+          code: 'ACCOUNT_RESTRICTED',
+          message:
+            'Your account is restricted. Open moderation notices to view the decision or appeal.',
+        },
+      });
+    }
     return {
       auth,
     };

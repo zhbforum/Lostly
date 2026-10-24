@@ -21,6 +21,7 @@ const listingSummarySchema = t.Object({
   coverImage: t.Nullable(listingImageSchema),
 });
 const messagePreviewSchema = t.Object({
+  isHidden: t.Optional(t.Boolean()),
   id: idSchema,
   sequence: t.Integer({ minimum: 1 }),
   senderUserId: idSchema,
@@ -38,6 +39,7 @@ const messageAttachmentSchema = t.Object({
   height: t.Integer({ minimum: 1 }),
 });
 const messageSchema = t.Object({
+  isHidden: t.Optional(t.Boolean()),
   id: idSchema,
   conversationId: idSchema,
   sequence: t.Integer({ minimum: 1 }),
@@ -61,12 +63,14 @@ export const conversationInboxResponseSchema = t.Object({
       lastActivityAt: t.Date(),
       unreadCount: countSchema,
       canSendMessages: t.Boolean(),
+      moderationClosed: t.Optional(t.Boolean()),
     }),
   ),
   pageInfo: pageInfoSchema,
 });
 export const conversationResponseSchema = t.Object({
   conversation: t.Object({
+    contentVersion: t.Optional(t.Integer({ minimum: 1 })),
     id: idSchema,
     claim: t.Object({
       ...claimSummarySchema.properties,
@@ -84,6 +88,7 @@ export const conversationResponseSchema = t.Object({
     participantRole: t.UnionEnum(['claimant', 'owner']),
     unreadCount: countSchema,
     canSendMessages: t.Boolean(),
+    moderationClosed: t.Optional(t.Boolean()),
   }),
 });
 export const conversationMessagesQuerySchema = t.Object({

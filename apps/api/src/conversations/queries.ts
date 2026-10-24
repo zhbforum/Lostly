@@ -50,8 +50,12 @@ export async function listConversations(
   const latest = db
     .select({
       ...messageSelection,
-      attachmentCount: sql<number>`(select count(*)::int from ${claimMessageAttachments}
-        where ${eq(claimMessageAttachments.messageId, claimMessages.id)})`.as('attachment_count'),
+      isHidden: claimMessages.isHidden,
+      attachmentCount:
+        sql<number>`case when ${claimMessages.isHidden} then 0 else (select count(*)::int from ${claimMessageAttachments}
+        where ${eq(claimMessageAttachments.messageId, claimMessages.id)}) end`.as(
+          'attachment_count',
+        ),
     })
     .from(claimMessages)
     .where(eq(claimMessages.conversationId, claimConversations.id))
@@ -75,9 +79,11 @@ export async function listConversations(
         senderUserId: latest.senderUserId,
         body: latest.body,
         attachmentCount: latest.attachmentCount,
+        isHidden: latest.isHidden,
         createdAt: latest.createdAt,
       },
       lastActivityAt: lastActivityAt.mapWith(claimConversations.createdAt),
+      moderationClosed: claimConversations.moderationClosed,
       cursorValue: timestampCursorValue(lastActivityAt),
       unreadCount: unreadMessageCount(userId),
     })
@@ -106,7 +112,7 @@ export async function listConversations(
       conversations: items.map((row) => ({
         ...row,
         listing: { ...row.listing, coverImage: covers.get(row.listing.id) ?? null },
-        canSendMessages: canSendConversationMessages(row.claim.status),
+        canSendMessages: !row.moderationClosed && canSendConversationMessages(row.claim.status),
       })),
       pageInfo,
     },
@@ -120,6 +126,7 @@ export async function findConversationDetail(
 ) {
   const [row] = await db
     .select({
+      contentVersion: claimConversations.contentVersion,
       id: claimConversations.id,
       claim: {
         id: claims.id,
@@ -142,6 +149,7 @@ export async function findConversationDetail(
         'claimant' | 'owner'
       >`case when ${claims.claimantUserId} = ${userId}::uuid
       then 'claimant' else 'owner' end`,
+      moderationClosed: claimConversations.moderationClosed,
       unreadCount: unreadMessageCount(userId),
     })
     .from(claimConversations)
@@ -159,7 +167,7 @@ export async function findConversationDetail(
   return {
     ...row,
     listing: { ...row.listing, coverImage: covers.get(row.listing.id) ?? null },
-    canSendMessages: canSendConversationMessages(row.claim.status),
+    canSendMessages: !row.moderationClosed && canSendConversationMessages(row.claim.status),
   };
 }
 

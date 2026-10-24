@@ -4,6 +4,7 @@ import { ConversationContext } from '../ConversationContext/ConversationContext'
 import { MessageList } from '../MessageList/MessageList';
 import { MessageComposer } from '../MessageComposer/MessageComposer';
 import styles from './ConversationPane.module.css';
+import { ReportButton } from '@/features/moderation/ReportButton';
 
 export function ConversationPane({ conversationId }: { conversationId: string }) {
   const { thread, composer, scroll, read, decision, userId, onReturn } =
@@ -33,7 +34,14 @@ export function ConversationPane({ conversationId }: { conversationId: string })
             </p>
           )}
           {thread.context && (
-            <ConversationContext conversation={thread.context} decision={decision} />
+            <>
+              <ConversationContext conversation={thread.context} decision={decision} />
+              <ReportButton
+                targetType="conversation"
+                targetId={conversationId}
+                label="Report this conversation"
+              />
+            </>
           )}
           <MessageList thread={thread} composer={composer} scroll={scroll} userId={userId} />
           {read.error && (
@@ -52,7 +60,9 @@ export function ConversationPane({ conversationId }: { conversationId: string })
             ) : (
               <section className={styles.readonly} aria-label="Read-only conversation">
                 <p role="status">
-                  This conversation is read-only.
+                  {thread.context.moderationClosed
+                    ? 'Messaging has been paused by moderation.'
+                    : 'This conversation is read-only.'}
                   {composer.hasDraft && ' Your unsent draft has been kept for this session.'}
                 </p>
                 {composer.draft.images.length > 0 && (

@@ -97,6 +97,26 @@ export function useConversationThread(
       try {
         const { conversation } = await getConversation(conversationId, requestSignal);
         if (requestSignal.aborted || !runtime.revision.isCurrent(token)) return;
+        if (
+          runtime.snapshot.context &&
+          runtime.snapshot.context.contentVersion !== conversation.contentVersion
+        ) {
+          // Moderation can change older messages without advancing their sequence.
+          runtime.history.dispose();
+          runtime.unsubscribe();
+          const history = createMessageHistory(conversationId);
+          runtime.history = history;
+          runtime.unsubscribe = history.subscribe(() =>
+            publish(runtime, { history: history.getSnapshot() }),
+          );
+          publish(runtime, {
+            history: history.getSnapshot(),
+            loadingOlder: false,
+            olderError: null,
+          });
+          await history.loadInitial(requestSignal);
+          if (requestSignal.aborted || !runtime.revision.isCurrent(token)) return;
+        }
         publish(runtime, { context: conversation, contextError: null });
       } catch (error) {
         if (requestSignal.aborted || !runtime.revision.isCurrent(token)) return;

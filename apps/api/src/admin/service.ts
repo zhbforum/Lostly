@@ -1,4 +1,5 @@
-import { and, count, desc, eq, ilike, or } from 'drizzle-orm';
+import { and, count, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm';
+import { audit, notify } from '@/moderation/audit';
 import type {
   AdminRecordsQuery,
   ArchiveListingInput,
@@ -54,11 +55,19 @@ export async function adminRecords(
     query.kind ?? '',
     query.status ?? '',
     query.visibility ?? '',
+    query.userId ?? '',
+    query.listingId ?? '',
+    query.from ?? '',
+    query.to ?? '',
   ]);
   const cursor = query.cursor ? decodeCursor(query.cursor, scope) : null;
   if (query.cursor && !cursor) return null;
   const limit = query.limit ?? 20;
-  const condition = cursor ? cursorCondition(table.createdAt, table.id, cursor, false) : undefined;
+  const condition = and(
+    cursor ? cursorCondition(table.createdAt, table.id, cursor, false) : undefined,
+    query.from ? gte(table.createdAt, new Date(query.from)) : undefined,
+    query.to ? lte(table.createdAt, new Date(query.to)) : undefined,
+  );
   const order = [desc(table.createdAt), desc(table.id)];
   const cursorValue = timestampCursorValue(table.createdAt);
   // ponytail: substring scans; add trigram indexes if moderation search volume warrants them.
@@ -77,6 +86,8 @@ export async function adminRecords(
       .where(
         and(
           condition,
+          query.userId ? eq(listings.createdByUserId, query.userId) : undefined,
+          query.listingId ? eq(listings.id, query.listingId) : undefined,
           query.visibility ? eq(listings.isHidden, query.visibility === 'hidden') : undefined,
           query.kind ? eq(listings.kind, query.kind) : undefined,
           query.status ? eq(listings.status, query.status as ListingStatus) : undefined,
@@ -85,6 +96,7 @@ export async function adminRecords(
                 ilike(listings.title, pattern),
                 ilike(listings.description, pattern),
                 ilike(listings.location, pattern),
+                sql`${listings.id}::text = ${search}`,
               )
             : undefined,
         ),
@@ -107,7 +119,15 @@ export async function adminRecords(
       .where(
         and(
           condition,
-          search ? or(ilike(users.email, pattern), ilike(users.displayName, pattern)) : undefined,
+          query.userId ? eq(users.id, query.userId) : undefined,
+          search
+            ? or(
+                ilike(users.email, pattern),
+                ilike(users.displayName, pattern),
+                ilike(users.username, pattern),
+                sql`${users.id}::text = ${search}`,
+              )
+            : undefined,
         ),
       )
       .orderBy(...order)
@@ -129,8 +149,19 @@ export async function adminRecords(
     .where(
       and(
         condition,
+        query.userId
+          ? or(eq(claims.claimantUserId, query.userId), eq(listings.createdByUserId, query.userId))
+          : undefined,
+        query.listingId ? eq(claims.listingId, query.listingId) : undefined,
         query.status ? eq(claims.status, query.status as ClaimStatus) : undefined,
-        search ? or(ilike(listings.title, pattern), ilike(users.displayName, pattern)) : undefined,
+        search
+          ? or(
+              ilike(listings.title, pattern),
+              ilike(users.displayName, pattern),
+              sql`${claims.id}::text = ${search}`,
+              sql`${listings.id}::text = ${search}`,
+            )
+          : undefined,
       ),
     )
     .orderBy(...order)
@@ -145,14 +176,52 @@ export async function moderateListing(id: string, actorUserId: string, input: Ar
     if (!canArchiveListing(listing.status) || listing.version !== input.expectedVersion)
       return 'conflict' as const;
     const now = new Date();
+    const pending = await tx
+      .select({ id: claims.id, userId: claims.claimantUserId })
+      .from(claims)
+      .where(and(eq(claims.listingId, id), eq(claims.status, 'pending')));
     await closeLockedListing(tx, listing, actorUserId, 'archived', now);
-    await tx.insert(moderationEvents).values({
+    const event = await audit(tx, {
       actorUserId,
       targetId: id,
+      targetType: 'listing',
+      caseId: input.caseId,
       action: 'archive_listing',
       reason: input.reason,
       createdAt: now,
+      metadata: {
+        before: listing.status,
+        after: 'archived',
+        afterVersion: listing.version + 1,
+        reviewedAt: now.toISOString(),
+      },
     });
+    await notify(tx, event, {
+      userId: listing.createdByUserId,
+      title: 'Report archived',
+      message:
+        input.publicReason ?? 'A moderator archived your report. Pending claims were closed.',
+      canAppeal: true,
+    });
+    for (const claim of pending) {
+      const child = await audit(tx, {
+        actorUserId,
+        targetId: claim.id,
+        targetType: 'claim',
+        action: 'reject_claim',
+        reason: input.reason,
+        parentEventId: event.id,
+        caseId: input.caseId,
+        createdAt: now,
+        metadata: { listingId: id, cause: 'listing_archived', reviewedAt: now.toISOString() },
+      });
+      await notify(tx, child, {
+        userId: claim.userId,
+        title: 'Claim closed',
+        message: 'Your claim was closed because its report was archived by a moderator.',
+        canAppeal: true,
+      });
+    }
     return 'ok' as const;
   });
 }
@@ -185,6 +254,7 @@ export async function adminReview(
     .where(
       and(
         eq(moderationEvents.targetId, id),
+        eq(moderationEvents.targetType, resource === 'listings' ? 'listing' : 'claim'),
         cursor
           ? cursorCondition(moderationEvents.createdAt, moderationEvents.id, cursor, false)
           : undefined,
@@ -224,12 +294,25 @@ export async function moderateClaim(id: string, actorUserId: string, input: Mode
       .where(and(eq(claims.id, id), eq(claims.status, 'pending')))
       .returning({ id: claims.id });
     if (!updated) return 'conflict' as const;
-    await tx.insert(moderationEvents).values({
+    const event = await audit(tx, {
       actorUserId,
       targetId: id,
+      targetType: 'claim',
+      caseId: input.caseId,
       action: 'reject_claim',
       reason: input.reason,
       createdAt: now,
+      metadata: { listingId: listing.id, reviewedAt: now.toISOString() },
+    });
+    const [claim] = await tx
+      .select({ userId: claims.claimantUserId })
+      .from(claims)
+      .where(eq(claims.id, id));
+    await notify(tx, event, {
+      userId: claim!.userId,
+      title: 'Claim rejected',
+      message: input.publicReason ?? 'A moderator rejected your claim.',
+      canAppeal: true,
     });
     return 'ok' as const;
   });
@@ -252,13 +335,38 @@ export async function setListingVisibility(
       .update(listings)
       .set({ isHidden, version: listing.version + 1, updatedAt: now })
       .where(eq(listings.id, id));
-    await tx.insert(moderationEvents).values({
+    const event = await audit(tx, {
       actorUserId,
       targetId: id,
+      targetType: 'listing',
+      caseId: input.caseId,
       action: isHidden ? 'hide_listing' : 'restore_listing',
       reason: input.reason,
       createdAt: now,
+      metadata: { before: listing.isHidden, after: isHidden },
     });
+    await notify(tx, event, {
+      userId: listing.createdByUserId,
+      title: isHidden ? 'Report hidden' : 'Report restored',
+      message:
+        input.publicReason ??
+        (isHidden
+          ? 'A moderator hid your report. Open moderation notices to view the decision or appeal.'
+          : 'Your report is available again with its previous status.'),
+      canAppeal: isHidden,
+    });
+    const participants = await tx
+      .select({ id: claims.claimantUserId })
+      .from(claims)
+      .where(eq(claims.listingId, id));
+    for (const person of participants)
+      await notify(tx, event, {
+        userId: person.id,
+        title: isHidden ? 'Report temporarily unavailable' : 'Report available again',
+        message: isHidden
+          ? 'A report linked to your claim is temporarily unavailable following moderation. Your claim history is preserved.'
+          : 'A report linked to your claim is available again.',
+      });
     return 'ok' as const;
   });
 }

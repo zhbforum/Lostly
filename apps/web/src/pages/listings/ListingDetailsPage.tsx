@@ -10,6 +10,7 @@ import { Brand } from '@/shared/ui/Brand/Brand';
 import { ListingPhotos } from '@/features/listings/ui/ListingPhotos';
 import { safeReturnTo } from '@/shared/navigation/return-to';
 import { getConversationReturn } from '@/shared/navigation/conversation-return';
+import { ReportButton } from '@/features/moderation/ReportButton';
 
 export function ListingDetailsPage() {
   const location = useLocation();
@@ -173,6 +174,18 @@ export function ListingDetailsPage() {
         {state.status === 'success' && (
           <>
             <ListingDetails listing={state.listing.listing} titleRef={listingTitleRef} />
+            <ReportButton
+              targetType="listing"
+              targetId={state.listing.listing.id}
+              label="Report this listing"
+            />
+            {state.listing.claim && (
+              <ReportButton
+                targetType="claim"
+                targetId={state.listing.claim.id}
+                label="Report an issue with this claim"
+              />
+            )}
             <ListingPhotos
               key={`photos:${state.listing.listing.id}`}
               listingId={state.listing.listing.id}
