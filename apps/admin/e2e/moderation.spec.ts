@@ -60,7 +60,7 @@ test('investigates an assigned report, notifies the owner, and resolves an appea
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Case details', exact: true })).toBeVisible();
-  await page.getByLabel('Administrator', { exact: true }).selectOption(admin.id);
+  await page.getByRole('combobox', { name: 'Administrator', exact: true }).selectOption(admin.id);
   const assignment = page.locator('app-action').filter({ hasText: 'Update assignment' });
   await assignment.locator('summary').click();
   await assignment.getByLabel('Internal reason').fill('Taking responsibility for investigation');
