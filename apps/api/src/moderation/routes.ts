@@ -18,9 +18,9 @@ export const createModerationRoutes = () =>
     .guard({ authenticated: true })
     .post('/reports', ({ auth, body }) => createReport(auth.user.id, body), {
       body: t.Object({
-        targetType: t.UnionEnum(MODERATION_TARGETS),
+        targetType: t.Union(MODERATION_TARGETS.map((value) => t.Literal(value))),
         targetId: t.String({ format: 'uuid' }),
-        category: t.UnionEnum(CASE_CATEGORIES),
+        category: t.Union(CASE_CATEGORIES.map((value) => t.Literal(value))),
         description: t.String({ minLength: 10, maxLength: 2000 }),
       }),
       transform: ({ body }) => trimFields(body, ['description']),

@@ -6,6 +6,40 @@ const operations = await import('./operations');
 const service = await import('./service');
 const cases = await import('@/moderation/cases');
 
+test('requires an explicit report target type and category instead of applying enum defaults', async () => {
+  const id = '550e8400-e29b-41d4-a716-446655440001';
+  const session = spyOn(auth, 'getSession').mockResolvedValue({
+    user: { id, email: 'member@example.test', displayName: 'Member', role: 'user' },
+    session: { id, userId: id, expiresAt: new Date(Date.now() + 60000) },
+  });
+  const create = spyOn(cases, 'createReport').mockRejectedValue(
+    new Error('Unexpected report creation'),
+  );
+  try {
+    for (const body of [
+      { targetId: id, category: 'other', description: 'Please review this report.' },
+      { targetType: 'listing', targetId: id, description: 'Please review this report.' },
+    ]) {
+      const response = await app.handle(
+        new Request('http://localhost/reports', {
+          method: 'POST',
+          headers: {
+            cookie: 'lostly_session=test',
+            'Content-Type': 'application/json',
+            'X-CSRF-Protection': '1',
+          },
+          body: JSON.stringify(body),
+        }),
+      );
+      expect(response.status).toBe(422);
+    }
+    expect(create).not.toHaveBeenCalled();
+  } finally {
+    create.mockRestore();
+    session.mockRestore();
+  }
+});
+
 test('forwards audit filters and keeps the dedicated audit route distinct from record browsing', async () => {
   const id = '550e8400-e29b-41d4-a716-446655440001';
   const session = spyOn(auth, 'getSession').mockResolvedValue({
