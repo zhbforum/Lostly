@@ -368,6 +368,13 @@ export async function resetUserProfile(
       metadata: {
         fields: input.fields,
         previousAvatarId: input.fields.includes('avatar') ? person.avatarId : null,
+        previousProfile: {
+          displayName: input.fields.includes('displayName') ? person.displayName : undefined,
+          username: input.fields.includes('username') ? person.username : undefined,
+          bio: input.fields.includes('bio') ? person.bio : undefined,
+          avatarId: input.fields.includes('avatar') ? person.avatarId : null,
+          avatarAnimated: input.fields.includes('avatar') && person.avatarAnimated,
+        },
       },
     });
     await notify(tx, event, {

@@ -88,6 +88,26 @@ test('profile resets preserve account identity, allow corrections and reject sta
   expect(JSON.stringify(detail)).not.toMatch(
     /passwordHash|tokenHash|private-provider-subject|suspensionReason/,
   );
+  const [profileDecision] = await db
+    .select()
+    .from(moderationEvents)
+    .where(eq(moderationEvents.action, 'reset_profile'));
+  const appealResponse = await request('/me/moderation/appeals', member.cookie, {
+    eventId: profileDecision!.id,
+    description: 'Please reconsider this profile reset.',
+  });
+  expect(appealResponse.status).toBe(200);
+  const profileAppeal = (await appealResponse.json()) as { case: ModerationCase };
+  expect(
+    (
+      await revealEvidence(
+        profileAppeal.case.id,
+        actor.id,
+        'Reviewing the prior profile content',
+        storage,
+      )
+    ).text,
+  ).toContain('Offending bio');
   expect(
     (
       await request('/admin/users/' + member.id + '/revoke-sessions', actor.cookie, {
@@ -229,6 +249,16 @@ test('an older appeal cannot reopen a later rejection even if review timestamps 
   });
   expect(appealed.status).toBe(200);
   const appeal = (await appealed.json()) as { case: ModerationCase };
+  expect(
+    (
+      await revealEvidence(
+        appeal.case.id,
+        actor.id,
+        'Reviewing this claim appeal',
+        new MemoryObjectStorage(),
+      )
+    ).text,
+  ).toContain('Private proof of ownership.');
   const reverse = () =>
     request('/admin/cases/' + appeal.case.id + '/reverse-decision', actor.cookie, {
       reason: 'Reviewing the appealed decision',

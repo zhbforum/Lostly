@@ -255,6 +255,7 @@ export async function createAppeal(userId: string, eventId: string, description:
         metadata: moderationEvents.metadata,
         targetType: moderationEvents.targetType,
         targetId: moderationEvents.targetId,
+        action: moderationEvents.action,
       })
       .from(moderationEvents)
       .where(eq(moderationEvents.id, eventId));
@@ -264,6 +265,54 @@ export async function createAppeal(userId: string, eventId: string, description:
           .from(moderationCases)
           .where(eq(moderationCases.id, event.caseId))
       : [];
+    let evidence: typeof moderationCases.$inferInsert.evidence = source?.evidence ?? {
+      listingId:
+        event?.targetType === 'listing'
+          ? event.targetId
+          : typeof event?.metadata['listingId'] === 'string'
+            ? event.metadata['listingId']
+            : undefined,
+      userId: event?.targetType === 'user' ? event.targetId : undefined,
+    };
+    if (event?.targetType === 'claim') {
+      const [claim] = await tx
+        .select({ proof: claims.verificationDetails, listingId: claims.listingId })
+        .from(claims)
+        .where(and(eq(claims.id, event.targetId), eq(claims.claimantUserId, userId)));
+      if (claim)
+        evidence = {
+          ...evidence,
+          listingId: claim.listingId,
+          text: [evidence.text, claim.proof].filter(Boolean).join('\n'),
+        };
+    }
+    const previous = event?.metadata['previousProfile'];
+    if (
+      event?.action === 'reset_profile' &&
+      event.targetId === userId &&
+      previous &&
+      typeof previous === 'object' &&
+      !Array.isArray(previous)
+    ) {
+      const profile = previous as Record<string, unknown>;
+      const avatarId = typeof profile['avatarId'] === 'string' ? profile['avatarId'] : null;
+      evidence = {
+        userId,
+        text: [profile['displayName'], profile['username'], profile['bio']]
+          .filter((value) => typeof value === 'string')
+          .join('\n'),
+        images: avatarId
+          ? [
+              {
+                id: avatarId,
+                objectKey: avatarKeys(userId, avatarId, profile['avatarAnimated'] === true).image,
+                width: 256,
+                height: 256,
+              },
+            ]
+          : [],
+      };
+    }
     const [record] = await tx
       .insert(moderationCases)
       .values({
@@ -274,15 +323,7 @@ export async function createAppeal(userId: string, eventId: string, description:
         category: 'other',
         description,
         parentEventId: eventId,
-        evidence: source?.evidence ?? {
-          listingId:
-            event?.targetType === 'listing'
-              ? event.targetId
-              : typeof event?.metadata['listingId'] === 'string'
-                ? event.metadata['listingId']
-                : undefined,
-          userId: event?.targetType === 'user' ? event.targetId : undefined,
-        },
+        evidence,
       })
       .returning(publicCaseSelection);
     return { case: record! };

@@ -249,6 +249,10 @@ function AppealForm({
       ) : (
         <form className={styles.form} onSubmit={(event) => void submit(event)}>
           <label htmlFor={'appeal-' + eventId}>Why should this decision be reviewed?</label>
+          <p>
+            Moderators can review the affected content and, for your claim, its private verification
+            details. Conversation history is not shared.
+          </p>
           <textarea
             id={'appeal-' + eventId}
             rows={4}
