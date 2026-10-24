@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { AdminCaseDetail, AdminEvidence } from '@lostly/contracts/admin-operations';
 import { AdminApi, errorMessage } from './api';
 import { Action } from './action';
@@ -233,7 +234,7 @@ export class CaseDetail {
   readonly api = inject(AdminApi);
   private readonly route = inject(ActivatedRoute);
   private readonly destroy = inject(DestroyRef);
-  readonly id = this.route.snapshot.paramMap.get('id')!;
+  id = this.route.snapshot.paramMap.get('id')!;
   readonly detail = signal<AdminCaseDetail | null>(null);
   readonly evidence = signal<AdminEvidence | null>(null);
   readonly administrators = signal<{ id: string; displayName: string }[]>([]);
@@ -249,7 +250,16 @@ export class CaseDetail {
   private generation = 0;
   constructor() {
     this.destroy.onDestroy(() => this.generation++);
-    void this.load();
+    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      this.id = params.get('id')!;
+      this.detail.set(null);
+      this.evidence.set(null);
+      this.reason = '';
+      this.resolution = '';
+      this.evidenceReason = '';
+      this.noteBody = '';
+      void this.load();
+    });
   }
   targetRoute(type: string) {
     return (
@@ -283,24 +293,26 @@ export class CaseDetail {
     }
   }
   private async perform(task: () => Promise<void>) {
+    const id = this.id;
     if (this.working()) return;
     this.working.set(true);
     this.error.set('');
     try {
       await task();
     } catch (error) {
-      if (!this.destroy.destroyed) this.error.set(errorMessage(error));
+      if (!this.destroy.destroyed && this.id === id) this.error.set(errorMessage(error));
     } finally {
       this.working.set(false);
     }
   }
   reveal() {
+    const id = this.id;
     return this.perform(async () => {
       const evidence = await this.api.request<AdminEvidence>(
         '/admin/cases/' + this.id + '/evidence',
         { reason: this.evidenceReason.trim() },
       );
-      if (!this.destroy.destroyed) {
+      if (!this.destroy.destroyed && this.id === id) {
         this.evidence.set(evidence);
         this.evidenceReason = '';
       }
@@ -327,6 +339,7 @@ export class CaseDetail {
     });
   }
   olderNotes() {
+    const id = this.id;
     return this.perform(async () => {
       const before = this.detail()!;
       const data = await this.api.request<AdminCaseDetail>(
@@ -335,7 +348,7 @@ export class CaseDetail {
           '?cursor=' +
           encodeURIComponent(before.notes.pageInfo.endCursor!),
       );
-      if (!this.destroy.destroyed)
+      if (!this.destroy.destroyed && this.id === id)
         this.detail.set({
           ...before,
           notes: { ...data.notes, items: [...before.notes.items, ...data.notes.items] },

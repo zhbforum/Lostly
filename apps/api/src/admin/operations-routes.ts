@@ -72,6 +72,8 @@ export const createAdminOperationsRoutes = (storage: ObjectStorage) =>
       query: t.Object({
         ...pageQueryProperties,
         actorId: t.Optional(uuid),
+        from: t.Optional(t.String({ format: 'date-time' })),
+        to: t.Optional(t.String({ format: 'date-time' })),
         targetId: t.Optional(uuid),
         caseId: t.Optional(uuid),
         action: t.Optional(
@@ -156,6 +158,7 @@ export const createAdminOperationsRoutes = (storage: ObjectStorage) =>
           ...query,
           overdue: query.overdue === 'true',
           unassigned: query.unassigned === 'true',
+          active: query.active === 'true',
         }),
       {
         query: t.Object({
@@ -167,6 +170,7 @@ export const createAdminOperationsRoutes = (storage: ObjectStorage) =>
           kind: t.Optional(t.Union([t.Literal('report'), t.Literal('appeal')])),
           overdue: t.Optional(t.Union([t.Literal('true'), t.Literal('false')])),
           unassigned: t.Optional(t.Union([t.Literal('true'), t.Literal('false')])),
+          active: t.Optional(t.Union([t.Literal('true'), t.Literal('false')])),
         }),
         detail: { summary: 'Browse reports and appeals', security: openApiSessionSecurity },
       },

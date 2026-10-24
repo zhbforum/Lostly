@@ -321,6 +321,7 @@ export async function listCases(
     kind?: 'report' | 'appeal';
     overdue?: boolean;
     unassigned?: boolean;
+    active?: boolean;
   },
 ) {
   const scope = JSON.stringify([
@@ -332,6 +333,7 @@ export async function listCases(
     query.kind,
     query.overdue,
     query.unassigned,
+    query.active,
   ]);
   const rows = await db
     .select({
@@ -343,6 +345,7 @@ export async function listCases(
       and(
         pageCursor(query, scope, moderationCases),
         query.status ? eq(moderationCases.status, query.status) : undefined,
+        query.active ? inArray(moderationCases.status, ['open', 'in_review']) : undefined,
         query.assigneeId ? eq(moderationCases.assigneeId, query.assigneeId) : undefined,
         query.unassigned
           ? and(

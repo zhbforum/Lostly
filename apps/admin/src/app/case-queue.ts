@@ -42,6 +42,7 @@ import { AdminApi, errorMessage } from './api';
       <button>Apply</button
       ><button type="button" class="secondary" (click)="mine()">Assigned to me</button
       ><a routerLink="/cases">Reset</a>
+      <label><input type="checkbox" name="active" [(ngModel)]="active" /> Unresolved only</label>
     </form>
     @if (error()) {
       <p class="error" role="alert">{{ error() }}</p>
@@ -86,6 +87,7 @@ export class CaseQueue {
   targetId = '';
   unassigned = false;
   overdue = false;
+  active = false;
   private generation = 0;
   constructor() {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
@@ -95,6 +97,7 @@ export class CaseQueue {
       this.targetId = params.get('targetId') ?? '';
       this.unassigned = params.get('unassigned') === 'true';
       this.overdue = params.get('overdue') === 'true';
+      this.active = params.get('active') === 'true';
       void this.load();
     });
     this.destroy.onDestroy(() => this.generation++);
@@ -115,6 +118,7 @@ export class CaseQueue {
       'targetId',
       'unassigned',
       'overdue',
+      'active',
       'cursor',
     ]) {
       const value = this.route.snapshot.queryParamMap.get(key);
@@ -143,12 +147,15 @@ export class CaseQueue {
         targetId: this.targetId || null,
         unassigned: this.unassigned || null,
         overdue: this.overdue || null,
+        active: this.active || null,
       },
     });
   }
   mine() {
     this.assigneeId = this.api.user()?.id ?? '';
     this.unassigned = false;
+    this.status = '';
+    this.active = true;
     return this.filter();
   }
   first() {

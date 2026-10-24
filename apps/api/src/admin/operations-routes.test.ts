@@ -57,7 +57,12 @@ test('omitted case and account filters do not silently default to the first enum
       (await app.handle(new Request('http://localhost/admin/cases?kind=appeal', { headers })))
         .status,
     ).toBe(200);
-    expect(queue.mock.calls[0]?.[0]).toEqual({ kind: 'appeal', overdue: false, unassigned: false });
+    expect(queue.mock.calls[0]?.[0]).toEqual({
+      kind: 'appeal',
+      overdue: false,
+      unassigned: false,
+      active: false,
+    });
   } finally {
     records.mockRestore();
     queue.mockRestore();

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, getTableColumns, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, getTableColumns, gte, lte, or, sql } from 'drizzle-orm';
 import type { PageQuery } from '@lostly/contracts/pagination';
 import type { ModerationAction } from '@lostly/contracts/moderation';
 import { LISTING_IMAGE_CONSTRAINTS } from '@lostly/contracts/listings';
@@ -63,6 +63,8 @@ export async function auditPage(
     targetId?: string;
     action?: ModerationAction;
     caseId?: string;
+    from?: string;
+    to?: string;
   },
 ) {
   const scope = JSON.stringify([
@@ -71,6 +73,8 @@ export async function auditPage(
     query.targetId,
     query.action,
     query.caseId,
+    query.from,
+    query.to,
   ]);
   const cursor = query.cursor ? decodeCursor(query.cursor, scope) : null;
   if (query.cursor && !cursor)
@@ -88,6 +92,8 @@ export async function auditPage(
         query.actorId ? eq(moderationEvents.actorUserId, query.actorId) : undefined,
         query.targetId ? eq(moderationEvents.targetId, query.targetId) : undefined,
         query.action ? eq(moderationEvents.action, query.action) : undefined,
+        query.from ? gte(moderationEvents.createdAt, new Date(query.from)) : undefined,
+        query.to ? lte(moderationEvents.createdAt, new Date(query.to)) : undefined,
         query.caseId
           ? or(
               eq(moderationEvents.caseId, query.caseId),
@@ -347,7 +353,7 @@ export async function resetUserProfile(
     }
     if (input.fields.includes('username')) {
       changes.usernameChangedAt = null;
-      changes.username = 'user_' + id.replaceAll('-', '').slice(0, 24);
+      changes.username = 'user_' + crypto.randomUUID().replaceAll('-', '').slice(0, 24);
       await claimUsername(tx, id, changes.username);
     }
     await tx.update(users).set(changes).where(eq(users.id, id));

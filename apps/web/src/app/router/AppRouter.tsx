@@ -81,7 +81,7 @@ export function AppRouter() {
   if (status === 'authenticated' && user?.restriction)
     return (
       <Routes>
-        <Route path="/moderation" element={<ModerationPage />} />
+        <Route path="/moderation" element={<ModerationPage key={user.id} />} />
         <Route path="*" element={<Navigate to="/moderation" replace />} />
       </Routes>
     );
@@ -141,7 +141,7 @@ export function AppRouter() {
   if (status === 'authenticated') {
     return (
       <Routes>
-        <Route path="/moderation" element={<ModerationPage />} />
+        <Route path="/moderation" element={<ModerationPage key={user!.id} />} />
         <Route
           path="/listings/:id/edit"
           element={

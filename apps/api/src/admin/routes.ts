@@ -84,7 +84,7 @@ export const createAdminRoutes = (storage: ObjectStorage) =>
           ((query.kind || query.visibility) && params.resource !== 'listings') ||
           (query.restriction && params.resource !== 'users') ||
           (query.listingId && params.resource === 'users') ||
-          (query.from && query.to && query.from > query.to) ||
+          (query.from && query.to && Date.parse(query.from) > Date.parse(query.to)) ||
           (query.status &&
             (params.resource === 'users' ||
               !(params.resource === 'listings' ? [...LISTING_STATUSES] : [...CLAIM_STATUSES]).some(

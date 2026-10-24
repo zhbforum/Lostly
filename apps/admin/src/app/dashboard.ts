@@ -47,7 +47,7 @@ import { AdminApi, errorMessage } from './api';
           <a routerLink="/cases" [queryParams]="{ status: 'in_review' }"
             >In review: {{ queue.inReview }}</a
           >
-          <a routerLink="/cases" [queryParams]="{ assigneeId: api.user()?.id }"
+          <a routerLink="/cases" [queryParams]="{ assigneeId: api.user()?.id, active: true }"
             >Assigned to me: {{ queue.mine }}</a
           >
           <a routerLink="/cases" [queryParams]="{ unassigned: true }"
@@ -56,7 +56,7 @@ import { AdminApi, errorMessage } from './api';
           <a routerLink="/cases" [queryParams]="{ overdue: true }"
             >Unresolved over 48h: {{ queue.overdue }}</a
           >
-          <a routerLink="/cases" [queryParams]="{ kind: 'appeal' }"
+          <a routerLink="/cases" [queryParams]="{ kind: 'appeal', active: true }"
             >Open appeals: {{ queue.appeals }}</a
           >
           <a routerLink="/users" [queryParams]="{ restriction: 'active' }"

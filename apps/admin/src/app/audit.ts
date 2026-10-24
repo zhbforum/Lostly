@@ -26,7 +26,10 @@ import { AdminApi, errorMessage } from './api';
             <option [value]="option[0]">{{ option[1] }}</option>
           }
         </select></label
-      ><button>Apply</button><a routerLink="/audit">Reset</a>
+      >
+      <label>From (UTC)<input type="date" name="from" [(ngModel)]="from" /></label
+      ><label>Through (UTC)<input type="date" name="to" [(ngModel)]="to" /></label>
+      <button>Apply</button><a routerLink="/audit">Reset</a>
     </form>
     @if (error()) {
       <p class="error" role="alert">{{ error() }}</p>
@@ -85,6 +88,8 @@ export class Audit {
   targetId = '';
   caseId = '';
   action = '';
+  from = '';
+  to = '';
   private generation = 0;
   constructor() {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
@@ -92,6 +97,8 @@ export class Audit {
       this.targetId = params.get('targetId') ?? '';
       this.caseId = params.get('caseId') ?? '';
       this.action = params.get('action') ?? '';
+      this.from = params.get('from')?.slice(0, 10) ?? '';
+      this.to = params.get('to')?.slice(0, 10) ?? '';
       void this.load();
     });
     this.destroy.onDestroy(() => this.generation++);
@@ -111,6 +118,8 @@ export class Audit {
         targetId: this.targetId || null,
         caseId: this.caseId || null,
         action: this.action || null,
+        from: this.from ? this.from + 'T00:00:00.000Z' : null,
+        to: this.to ? this.to + 'T23:59:59.999Z' : null,
       },
     });
   }
@@ -126,7 +135,7 @@ export class Audit {
     this.busy.set(true);
     this.error.set('');
     const query = new URLSearchParams();
-    for (const key of ['actorId', 'targetId', 'caseId', 'action', 'cursor']) {
+    for (const key of ['actorId', 'targetId', 'caseId', 'action', 'cursor', 'from', 'to']) {
       const value = this.route.snapshot.queryParamMap.get(key);
       if (value) query.set(key, value);
     }

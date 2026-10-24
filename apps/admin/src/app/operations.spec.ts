@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { AdminApi, adminReturnUrl } from './api';
 import { CaseDetail } from './case-detail';
 import { Action } from './action';
+import { of } from 'rxjs';
 
 const id = '550e8400-e29b-41d4-a716-446655440001';
 const actor = {
@@ -45,7 +46,10 @@ describe('moderation operations', () => {
         provideHttpClientTesting(),
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({ id }) } },
+          useValue: {
+            snapshot: { paramMap: convertToParamMap({ id }) },
+            paramMap: of(convertToParamMap({ id })),
+          },
         },
       ],
     });
