@@ -32,11 +32,11 @@ test('migration preserves snapshot age, removes private audit metadata and never
       metadata jsonb NOT NULL DEFAULT '{}', created_at timestamptz NOT NULL)`);
     await tx.execute(sql`INSERT INTO moderation_events (id, target_id, action, metadata, created_at) VALUES
       (${profileDecisionId}::uuid, ${targetId}::uuid, 'reset_profile',
-        ${JSON.stringify({ fields: ['bio'], previousProfile: { bio: 'Historical private bio' } })}::jsonb, ${createdAt.toISOString()}::timestamptz),
-      (${oldDecisionId}::uuid, ${targetId}::uuid, 'hide_listing', '{}', ${createdAt.toISOString()}::timestamptz)`);
+        jsonb_build_object('fields', jsonb_build_array('bio'), 'previousProfile', jsonb_build_object('bio', 'Historical private bio')), ${createdAt.toISOString()}::timestamptz),
+      (${oldDecisionId}::uuid, ${targetId}::uuid, 'hide_listing', '"Malformed legacy content"'::jsonb, ${createdAt.toISOString()}::timestamptz)`);
     await tx.execute(sql`INSERT INTO moderation_cases (id, kind, target_type, target_id, parent_event_id, evidence, created_at) VALUES
       (${reportId}::uuid, 'report', 'listing', ${targetId}::uuid, NULL,
-        ${JSON.stringify({ text: 'Reported content', listingId: targetId })}::jsonb, ${createdAt.toISOString()}::timestamptz),
+        jsonb_build_object('text', 'Reported content', 'listingId', ${targetId}::text), ${createdAt.toISOString()}::timestamptz),
       (${profileAppealId}::uuid, 'appeal', 'user', ${targetId}::uuid, ${profileDecisionId}::uuid,
         '{"text":"Old appeal copy"}', ${createdAt.toISOString()}::timestamptz),
       (${legacyAppealId}::uuid, 'appeal', 'listing', ${targetId}::uuid, ${oldDecisionId}::uuid,
@@ -68,7 +68,9 @@ test('migration preserves snapshot age, removes private audit metadata and never
       /Reported content|private bio|Old appeal|Untrustworthy/,
     );
     const events = await tx.execute(sql`SELECT metadata FROM moderation_events`);
-    expect(JSON.stringify(events)).not.toMatch(/private bio|previousProfile|previousAvatarId/);
+    expect(JSON.stringify(events)).not.toMatch(
+      /private bio|previousProfile|previousAvatarId|Malformed/,
+    );
     await tx.execute(sql.raw(`DROP SCHEMA "${schema}" CASCADE`));
   });
 });

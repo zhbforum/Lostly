@@ -52,4 +52,5 @@ UPDATE moderation_cases SET evidence = jsonb_strip_nulls(jsonb_build_object(
   'conversationId', CASE WHEN target_type = 'conversation' THEN to_jsonb(target_id) ELSE evidence->'conversationId' END
 ));
 --> statement-breakpoint
-UPDATE moderation_events SET metadata = metadata - 'previousProfile' - 'previousAvatarId';
+UPDATE moderation_events SET metadata = CASE WHEN jsonb_typeof(metadata) = 'object'
+  THEN metadata - 'previousProfile' - 'previousAvatarId' ELSE '{}'::jsonb END;
