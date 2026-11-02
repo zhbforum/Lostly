@@ -1,6 +1,6 @@
 export class ModerationError extends Error {
   constructor(
-    public readonly status: 400 | 403 | 404 | 409 | 429,
+    public readonly status: 400 | 403 | 404 | 409 | 410 | 429,
     public readonly code: string,
     message: string,
   ) {

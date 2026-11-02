@@ -6,6 +6,7 @@ import {
   claims,
   moderationCases,
   moderationEvents,
+  moderationEvidence,
   moderationNotifications,
   sessions,
   users,
@@ -25,6 +26,7 @@ import { usernameIssue } from '@lostly/contracts/profile';
 async function clear() {
   await db.delete(moderationCases);
   await db.delete(moderationEvents);
+  await db.delete(moderationEvidence);
   await clearDatabase();
 }
 beforeEach(clear);
@@ -170,7 +172,11 @@ test('retains reported image evidence after the owner removes its ordinary metad
     .select()
     .from(moderationCases)
     .where(eq(moderationCases.id, record.case.id));
-  expect(captured!.evidence.images).toMatchObject([{ id: image!.id, objectKey }]);
+  const [snapshot] = await db
+    .select()
+    .from(moderationEvidence)
+    .where(eq(moderationEvidence.id, captured!.evidenceId!));
+  expect(snapshot!.payload.images).toMatchObject([{ id: image!.id, objectKey }]);
   await deleteOwnedImage(
     { listingId: listing.id, ownerUserId: owner.id, imageId: image!.id },
     storage,

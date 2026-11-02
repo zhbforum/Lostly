@@ -55,6 +55,7 @@ export interface AdminAuditEvent extends AdminModerationEvent {
 }
 export interface AdminEvidence {
   text: string;
+  expiresAt: string;
   images: { id: string; width: number; height: number; url: string; expiresAt: string }[];
 }
 export interface AdminWorkload {

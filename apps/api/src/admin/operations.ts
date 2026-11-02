@@ -1,4 +1,4 @@
-import { and, count, desc, eq, getTableColumns, gte, lte, inArray, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, lte, inArray, or, sql } from 'drizzle-orm';
 import type { PageQuery } from '@lostly/contracts/pagination';
 import type { ModerationAction } from '@lostly/contracts/moderation';
 import { LISTING_IMAGE_CONSTRAINTS } from '@lostly/contracts/listings';
@@ -26,6 +26,7 @@ import { findImages, toListingImage } from '@/listing-images/queries';
 import { profileSelection, toProfile } from '@/profile/queries';
 import { claimUsername } from '@/profile/usernames';
 import { accountRestriction } from '@/moderation/restrictions';
+import { profileEvidence } from '@/moderation/evidence';
 import { audit, checkCase, notify, type ModerationCommand } from '@/moderation/audit';
 import { conflict, ModerationError, notFound } from '@/moderation/errors';
 import type { ObjectStorage } from '@/storage/object-storage';
@@ -81,7 +82,16 @@ export async function auditPage(
     throw new ModerationError(400, 'INVALID_CURSOR', 'Invalid audit cursor');
   const rows = await db
     .select({
-      ...getTableColumns(moderationEvents),
+      id: moderationEvents.id,
+      actorUserId: moderationEvents.actorUserId,
+      targetId: moderationEvents.targetId,
+      targetType: moderationEvents.targetType,
+      caseId: moderationEvents.caseId,
+      parentEventId: moderationEvents.parentEventId,
+      action: moderationEvents.action,
+      reason: moderationEvents.reason,
+      createdAt: moderationEvents.createdAt,
+      metadata: moderationEvents.metadata,
       actorName: users.displayName,
       cursorValue: timestampCursorValue(moderationEvents.createdAt),
     })
@@ -110,7 +120,28 @@ export async function auditPage(
     )
     .orderBy(desc(moderationEvents.createdAt), desc(moderationEvents.id))
     .limit((query.limit ?? 20) + 1);
-  return pageFromRows(rows, query.limit ?? 20, scope);
+  return pageFromRows(
+    rows.map((row) => ({ ...row, metadata: safeAuditMetadata(row.metadata) })),
+    query.limit ?? 20,
+    scope,
+  );
+}
+
+function safeAuditMetadata(metadata: Record<string, unknown>) {
+  const allowed = [
+    'before',
+    'after',
+    'fields',
+    'revoked',
+    'listingId',
+    'conversationId',
+    'afterVersion',
+    'reviewedAt',
+    'cause',
+    'caseId',
+    'noteId',
+  ];
+  return Object.fromEntries(Object.entries(metadata).filter(([key]) => allowed.includes(key)));
 }
 
 export async function userDetails(id: string, storage: ObjectStorage) {
@@ -365,17 +396,8 @@ export async function resetUserProfile(
       action: 'reset_profile',
       reason: input.reason,
       caseId: input.caseId,
-      metadata: {
-        fields: input.fields,
-        previousAvatarId: input.fields.includes('avatar') ? person.avatarId : null,
-        previousProfile: {
-          displayName: input.fields.includes('displayName') ? person.displayName : undefined,
-          username: input.fields.includes('username') ? person.username : undefined,
-          bio: input.fields.includes('bio') ? person.bio : undefined,
-          avatarId: input.fields.includes('avatar') ? person.avatarId : null,
-          avatarAnimated: input.fields.includes('avatar') && person.avatarAnimated,
-        },
-      },
+      metadata: { fields: input.fields },
+      evidence: profileEvidence(person, input.fields),
     });
     await notify(tx, event, {
       userId: id,
@@ -515,10 +537,10 @@ export async function moderateConversation(
 ) {
   return db.transaction(async (tx) => {
     const [source] = await tx
-      .select({ evidence: moderationCases.evidence })
+      .select({ context: moderationCases.context })
       .from(moderationCases)
       .where(eq(moderationCases.id, caseId));
-    const id = source?.evidence.conversationId;
+    const id = source?.context.conversationId;
     if (!id) notFound();
     const [reference] = await tx
       .select({ listingId: claims.listingId })

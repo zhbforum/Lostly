@@ -114,6 +114,8 @@ export function errorMessage(error: unknown): string {
           ? 'Administrator accounts are managed by project owners.'
           : 'This action is not permitted for this account or case.';
     if (error.status === 404) return 'This record is no longer available. Refresh the list.';
+    if (error.status === 410)
+      return 'Historical evidence has expired or was not retained for this decision.';
     if (error.status === 400)
       return 'This page link is no longer valid. Reset the filters to start again.';
     if (error.status === 409) return 'This record changed. Refresh the list before trying again.';

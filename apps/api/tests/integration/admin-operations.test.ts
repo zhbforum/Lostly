@@ -6,6 +6,7 @@ import {
   listings,
   moderationCases,
   moderationEvents,
+  moderationEvidence,
   moderationNotifications,
   sessions,
   users,
@@ -33,6 +34,7 @@ import type { ListingDetailResponse } from '@lostly/contracts/listings';
 async function clear() {
   await db.delete(moderationCases);
   await db.delete(moderationEvents);
+  await db.delete(moderationEvidence);
   await clearDatabase();
 }
 beforeEach(clear);

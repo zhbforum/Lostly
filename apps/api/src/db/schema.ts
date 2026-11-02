@@ -23,6 +23,33 @@ export const userRoleEnum = pgEnum('user_role', USER_ROLES);
 export const listingKindEnum = pgEnum('listing_kind', LISTING_KINDS);
 export const listingStatusEnum = pgEnum('listing_status', LISTING_STATUSES);
 export const claimStatusEnum = pgEnum('claim_status', CLAIM_STATUSES);
+export interface EvidenceContext {
+  listingId?: string;
+  conversationId?: string;
+  claimId?: string;
+  userId?: string;
+}
+export interface EvidencePayload extends EvidenceContext {
+  text?: string;
+  images?: { id: string; objectKey: string; width: number; height: number }[];
+}
+export const moderationEvidence = pgTable(
+  'moderation_evidence',
+  {
+    id: uuid('id')
+      .default(sql`uuidv7()`)
+      .primaryKey(),
+    payload: jsonb('payload').$type<EvidencePayload>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    purgedAt: timestamp('purged_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('moderation_evidence_expiration_idx')
+      .on(table.expiresAt, table.id)
+      .where(sql`${table.purgedAt} IS NULL`),
+  ],
+);
 export const moderationActionEnum = pgEnum('moderation_action', [
   'archive_listing',
   'reject_claim',
@@ -59,6 +86,7 @@ export const moderationEvents = pgTable(
     targetType: text('target_type').notNull().default('listing'),
     caseId: uuid('case_id'),
     parentEventId: uuid('parent_event_id'),
+    evidenceId: uuid('evidence_id').references(() => moderationEvidence.id),
     metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
     action: moderationActionEnum('action').notNull(),
     reason: varchar('reason', { length: 500 }).notNull(),
@@ -129,16 +157,9 @@ export const moderationCases = pgTable(
     version: integer('version').notNull().default(1),
     parentEventId: uuid('parent_event_id'),
     publicResolution: varchar('public_resolution', { length: 1000 }),
-    evidence: jsonb('evidence')
-      .$type<{
-        text?: string;
-        listingId?: string;
-        conversationId?: string;
-        userId?: string;
-        images?: { id: string; objectKey: string; width: number; height: number }[];
-      }>()
-      .notNull()
-      .default({}),
+    evidenceId: uuid('evidence_id').references(() => moderationEvidence.id),
+    // The legacy column now contains only relationship identifiers, never evidence content.
+    context: jsonb('evidence').$type<EvidenceContext>().notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

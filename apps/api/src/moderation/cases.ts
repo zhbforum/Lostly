@@ -7,6 +7,7 @@ import {
   listings,
   moderationCases,
   moderationEvents,
+  moderationEvidence,
   moderationNotes,
   moderationNotifications,
   users,
@@ -25,6 +26,7 @@ import {
 import type { ObjectStorage } from '@/storage/object-storage';
 import { audit, checkCase, notify } from './audit';
 import { conflict, ModerationError, notFound } from './errors';
+import { evidenceContext, readEvidence, retainEvidence } from './evidence';
 
 export const publicCaseSelection = {
   id: moderationCases.id,
@@ -56,6 +58,7 @@ async function reportEvidence(
       text: 'Conversation reported; individual messages require their own reports.',
       conversationId: targetId,
       listingId: conversation.listingId,
+      claimId: conversation.claimId,
     };
   }
   if (targetType === 'message') {
@@ -86,6 +89,8 @@ async function reportEvidence(
     return {
       text: message.body ?? '',
       conversationId: message.conversationId,
+      listingId: conversation.listingId,
+      claimId: conversation.claimId,
       userId: message.senderUserId,
       images,
     };
@@ -105,6 +110,7 @@ async function reportEvidence(
     return {
       text: record.claim.verificationDetails,
       listingId: record.claim.listingId,
+      claimId: record.claim.id,
       userId: record.claim.claimantUserId,
     };
   }
@@ -216,7 +222,8 @@ export async function createReport(userId: string, input: CreateReportInput) {
         category: input.category,
         description: input.description,
         reporterId: userId,
-        evidence,
+        evidenceId: await retainEvidence(tx, evidence),
+        context: evidenceContext(evidence),
       })
       .returning(publicCaseSelection);
     return { case: record! };
@@ -252,67 +259,20 @@ export async function createAppeal(userId: string, eventId: string, description:
     const [event] = await tx
       .select({
         caseId: moderationEvents.caseId,
-        metadata: moderationEvents.metadata,
+        evidenceId: moderationEvents.evidenceId,
         targetType: moderationEvents.targetType,
         targetId: moderationEvents.targetId,
         action: moderationEvents.action,
       })
       .from(moderationEvents)
       .where(eq(moderationEvents.id, eventId));
-    const [source] = event?.caseId
+    if (!event) notFound();
+    const [snapshot] = event.evidenceId
       ? await tx
-          .select({ evidence: moderationCases.evidence })
-          .from(moderationCases)
-          .where(eq(moderationCases.id, event.caseId))
+          .select({ payload: moderationEvidence.payload })
+          .from(moderationEvidence)
+          .where(eq(moderationEvidence.id, event.evidenceId))
       : [];
-    let evidence: typeof moderationCases.$inferInsert.evidence = source?.evidence ?? {
-      listingId:
-        event?.targetType === 'listing'
-          ? event.targetId
-          : typeof event?.metadata['listingId'] === 'string'
-            ? event.metadata['listingId']
-            : undefined,
-      userId: event?.targetType === 'user' ? event.targetId : undefined,
-    };
-    if (event?.targetType === 'claim') {
-      const [claim] = await tx
-        .select({ proof: claims.verificationDetails, listingId: claims.listingId })
-        .from(claims)
-        .where(and(eq(claims.id, event.targetId), eq(claims.claimantUserId, userId)));
-      if (claim)
-        evidence = {
-          ...evidence,
-          listingId: claim.listingId,
-          text: [evidence.text, claim.proof].filter(Boolean).join('\n'),
-        };
-    }
-    const previous = event?.metadata['previousProfile'];
-    if (
-      event?.action === 'reset_profile' &&
-      event.targetId === userId &&
-      previous &&
-      typeof previous === 'object' &&
-      !Array.isArray(previous)
-    ) {
-      const profile = previous as Record<string, unknown>;
-      const avatarId = typeof profile['avatarId'] === 'string' ? profile['avatarId'] : null;
-      evidence = {
-        userId,
-        text: [profile['displayName'], profile['username'], profile['bio']]
-          .filter((value) => typeof value === 'string')
-          .join('\n'),
-        images: avatarId
-          ? [
-              {
-                id: avatarId,
-                objectKey: avatarKeys(userId, avatarId, profile['avatarAnimated'] === true).image,
-                width: 256,
-                height: 256,
-              },
-            ]
-          : [],
-      };
-    }
     const [record] = await tx
       .insert(moderationCases)
       .values({
@@ -323,7 +283,8 @@ export async function createAppeal(userId: string, eventId: string, description:
         category: 'other',
         description,
         parentEventId: eventId,
-        evidence,
+        evidenceId: event.evidenceId,
+        context: evidenceContext(snapshot?.payload ?? {}),
       })
       .returning(publicCaseSelection);
     return { case: record! };
@@ -453,11 +414,11 @@ export async function markNotificationRead(userId: string, id: string) {
 
 export async function caseDetails(id: string, query: PageQuery = {}) {
   const [record] = await db
-    .select({ ...publicCaseSelection, evidence: moderationCases.evidence })
+    .select({ ...publicCaseSelection, context: moderationCases.context })
     .from(moderationCases)
     .where(eq(moderationCases.id, id));
   if (!record) notFound();
-  const { evidence, ...safe } = record;
+  const { context, ...safe } = record;
   const [decision] = record.parentEventId
     ? await db.select().from(moderationEvents).where(eq(moderationEvents.id, record.parentEventId))
     : [];
@@ -506,9 +467,9 @@ export async function caseDetails(id: string, query: PageQuery = {}) {
     case: safe,
     reversibleListing: reversibleListing ?? null,
     related: {
-      listingId: evidence.listingId ?? listingId,
-      userId: evidence.userId ?? null,
-      conversationId: evidence.conversationId ?? null,
+      listingId: context.listingId ?? listingId,
+      userId: context.userId ?? null,
+      conversationId: context.conversationId ?? null,
     },
     notes: pageFromRows(notes, query.limit ?? 20, scope),
   };
@@ -619,11 +580,12 @@ export async function revealEvidence(
 ) {
   return db.transaction(async (tx) => {
     const [record] = await tx
-      .select({ evidence: moderationCases.evidence })
+      .select({ evidenceId: moderationCases.evidenceId })
       .from(moderationCases)
       .where(eq(moderationCases.id, id))
       .for('share');
     if (!record) notFound();
+    const evidence = await readEvidence(tx, record.evidenceId, storage);
     await audit(tx, {
       actorUserId,
       targetType: 'case',
@@ -632,12 +594,6 @@ export async function revealEvidence(
       reason,
       metadata: { caseId: id },
     });
-    return {
-      text: record.evidence.text ?? '',
-      images: (record.evidence.images ?? []).map(({ objectKey, ...image }) => ({
-        ...image,
-        ...storage.createReadUrl(objectKey, 300),
-      })),
-    };
+    return evidence;
   });
 }

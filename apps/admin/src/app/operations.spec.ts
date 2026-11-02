@@ -97,7 +97,11 @@ describe('moderation operations', () => {
     const command = http.expectOne('/api/admin/cases/' + id + '/evidence');
     expect(command.request.method).toBe('POST');
     expect(command.request.body.reason).toBe('Investigating the reported harassment');
-    command.flush({ text: 'Sensitive captured message', images: [] });
+    command.flush({
+      text: 'Sensitive captured message',
+      images: [],
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
     await reveal;
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Sensitive captured message');
