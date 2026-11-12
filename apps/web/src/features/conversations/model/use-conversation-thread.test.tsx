@@ -52,6 +52,30 @@ afterEach(() => {
 
 const flush = () => act(async () => {});
 
+it('replaces loaded history when moderation changes the content version', async () => {
+  vi.mocked(api.getConversation).mockResolvedValue({
+    conversation: conversationDetail({ contentVersion: 1 }),
+  });
+  vi.mocked(api.getConversationMessages).mockResolvedValue(
+    historyPage([message(1, { body: 'Removed text' })]),
+  );
+  const { result } = renderHook(() => useConversationThread('A', unavailable, activity), {
+    wrapper: Wrapper,
+  });
+  await flush();
+  expect(result.current.history.messages[0]?.body).toBe('Removed text');
+  vi.mocked(api.getConversation).mockResolvedValue({
+    conversation: conversationDetail({ contentVersion: 2 }),
+  });
+  vi.mocked(api.getConversationMessages).mockResolvedValue(
+    historyPage([message(1, { body: null, isHidden: true, attachments: [] })]),
+  );
+  act(() => result.current.refreshContext());
+  await flush();
+  expect(result.current.history.messages[0]).toMatchObject({ body: null, isHidden: true });
+  expect(result.current.context?.contentVersion).toBe(2);
+});
+
 it('attachment refresh updates only capabilities, not sequence/read/unread/activity state', async () => {
   const images = [attachment()];
   const persisted = message(5, { body: null, attachments: images });

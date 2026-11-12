@@ -4,6 +4,7 @@ export const USER_ROLES = ['user', 'admin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export interface AuthUser {
+  restriction?: import('./moderation').AccountRestriction;
   id: string;
   email: string;
   displayName: string;

@@ -9,7 +9,10 @@ import { findConversationForMember } from './authorization';
 
 export const CONVERSATION_ATTACHMENT_READ_TTL_SECONDS = 15 * 60;
 
-export type HydratedMessage = MessageRecord & { attachments: ClaimMessageAttachment[] };
+export type HydratedMessage = Omit<MessageRecord, 'isHidden'> & {
+  isHidden?: boolean;
+  attachments: ClaimMessageAttachment[];
+};
 
 export async function findAuthorizedMessage(
   input: { conversationId: string; userId: string; messageId: string },
@@ -52,6 +55,9 @@ export async function hydrateMessages(
   tx: DatabaseTransaction,
 ) {
   if (!messages.length) return [];
+  const hidden = new Set(
+    messages.filter((message) => message.isHidden).map((message) => message.id),
+  );
   const rows = await tx
     .select({
       id: claimMessageAttachments.id,
@@ -71,6 +77,7 @@ export async function hydrateMessages(
     .orderBy(asc(claimMessageAttachments.messageId), asc(claimMessageAttachments.position));
   const byMessage = new Map<string, ClaimMessageAttachment[]>();
   for (const row of rows) {
+    if (hidden.has(row.messageId)) continue;
     const signed = storage.createReadUrl(row.objectKey, CONVERSATION_ATTACHMENT_READ_TTL_SECONDS);
     const attachments = byMessage.get(row.messageId) ?? [];
     attachments.push({
@@ -89,7 +96,8 @@ export async function hydrateMessages(
     conversationId: message.conversationId,
     sequence: message.sequence,
     senderUserId: message.senderUserId,
-    body: message.body,
+    body: hidden.has(message.id) ? null : message.body,
+    ...(hidden.has(message.id) ? { isHidden: true as const } : {}),
     attachments: byMessage.get(message.id) ?? [],
     createdAt: message.createdAt,
   }));

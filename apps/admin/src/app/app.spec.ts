@@ -147,7 +147,7 @@ describe('admin access and moderation flow', () => {
     expect(fixture.nativeElement.querySelector('nav')).toBeNull();
     api.user.set(admin);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelectorAll('nav a')).toHaveLength(4);
+    expect(fixture.nativeElement.querySelectorAll('nav a')).toHaveLength(6);
     vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     const logout = fixture.componentInstance.logout();
     http.expectOne('/api/auth/logout').flush(null, { status: 204, statusText: 'No Content' });

@@ -2,6 +2,140 @@ import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { imageFixture } from '../../api/tests/support/image-fixture';
 
+test('investigates an assigned report, notifies the owner, and resolves an appeal', async ({
+  page,
+  request,
+}) => {
+  const csrf = { 'X-CSRF-Protection': '1' };
+  const password = 'a long moderation workflow password';
+  const ownerEmail = `case-owner-${crypto.randomUUID()}@example.test`;
+  const adminEmail = `case-admin-${crypto.randomUUID()}@example.test`;
+  const register = async (email: string, name: string) => {
+    const response = await request.post('http://localhost:3000/auth/register', {
+      headers: csrf,
+      data: { email, password, displayName: name },
+    });
+    expect(response.status()).toBe(201);
+    return (await response.json()).user;
+  };
+  await register(ownerEmail, 'Case owner');
+  const create = await request.post('http://localhost:3000/listings', {
+    headers: csrf,
+    data: {
+      kind: 'found',
+      title: 'Case workflow item ' + crypto.randomUUID(),
+      description: 'Description captured for moderation.',
+      location: 'Berlin library',
+      occurredOn: '2026-09-01',
+    },
+  });
+  expect(create.status()).toBe(201);
+  const { listing } = await create.json();
+  await register(`reporter-${crypto.randomUUID()}@example.test`, 'Case reporter');
+  const reported = await request.post('http://localhost:3000/reports', {
+    headers: csrf,
+    data: {
+      targetType: 'listing',
+      targetId: listing.id,
+      category: 'spam',
+      description: 'Please review this misleading report.',
+    },
+  });
+  expect(reported.status()).toBe(200);
+  const record = (await reported.json()).case;
+  const admin = await register(adminEmail, 'Case moderator');
+  execFileSync(
+    'bun',
+    [
+      '-e',
+      `import {SQL} from 'bun'; if(new URL(process.env.DATABASE_URL).pathname !== '/lostly_test') throw new Error('Test DB required'); const db=new SQL(process.env.DATABASE_URL); await db\`update users set role='admin' where id=\${process.argv[1]}::uuid\`; await db.close();`,
+      admin.id,
+    ],
+    { stdio: 'pipe', windowsHide: true },
+  );
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/cases/' + record.id);
+  await page.getByLabel('Email', { exact: true }).fill(adminEmail);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Case details', exact: true })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Administrator', exact: true }).selectOption(admin.id);
+  const assignment = page.locator('app-action').filter({ hasText: 'Update assignment' });
+  await assignment.locator('summary').click();
+  await assignment.getByLabel('Internal reason').fill('Taking responsibility for investigation');
+  await assignment.getByRole('button', { name: 'Update assignment', exact: true }).click();
+  await expect(page.getByText('Assignee: ' + admin.id, { exact: true })).toBeVisible();
+  await expect(page.getByText('Description captured for moderation.', { exact: true })).toHaveCount(
+    0,
+  );
+  await page.getByLabel('Access reason').fill('Inspecting the reported misleading listing');
+  await page.getByRole('button', { name: 'Reveal case evidence' }).click();
+  await expect(page.locator('pre')).toContainText('Description captured for moderation.');
+  await page.getByRole('link', { name: 'Open target', exact: true }).click();
+  const hide = page
+    .locator('app-action')
+    .filter({ has: page.locator('summary', { hasText: 'Hide listing' }) });
+  await hide.locator('summary').click();
+  await hide.getByLabel('Internal reason').fill('Private investigative reference');
+  await hide.getByLabel('Message to affected user').fill('This report needs correction.');
+  await hide.getByRole('button', { name: 'Hide listing', exact: true }).click();
+  await expect(page.getByText('Hidden · version 2', { exact: false })).toBeVisible();
+  await page.goto('/cases/' + record.id);
+  const decision = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Decision', exact: true }) });
+  await decision.getByLabel('Public resolution').fill('We reviewed the report and took action.');
+  await decision.getByLabel('Internal reason').fill('Investigation complete');
+  await decision.getByRole('button', { name: 'Save decision & notify reporter' }).click();
+  await expect(
+    page.getByText('Public resolution: We reviewed the report and took action.'),
+  ).toBeVisible();
+  expect(
+    (
+      await request.post('http://localhost:3000/auth/login', {
+        headers: csrf,
+        data: { email: ownerEmail, password },
+      })
+    ).status(),
+  ).toBe(200);
+  const notices = await (
+    await request.get('http://localhost:3000/me/moderation/notifications')
+  ).json();
+  const notification = notices.notifications.items.find(
+    (item: { targetId: string }) => item.targetId === listing.id,
+  );
+  expect(notification.message).toBe('This report needs correction.');
+  expect(JSON.stringify(notices)).not.toContain('Private investigative reference');
+  const appealed = await request.post('http://localhost:3000/me/moderation/appeals', {
+    headers: csrf,
+    data: {
+      eventId: notification.eventId,
+      description: 'The report was corrected; please restore access.',
+    },
+  });
+  expect(appealed.status()).toBe(200);
+  const appeal = (await appealed.json()).case;
+  await page.goto('/listings/' + listing.id + '?caseId=' + appeal.id);
+  const restore = page
+    .locator('app-action')
+    .filter({ has: page.locator('summary', { hasText: 'Restore visibility' }) });
+  await restore.locator('summary').click();
+  await restore.getByLabel('Internal reason').fill('Appeal review permits restoration');
+  await restore.getByRole('button', { name: 'Restore visibility', exact: true }).click();
+  await expect(page.getByText('Visible · version 3', { exact: false })).toBeVisible();
+  await page.goto('/cases/' + appeal.id);
+  await decision.getByLabel('Public resolution').fill('Your report is available again.');
+  await decision.getByLabel('Internal reason').fill('Appeal accepted');
+  await decision.getByRole('button', { name: 'Save decision & notify reporter' }).click();
+  await expect(page.getByText('Public resolution: Your report is available again.')).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  expect(errors).toEqual([]);
+});
+
 test('filters, paginates, hides and restores listings, then moderates claims and archives', async ({
   page,
   request,

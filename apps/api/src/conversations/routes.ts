@@ -184,8 +184,13 @@ export const createConversationRoutes = (
             const { status: code, ...error } = CONVERSATION_ERRORS[result.reason];
             return status(code, { error });
           }
+          const { isHidden, ...message } = result.value.message;
           return status(result.value.created ? 201 : 200, {
-            message: { attachments: [], ...result.value.message },
+            message: {
+              ...message,
+              ...(isHidden ? { isHidden: true } : {}),
+              attachments: 'attachments' in message ? message.attachments : [],
+            },
           });
         } finally {
           ingress.finish(request);

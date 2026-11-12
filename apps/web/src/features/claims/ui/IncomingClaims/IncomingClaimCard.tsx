@@ -3,6 +3,7 @@ import { ProfileLink } from '@/features/profile/ui/ProfileLink';
 import { ClaimDecisionControls } from '../ClaimDecisionControls/ClaimDecisionControls';
 import { type DecideClaimInput, type IncomingClaim } from '@/features/claims/model/types';
 import styles from './IncomingClaims.module.css';
+import { ReportButton } from '@/features/moderation/ReportButton';
 
 interface Props {
   claim: IncomingClaim;
@@ -48,6 +49,7 @@ export function IncomingClaimCard({ claim, ...decision }: Props) {
         Open conversation
       </Link>
       {claim.status === 'pending' && <ClaimDecisionControls claimId={claim.id} {...decision} />}
+      <ReportButton targetType="claim" targetId={claim.id} label="Report this claim" />
     </li>
   );
 }

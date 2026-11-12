@@ -5,6 +5,7 @@ import type { PendingSendOperation } from '../../model/send-operations';
 import type { MessageAttachmentResource } from '../../model/attachment-resource';
 import type { RefObject } from 'react';
 import { MessageAttachments } from '../MessageAttachments/MessageAttachments';
+import { ReportButton } from '@/features/moderation/ReportButton';
 import styles from './MessageBubble.module.css';
 
 export function MessageBubble({
@@ -33,12 +34,21 @@ export function MessageBubble({
       )}
       <div className={styles.message}>
         <span className={styles.srOnly}>{own ? 'You' : sender}: </span>
-        {message.body !== null && <p className={styles.bubble}>{message.body}</p>}
-        <MessageAttachments
-          resource={attachmentResource}
-          onUnavailable={onUnavailable}
-          root={root}
-        />
+        {message.isHidden ? (
+          <p className={styles.bubble}>Message removed by moderation.</p>
+        ) : (
+          message.body !== null && <p className={styles.bubble}>{message.body}</p>
+        )}
+        {!message.isHidden && (
+          <MessageAttachments
+            resource={attachmentResource}
+            onUnavailable={onUnavailable}
+            root={root}
+          />
+        )}
+        {!own && !message.isHidden && (
+          <ReportButton targetType="message" targetId={message.id} label="Report message" />
+        )}
         <time dateTime={message.createdAt}>{messageTime(message.createdAt)}</time>
       </div>
     </li>

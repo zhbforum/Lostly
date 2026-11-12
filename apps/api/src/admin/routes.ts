@@ -20,9 +20,14 @@ import { listingImagesSchema } from '@/listing-images/model';
 import { moderationActionEnum } from '@/db/schema';
 
 const reason = t.String({ minLength: 3, maxLength: 500 });
-const moderationBody = t.Object({ reason });
-const archiveBody = t.Object({
+const moderationProperties = {
   reason,
+  publicReason: t.Optional(t.String({ minLength: 3, maxLength: 1000 })),
+  caseId: t.Optional(t.String({ format: 'uuid' })),
+};
+const moderationBody = t.Object(moderationProperties);
+const archiveBody = t.Object({
+  ...moderationProperties,
   expectedVersion: t.Integer({ minimum: 1, maximum: 2147483647 }),
 });
 const person = t.Object({ id: t.String({ format: 'uuid' }), displayName: t.String() });
@@ -30,7 +35,11 @@ const pageSchema = t.Object({
   items: t.Array(
     t.Union([
       t.Object({ ...listingSchema.properties, isHidden: t.Boolean(), owner: person }),
-      t.Object({ ...authUserSchema.properties, createdAt: t.Date() }),
+      t.Object({
+        ...authUserSchema.properties,
+        restricted: t.Optional(t.Boolean()),
+        createdAt: t.Date(),
+      }),
       t.Object({
         id: t.String({ format: 'uuid' }),
         status: t.UnionEnum(CLAIM_STATUSES),
@@ -73,6 +82,9 @@ export const createAdminRoutes = (storage: ObjectStorage) =>
       async ({ params, query, status }) => {
         if (
           ((query.kind || query.visibility) && params.resource !== 'listings') ||
+          (query.restriction && params.resource !== 'users') ||
+          (query.listingId && params.resource === 'users') ||
+          (query.from && query.to && Date.parse(query.from) > Date.parse(query.to)) ||
           (query.status &&
             (params.resource === 'users' ||
               !(params.resource === 'listings' ? [...LISTING_STATUSES] : [...CLAIM_STATUSES]).some(
@@ -97,6 +109,11 @@ export const createAdminRoutes = (storage: ObjectStorage) =>
           q: t.Optional(t.String({ maxLength: 100 })),
           kind: t.Optional(t.Union(LISTING_KINDS.map((value) => t.Literal(value)))),
           visibility: t.Optional(t.Union([t.Literal('visible'), t.Literal('hidden')])),
+          userId: t.Optional(t.String({ format: 'uuid' })),
+          listingId: t.Optional(t.String({ format: 'uuid' })),
+          from: t.Optional(t.String({ format: 'date-time' })),
+          to: t.Optional(t.String({ format: 'date-time' })),
+          restriction: t.Optional(t.Union([t.Literal('active'), t.Literal('none')])),
           status: t.Optional(
             t.Union([...LISTING_STATUSES, ...CLAIM_STATUSES].map((value) => t.Literal(value))),
           ),

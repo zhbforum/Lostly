@@ -1,6 +1,7 @@
 import type { ClaimMessagePreview } from './types';
 
 export function conversationMessagePreview(message: ClaimMessagePreview | null): string {
+  if (message?.isHidden) return 'Message removed by moderation';
   if (!message) return 'Claim submitted · No messages yet';
   if (message.body !== null) return message.body;
   return message.attachmentCount === 1 ? 'Photo' : `${message.attachmentCount} photos`;

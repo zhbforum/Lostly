@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { AdminClaim, AdminListing, AdminPage, AdminUser } from '@lostly/contracts/admin';
 import type { PageInfo } from '@lostly/contracts/pagination';
@@ -22,7 +22,7 @@ type Row = AdminListing | AdminClaim | AdminUser;
 type ModerationAction = 'archive' | 'hide' | 'restore' | 'reject';
 
 @Component({
-  imports: [DatePipe, TitleCasePipe, FormsModule, Review],
+  imports: [DatePipe, TitleCasePipe, FormsModule, Review, RouterLink],
   templateUrl: './records.html',
 })
 export class Records {
@@ -80,6 +80,11 @@ export class Records {
   kind = '';
   status = '';
   visibility = '';
+  userId = '';
+  listingId = '';
+  from = '';
+  to = '';
+  restriction = '';
   reason = '';
   private cursors = new Map<number, string | null>([[1, null]]);
   private filterKey = '';
@@ -93,7 +98,22 @@ export class Records {
       this.kind = params.get('kind') ?? '';
       this.status = params.get('status') ?? '';
       this.visibility = params.get('visibility') ?? '';
-      const key = JSON.stringify([this.q, this.kind, this.status, this.visibility]);
+      this.userId = params.get('userId') ?? '';
+      this.listingId = params.get('listingId') ?? '';
+      this.from = params.get('from')?.slice(0, 10) ?? '';
+      this.to = params.get('to')?.slice(0, 10) ?? '';
+      this.restriction = params.get('restriction') ?? '';
+      const key = JSON.stringify([
+        this.q,
+        this.kind,
+        this.status,
+        this.visibility,
+        this.userId,
+        this.listingId,
+        this.from,
+        this.to,
+        this.restriction,
+      ]);
       if (key !== this.filterKey) {
         this.cursors = new Map([[1, null]]);
         this.notice.set('');
@@ -117,7 +137,18 @@ export class Records {
     this.selected.set(null);
     try {
       const query = new URLSearchParams();
-      for (const key of ['q', 'kind', 'status', 'visibility', 'cursor']) {
+      for (const key of [
+        'q',
+        'kind',
+        'status',
+        'visibility',
+        'cursor',
+        'userId',
+        'listingId',
+        'from',
+        'to',
+        'restriction',
+      ]) {
         const value = this.route.snapshot.queryParamMap.get(key);
         if (value) query.set(key, value);
       }
@@ -144,6 +175,11 @@ export class Records {
         kind: this.resource === 'listings' ? this.kind || null : null,
         status: this.resource !== 'users' ? this.status || null : null,
         visibility: this.resource === 'listings' ? this.visibility || null : null,
+        userId: this.userId.trim() || null,
+        listingId: this.resource !== 'users' ? this.listingId.trim() || null : null,
+        from: this.from ? this.from + 'T00:00:00.000Z' : null,
+        to: this.to ? this.to + 'T23:59:59.999Z' : null,
+        restriction: this.resource === 'users' ? this.restriction || null : null,
       },
     });
   }

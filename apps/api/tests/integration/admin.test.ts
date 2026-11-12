@@ -370,7 +370,7 @@ describe('admin moderation', () => {
     expect(
       (await request(path, actor.cookie, { expectedVersion: 2, reason: 'Spam report' })).status,
     ).toBe(409);
-    expect(await db.select().from(moderationEvents)).toHaveLength(1);
+    expect(await db.select().from(moderationEvents)).toHaveLength(2);
     expect(await (await request('/listings', owner.cookie)).json()).toMatchObject({ listings: [] });
   });
 
@@ -464,7 +464,7 @@ describe('admin moderation', () => {
       });
     const responses = await Promise.all([command(), command()]);
     expect(responses.map((response) => response.status).sort()).toEqual([204, 409]);
-    expect(await db.select().from(moderationEvents)).toHaveLength(1);
+    expect(await db.select().from(moderationEvents)).toHaveLength(2);
     expect((await db.select().from(listings))[0]?.version).toBe(2);
   });
 });

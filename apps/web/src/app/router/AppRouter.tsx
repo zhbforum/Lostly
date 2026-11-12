@@ -10,6 +10,7 @@ import { ConversationPage } from '@/pages/messages/ConversationPage';
 import { MessagesEmptyRoute } from '@/pages/messages/MessagesEmptyRoute';
 import { safeReturnTo } from '@/shared/navigation/return-to';
 import { profilePath } from '@/shared/navigation/profile-path';
+import { ModerationPage } from '@/pages/moderation/ModerationPage';
 
 const CreateListingPage = lazy(async () => {
   const module = await import('@/pages/listings/CreateListingPage');
@@ -77,6 +78,14 @@ export function AppRouter() {
   const { status, user } = useAuth();
   const location = useLocation();
 
+  if (status === 'authenticated' && user?.restriction)
+    return (
+      <Routes>
+        <Route path="/moderation" element={<ModerationPage key={user.id} />} />
+        <Route path="*" element={<Navigate to="/moderation" replace />} />
+      </Routes>
+    );
+
   const publicRoute = matchPath('/u/:username', location.pathname) ? '/u/:username' : '/users/:id';
   if (matchPath(publicRoute, location.pathname))
     return (
@@ -132,6 +141,7 @@ export function AppRouter() {
   if (status === 'authenticated') {
     return (
       <Routes>
+        <Route path="/moderation" element={<ModerationPage key={user!.id} />} />
         <Route
           path="/listings/:id/edit"
           element={

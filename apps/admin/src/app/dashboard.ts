@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { AdminOverview } from '@lostly/contracts/admin';
+import type { AdminWorkload } from '@lostly/contracts/admin-operations';
 import { AdminApi, errorMessage } from './api';
 
 @Component({
@@ -38,6 +39,32 @@ import { AdminApi, errorMessage } from './api';
         >
       </div>
     }
+    @if (workload(); as queue) {
+      <section class="panel">
+        <h2>Moderation workload</h2>
+        <div class="metrics">
+          <a routerLink="/cases" [queryParams]="{ status: 'open' }">Open: {{ queue.open }}</a>
+          <a routerLink="/cases" [queryParams]="{ status: 'in_review' }"
+            >In review: {{ queue.inReview }}</a
+          >
+          <a routerLink="/cases" [queryParams]="{ assigneeId: api.user()?.id, active: true }"
+            >Assigned to me: {{ queue.mine }}</a
+          >
+          <a routerLink="/cases" [queryParams]="{ unassigned: true }"
+            >Unassigned: {{ queue.unassigned }}</a
+          >
+          <a routerLink="/cases" [queryParams]="{ overdue: true }"
+            >Unresolved over 48h: {{ queue.overdue }}</a
+          >
+          <a routerLink="/cases" [queryParams]="{ kind: 'appeal', active: true }"
+            >Open appeals: {{ queue.appeals }}</a
+          >
+          <a routerLink="/users" [queryParams]="{ restriction: 'active' }"
+            >Restricted accounts: {{ queue.restrictedUsers }}</a
+          >
+        </div>
+      </section>
+    }
     <section class="panel">
       <h2>Review and act</h2>
       <p>
@@ -52,7 +79,8 @@ import { AdminApi, errorMessage } from './api';
   `,
 })
 export class Dashboard {
-  private readonly api = inject(AdminApi);
+  readonly api = inject(AdminApi);
+  readonly workload = signal<AdminWorkload | null>(null);
   readonly overview = signal<AdminOverview | null>(null);
   readonly busy = signal(false);
   readonly error = signal('');
@@ -66,9 +94,15 @@ export class Dashboard {
     this.busy.set(true);
     this.error.set('');
     try {
-      this.overview.set(await this.api.request<AdminOverview>('/admin/overview'));
+      const [overview, workload] = await Promise.all([
+        this.api.request<AdminOverview>('/admin/overview'),
+        this.api.request<AdminWorkload>('/admin/operations'),
+      ]);
+      this.overview.set(overview);
+      this.workload.set(workload);
     } catch (error) {
       this.overview.set(null);
+      this.workload.set(null);
       this.error.set(errorMessage(error));
     } finally {
       this.busy.set(false);

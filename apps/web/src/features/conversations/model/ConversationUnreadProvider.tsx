@@ -15,7 +15,7 @@ import { createRequestRevision } from './request-revision';
 import { ConversationUnreadContext } from './use-conversation-unread';
 
 export function ConversationUnreadProvider({ children }: { children: ReactNode }) {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
   const generation = useSyncExternalStore(subscribeToSessionGeneration, getSessionGeneration);
   const revision = useRef(createRequestRevision());
   const [snapshot, setSnapshot] = useState({ generation, count: 0 });
@@ -36,7 +36,7 @@ export function ConversationUnreadProvider({ children }: { children: ReactNode }
   const poll = useVisiblePolling({
     task,
     intervalMs: CONVERSATION_POLLING.unread,
-    enabled: status === 'authenticated',
+    enabled: status === 'authenticated' && !user?.restriction,
     resourceKey: generation,
   });
   const refreshUnread = useCallback(() => {

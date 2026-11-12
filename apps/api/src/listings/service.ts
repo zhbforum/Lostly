@@ -54,31 +54,34 @@ export async function findListingForViewer(
   viewerUserId: string,
   storage: ObjectStorage = objectStorage,
 ) {
-  const [row] = await db
-    .select({
-      ...publicListingSelection,
-      createdByUserId: listings.createdByUserId,
-    })
-    .from(listings)
-    .where(and(eq(listings.id, id), eq(listings.isHidden, false)))
-    .limit(1);
-  if (!row) return null;
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        ...publicListingSelection,
+        createdByUserId: listings.createdByUserId,
+      })
+      .from(listings)
+      .where(and(eq(listings.id, id), eq(listings.isHidden, false)))
+      .limit(1)
+      .for('share');
+    if (!row) return null;
 
-  const { createdByUserId, ...listing } = row;
-  const isOwner = createdByUserId === viewerUserId;
-  const isFound = listing.kind === 'found';
-  const claim = !isOwner && isFound ? await findClaimForClaimant(id, viewerUserId) : null;
-  return {
-    listing,
-    images: (await findImages(id)).map((row) => toListingImage(row, storage)),
-    capabilities: {
-      canManageImages: isOwner && listing.status === 'active',
-      canClaim: !isOwner && isFound && listing.status === 'active' && !claim,
-      canReviewClaims: isOwner && isFound,
-      canEdit: isOwner && canEditListing(listing.status),
-      canResolve: isOwner && canResolveListing(listing.status),
-      canArchive: isOwner && canArchiveListing(listing.status),
-    },
-    claim,
-  };
+    const { createdByUserId, ...listing } = row;
+    const isOwner = createdByUserId === viewerUserId;
+    const isFound = listing.kind === 'found';
+    const claim = !isOwner && isFound ? await findClaimForClaimant(id, viewerUserId) : null;
+    return {
+      listing,
+      images: (await findImages(id, tx)).map((row) => toListingImage(row, storage)),
+      capabilities: {
+        canManageImages: isOwner && listing.status === 'active',
+        canClaim: !isOwner && isFound && listing.status === 'active' && !claim,
+        canReviewClaims: isOwner && isFound,
+        canEdit: isOwner && canEditListing(listing.status),
+        canResolve: isOwner && canResolveListing(listing.status),
+        canArchive: isOwner && canArchiveListing(listing.status),
+      },
+      claim,
+    };
+  });
 }

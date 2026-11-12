@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./moderation": "./src/moderation.ts",
     "./admin": "./src/admin.ts",
+    "./admin-operations": "./src/admin-operations.ts",
     "./auth": "./src/auth.ts",
     "./profile": "./src/profile.ts",
     "./errors": "./src/errors.ts",

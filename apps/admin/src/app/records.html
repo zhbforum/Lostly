@@ -16,7 +16,7 @@
       [(ngModel)]="q"
       [placeholder]="
         resource === 'users'
-          ? 'Name or email'
+          ? 'UUID, username, name or email'
           : resource === 'claims'
             ? 'Listing title or claimant name'
             : 'Title, description or location'
@@ -59,6 +59,24 @@
     </div>
   }
   <button type="submit" [disabled]="saving()">Apply filters</button>
+  <details>
+    <summary>More filters</summary>
+    <label>User UUID<input name="userId" [(ngModel)]="userId" /></label>
+    @if (resource !== 'users') {
+      <label>Listing UUID<input name="listingId" [(ngModel)]="listingId" /></label>
+    }
+    @if (resource === 'users') {
+      <label
+        >Restriction<select name="restriction" [(ngModel)]="restriction">
+          <option value="">All accounts</option>
+          <option value="active">Restricted</option>
+          <option value="none">Unrestricted</option>
+        </select></label
+      >
+    }
+    <label>Created from (UTC)<input type="date" name="from" [(ngModel)]="from" /></label
+    ><label>Created through (UTC)<input type="date" name="to" [(ngModel)]="to" /></label>
+  </details>
   <button type="button" class="secondary" (click)="resetFilters()" [disabled]="saving()">
     Reset
   </button>
@@ -105,7 +123,8 @@
               @for (row of listings(); track row.id) {
                 <tr>
                   <td>
-                    <strong>{{ row.title }}</strong
+                    <a [routerLink]="['/listings', row.id]"
+                      ><strong>{{ row.title }}</strong></a
                     ><small>{{ row.kind | titlecase }} · {{ row.location }}</small>
                     <details>
                       <summary>Report details</summary>
@@ -116,7 +135,8 @@
                     <app-review resource="listings" [recordId]="row.id" />
                   </td>
                   <td>
-                    {{ row.owner.displayName }}<small>{{ row.owner.id }}</small>
+                    <a [routerLink]="['/users', row.owner.id]">{{ row.owner.displayName }}</a
+                    ><small>{{ row.owner.id }}</small>
                   </td>
                   <td>
                     <span class="badge">{{ row.status }}</span>
@@ -154,12 +174,16 @@
               @for (row of users(); track row.id) {
                 <tr>
                   <td>
-                    <strong>{{ row.displayName }}</strong
+                    <a [routerLink]="['/users', row.id]"
+                      ><strong>{{ row.displayName }}</strong></a
                     ><small>{{ row.id }}</small>
                   </td>
                   <td>{{ row.email }}</td>
                   <td>
                     <span class="badge">{{ row.role }}</span>
+                    @if (row.restricted) {
+                      <small>Restricted</small>
+                    }
                   </td>
                   <td>{{ row.createdAt | date: 'mediumDate' }}</td>
                 </tr>
@@ -180,13 +204,15 @@
               @for (row of claims(); track row.id) {
                 <tr>
                   <td>
-                    <strong>{{ row.listing.title }}</strong
+                    <a [routerLink]="['/claims', row.id]"
+                      ><strong>{{ row.listing.title }}</strong></a
                     ><small>Listing: {{ row.listing.status }} · {{ row.listing.id }}</small
                     ><small>Claim: {{ row.id }}</small>
                     <app-review resource="claims" [recordId]="row.id" />
                   </td>
                   <td>
-                    {{ row.claimant.displayName }}<small>{{ row.claimant.id }}</small>
+                    <a [routerLink]="['/users', row.claimant.id]">{{ row.claimant.displayName }}</a
+                    ><small>{{ row.claimant.id }}</small>
                   </td>
                   <td>
                     <span class="badge">{{ row.status }}</span>

@@ -25,7 +25,38 @@ const expiry = (time: string) => `2026-10-05T${time}:00Z`;
 const resource = (images = [attachment()], sequence = 1, conversationId = 'A') =>
   acceptMessageAttachments(message(sequence, { conversationId, attachments: images }));
 
+it('drops capabilities on moderation and ignores a delayed refresh until a fresh restored history arrives', async () => {
+  const pending = deferred<RefreshMessageAttachmentsResponse>();
+  vi.mocked(refreshMessageAttachments).mockReturnValueOnce(pending.promise);
+  const original = message(37, { attachments: [attachment()] });
+  const state = acceptMessageAttachments(original);
+  const refresh = state.recover(true);
+  await Promise.resolve();
+  acceptMessageAttachments({ ...original, isHidden: true, body: null, attachments: [] });
+  expect(state.getSnapshot().attachments).toEqual([]);
+  pending.resolve({ attachments: renewed([attachment()]) });
+  await refresh;
+  expect(state.getSnapshot().attachments).toEqual([]);
+  acceptMessageAttachments({ ...original, isHidden: false, attachments: renewed([attachment()]) });
+  expect(state.getSnapshot().attachments).toHaveLength(1);
+});
+
 describe('monotonic capabilities', () => {
+  it('does not let an earlier refresh failure clear restored media', async () => {
+    const pending = deferred<RefreshMessageAttachmentsResponse>();
+    vi.mocked(refreshMessageAttachments).mockReturnValueOnce(pending.promise);
+    const original = message(38, { attachments: [attachment()] });
+    const state = acceptMessageAttachments(original);
+    const refresh = state.recover(true);
+    await Promise.resolve();
+    acceptMessageAttachments({ ...original, isHidden: true, body: null, attachments: [] });
+    const restored = renewed([attachment()]);
+    acceptMessageAttachments({ ...original, isHidden: false, attachments: restored });
+    pending.reject(new ApiError(404, 'MESSAGE_NOT_FOUND', 'Removed'));
+    await refresh;
+    expect(state.getSnapshot().attachments).toEqual(restored);
+    expect(state.getSnapshot().unavailable).toBe(false);
+  });
   it('atomically combines incoming A with current B, in position order', () => {
     const current = [
       attachment(0, { urlExpiresAt: expiry('15:10') }),

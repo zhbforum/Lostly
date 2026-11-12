@@ -32,6 +32,7 @@ export interface ConversationParticipant {
 }
 
 export interface ConversationSummary {
+  moderationClosed?: boolean;
   id: string;
   claim: Pick<Claim, 'id' | 'status'>;
   listing: Pick<Listing, 'id' | 'kind' | 'status' | 'title'> & {
@@ -45,6 +46,8 @@ export interface ConversationSummary {
 }
 
 export interface ConversationDetail {
+  contentVersion?: number;
+  moderationClosed?: boolean;
   id: string;
   claim: Pick<
     Claim,
@@ -70,6 +73,7 @@ export interface ClaimMessageAttachment {
 }
 
 export interface ClaimMessagePreview {
+  isHidden?: boolean;
   id: string;
   sequence: number;
   senderUserId: string;
@@ -79,6 +83,7 @@ export interface ClaimMessagePreview {
 }
 
 export interface ClaimMessage {
+  isHidden?: boolean;
   id: string;
   conversationId: string;
   sequence: number;

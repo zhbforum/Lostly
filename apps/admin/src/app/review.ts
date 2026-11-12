@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, input, signal } from '@angular/core';
 import type { AdminReview } from '@lostly/contracts/admin';
+import { MODERATION_ACTION_LABELS } from '@lostly/contracts/moderation';
 import { AdminApi, errorMessage } from './api';
 
 @Component({
@@ -85,12 +86,7 @@ export class Review {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly failedPhotos = signal<string[]>([]);
-  readonly actionLabels = {
-    archive_listing: 'Listing archived',
-    reject_claim: 'Claim rejected',
-    hide_listing: 'Listing hidden',
-    restore_listing: 'Listing restored',
-  };
+  readonly actionLabels = MODERATION_ACTION_LABELS;
 
   async load(cursor: string | null = null) {
     if (this.busy()) return;

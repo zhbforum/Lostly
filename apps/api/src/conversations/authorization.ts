@@ -29,6 +29,7 @@ export async function findConversationForMember(
       createdAt: claimConversations.createdAt,
       lastMessageAt: claimConversations.lastMessageAt,
       lastReadSequence: claimConversationMembers.lastReadSequence,
+      moderationClosed: claimConversations.moderationClosed,
     })
     .from(claimConversations)
     .innerJoin(
@@ -40,6 +41,10 @@ export async function findConversationForMember(
     .where(and(eq(claimConversations.id, conversationId), conversationAccessPredicate(userId)))
     .limit(1);
   return conversation
-    ? { ...conversation, canSendMessages: canSendConversationMessages(conversation.claimStatus) }
+    ? {
+        ...conversation,
+        canSendMessages:
+          !conversation.moderationClosed && canSendConversationMessages(conversation.claimStatus),
+      }
     : null;
 }

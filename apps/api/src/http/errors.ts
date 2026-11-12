@@ -4,6 +4,7 @@ import { IMAGE_ERRORS, ImageError } from '@/listing-images/errors';
 import { StorageUnavailableError } from '@/storage/object-storage';
 import { PROFILE_ERRORS, ProfileError } from '@/profile/errors';
 import { CONVERSATION_UPLOAD_ERRORS, ConversationUploadError } from '@/conversations/upload-errors';
+import { ModerationError } from '@/moderation/errors';
 
 const errors = {
   VALIDATION: { status: 422, code: 'VALIDATION_ERROR', message: 'Request fields are invalid' },
@@ -17,6 +18,12 @@ export const errorHandler = new Elysia({ name: 'error-handler' }).onError(
     set.headers['Cache-Control'] = 'private, no-store';
     // Elysia wraps errors thrown by custom body parsers. Unwrap only our safe domain errors.
     const imageError = error instanceof ParseError ? error.cause : error;
+    if (imageError instanceof ModerationError) {
+      if (imageError.status === 429) set.headers['Retry-After'] = '600';
+      return status(imageError.status, {
+        error: { code: imageError.code, message: imageError.message },
+      });
+    }
     if (imageError instanceof ProfileError) {
       const [httpStatus, errorCode, message] = PROFILE_ERRORS[imageError.reason];
       if (httpStatus === 429) set.headers['Retry-After'] = '60';

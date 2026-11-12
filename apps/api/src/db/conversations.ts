@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
+  boolean,
   foreignKey,
   index,
   integer,
@@ -27,6 +28,8 @@ export const claimConversations = pgTable(
       .notNull()
       .references(() => claims.id, { onDelete: 'cascade' }),
     nextMessageSequence: integer('next_message_sequence').notNull().default(1),
+    moderationClosed: boolean('moderation_closed').notNull().default(false),
+    contentVersion: integer('content_version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
   },
@@ -72,6 +75,7 @@ export const claimMessages = pgTable(
     senderUserId: uuid('sender_user_id').notNull(),
     clientOperationId: uuid('client_operation_id').notNull(),
     body: text('body'),
+    isHidden: boolean('is_hidden').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

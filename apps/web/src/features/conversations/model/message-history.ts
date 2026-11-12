@@ -32,7 +32,9 @@ export function mergeMessages(
       previous
         ? {
             ...message,
-            attachments: reconcileAttachmentCapabilities(previous.attachments, message.attachments),
+            attachments: message.isHidden
+              ? []
+              : reconcileAttachmentCapabilities(previous.attachments, message.attachments),
           }
         : message,
     );
